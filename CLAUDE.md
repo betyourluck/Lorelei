@@ -48,6 +48,8 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 
 ## 現状
 
-- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3 承認（P0 完了、D5 → D5': GUI へはフォーク元パーサーを通さず merman の意味モデルを変換して渡す）。次は P1
-- merman 0.8.0-alpha.6 で日本語のフローチャートと ER 図を SVG / PNG / PDF に出力できることを確認済み
-  （scratchpad の使い捨て PoC。merman-export のままだと日本語が BIZ UDGothic Bold に置き換わる → spec 01 D3 で回避、P0-1 で確認済み）
+- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1 前半（`lorelei_core` の検査・描画・書き出し）着地**、
+  テスト 15 件。次は P1 後半 = 意味モデル → エディタのデータ形の変換（D5'）
+- **push 前に要対応**: `crates/lorelei_core/fonts/` に OFL-1.1 の全文（`OFL.txt`）が未同梱。OFL はフォントと一緒に
+  ライセンス文を配ることを求める
+- 同梱フォントは `scripts/build-fonts.py` で Noto Sans JP の可変フォントから切り出す（手順と理由はスクリプト冒頭）

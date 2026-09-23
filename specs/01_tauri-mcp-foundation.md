@@ -186,7 +186,9 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
   4. ~~GUI サブシステム exe の stdio~~ → 現況 5 で確認済み。配布ビルドでの確認は P3
   5. フォーク元パーサーに subgraph / classDef / style / linkStyle / click / `%%` コメントを食わせた時の挙動（D5）
   6. merman のパースエラーが行番号を返すか（`ValidationResult.errors[].line`）
-- **P1 `crates/lorelei_core`**: validate / render（svg / png / pdf）/ 意味モデル → エディタのデータ形の変換と dropped（D5'）/
+- **P1 `crates/lorelei_core`**（**前半着地 2026-09-24**: validate / render / OutputPathPolicy / inbox のパス / 同梱フォント。
+  実装で分かったこと: merman の SVG はルートに `background-color:white` を持つので、背景の既定は白（data_contract を訂正）。
+  背景の指定はこの値の書き換えで行い 3 形式で揃える）: validate / render（svg / png / pdf）/ 意味モデル → エディタのデータ形の変換と dropped（D5'）/
   OutputPathPolicy / inbox のパス。
   テストは SVG のバイト一致ではなく構造（viewBox・テキスト内容・埋め込みフォント名）で見る
 - **P2 MCP モード**: rmcp の stdio サーバー、ツール 3 本。initialize → tools/list → tools/call のスモークテストを

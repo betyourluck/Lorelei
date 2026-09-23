@@ -17,8 +17,8 @@ DiagramSource:
     - "%%{init}%% ディレクティブは受け付ける (merman が解釈する範囲で)"
 
 DiagramFamily:
-  description: merman のパース結果で決まる図の種類 (先頭行の正規表現では判定しない)。値の一覧は merman の対応範囲に従い、ここでは列挙しない
-  editable_in_gui: [flowchart, erDiagram]   # フォーク元エディタが扱える 2 種だけ。他は描画・書き出しのみ
+  description: merman のパース結果で決まる図の種類 (先頭行の正規表現では判定しない)。値は merman の diagram_type をそのまま使う (例 flowchart-v2 / er / sequence)。一覧は merman の対応範囲に従い、ここでは列挙しない
+  editable_in_gui: [flowchart-v2, flowchart, er]   # フォーク元エディタが扱える 2 種 (graph / flowchart はどちらも flowchart-v2)。他は描画・書き出しのみ
 
 ValidationResult:
   fields:
@@ -50,7 +50,7 @@ RenderFormat:
 RenderOptions:
   fields:
     scale: { type: float, default: 2.0, range: [0.5, 8.0] }    # png のみ有効
-    background: { type: string, nullable: true, default: null } # null = 透過 (pdf は白)。CSS 色文字列
+    background: { type: string, nullable: true, default: null } # null = Mermaid の既定 (白)。CSS 色文字列か "transparent"。SVG ルートの background-color を書き換えるので 3 形式で同じ結果
     theme: { enum: [default, neutral, dark, forest], default: default }
 
 RenderResult:
@@ -88,6 +88,8 @@ RenderConfigOverrides:
 FontBundle:
   description: PNG / PDF 変換で使うフォント。OS のフォントに依存しない
   fonts: [NotoSansJP-Regular, NotoSansJP-Bold]   # OFL-1.1。静的フォント (可変は fontdb が Thin で読む, P0-3)。About と THIRD_PARTY_LICENSES に表示
+  source: "Noto Sans JP 可変フォント v2.004 から scripts/build-fonts.py で wght=400 / 700 を切り出す (同じ入力から同じバイト列)"
+  reserved_font_name: "Source (Adobe)。改変版の名前に使えない — 切り出し後のファミリー名は Noto Sans JP で該当しない"
   sharing: "OnceLock<Arc<fontdb::Database>> (プロセスで 1 つ)"
   system_fonts: false   # システムフォントは読まない (端末ごとに出力が変わるのを防ぐ)
 

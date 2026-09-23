@@ -1,0 +1,24 @@
+[package]
+name = "lorelei_core"
+version = "0.1.0"
+description = "Mermaid の検査・描画 (SVG / PNG / PDF)・書き出し。MCP と GUI の両方から使う純 Rust の核"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+merman.workspace = true
+usvg.workspace = true
+resvg.workspace = true
+krilla.workspace = true
+krilla-svg.workspace = true
+svgtypes.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+dirs.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+resvg.workspace = true
+uuid.workspace = true
