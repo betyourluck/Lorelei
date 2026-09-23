@@ -765,8 +765,6 @@ dependencies = [
 [[package]]
 name = "merman-core"
 version = "0.8.0-alpha.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74f951b8cb5238ee6e12b03e38c0327e19be9f1a19db9d26ad7dcad7f8dff8d7"
 dependencies = [
  "euclid",
  "granit-parser",

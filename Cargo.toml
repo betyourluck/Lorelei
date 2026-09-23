@@ -3,6 +3,8 @@
 [workspace]
 resolver = "3"
 members = ["crates/lorelei_core"]
+# vendor/ は上流 crate の写し。workspace のテスト・lint の対象にしない
+exclude = ["vendor"]
 
 [workspace.package]
 edition = "2024"
@@ -23,3 +25,8 @@ serde_json = "1"
 thiserror = "2"
 dirs = "6"
 uuid = { version = "1", features = ["v4"] }
+
+# merman-core 0.8.0-alpha.6 は日本語などのノード ID を拒否する (mermaid.js は受け付ける)。
+# 修正版を上流へ PR するまで写しを使う。差分は vendor/merman-core/LORELEI_PATCH.md (spec 01「P1 で判明したこと」)
+[patch.crates-io]
+merman-core = { path = "vendor/merman-core" }
