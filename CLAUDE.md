@@ -10,12 +10,12 @@ Rust + Tauri 2 の殻を被せる。
 AI 側であり、Lorelei は受け取った Mermaid の**検査・描画・書き出し・GUI での手直し**だけを受け持つ。
 Lorelei は DB にもリポジトリにも繋がない（秘密を置く欄を構造上持たない）。
 
-## アーキテクチャ（spec 01 で確定予定）
+## アーキテクチャ（spec 01 で確定）
 
 ```text
 Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core（検査・描画・書き出し。純 Rust）
-                                             └─ open_in_editor ──▶ 動いている GUI（Tauri）
-                                                                    └─ フォーク元の React エディタ
+                                             └─ open_in_editor ──▶ inbox ──▶ 動いている GUI（Tauri、single-instance）
+                                                                              └─ フォーク元の React エディタ（lib/desktop が受け口）
 ```
 
 - **`crates/lorelei_core`**: merman で Mermaid → SVG。PNG / PDF への変換は自前（usvg + resvg / krilla-svg に
@@ -23,7 +23,9 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 - **`crates/lorelei_mcp`**: stdio の MCP サーバー（rmcp 2.2）のライブラリ。ツールは 3 本。`src-tauri` の `main()` が
   `tauri::Builder` より前に `--mcp` を判定して呼ぶ（P3）。**stdout は JSON-RPC 専用、ログは stderr**。
   開発・スモークテスト用に単体 bin `lorelei-mcp` もある
-- **`src-tauri/`**: GUI。workspace の外に置く（AppPromoVideo / Kataribe と同じ流儀）
+- **`src-tauri/`**: GUI。workspace の外に置く（AppPromoVideo / Kataribe と同じ流儀）。1 つの exe が GUI と
+  `--mcp` を兼ねる。保存ダイアログと About は rfd（JS に権限を足さない）。CSP は style-src の自動ハッシュ追記を止めている
+- **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは 4 ファイル・8 行
 - **フロント（`app/` `features/` `components/`）**: フォーク元のまま。変更は下の掟に従う
 
 ## 掟（Mandate）
