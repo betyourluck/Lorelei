@@ -20,5 +20,6 @@ dirs.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+serde_json.workspace = true
 resvg.workspace = true
 uuid.workspace = true

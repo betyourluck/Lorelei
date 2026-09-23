@@ -3,6 +3,7 @@
 //! MCP モードと GUI の両方がこの crate を呼ぶ。名詞の正は `data_contract.yaml`、
 //! 決定の正は `specs/01_tauri-mcp-foundation.md`。
 
+mod editor;
 mod engine;
 mod error;
 mod fonts;
@@ -11,6 +12,10 @@ pub mod paths;
 mod render;
 mod validate;
 
+pub use editor::{
+    DroppedItem, EditorCompat, EditorPayload, ErColumn, ErData, ErEdge, ErEdgeData, ErNode,
+    FlowData, FlowEdge, FlowNode, to_editor,
+};
 pub use error::CoreError;
 pub use render::{
     MAX_PNG_SIDE, RenderFormat, RenderOptions, Rendered, SCALE_RANGE, Theme, render,

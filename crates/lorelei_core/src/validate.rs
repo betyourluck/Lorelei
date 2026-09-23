@@ -3,7 +3,9 @@
 use merman::{Error, ParseOptions, ParsedDiagram};
 use serde::Serialize;
 
-use crate::{CoreError, MAX_SOURCE_BYTES, engine, render::Theme};
+use crate::{
+    CoreError, EditorCompat, MAX_SOURCE_BYTES, editor, engine, is_editable_in_gui, render::Theme,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ParseError {
@@ -18,20 +20,37 @@ pub struct ValidationResult {
     /// merman の `diagram_type` (例: `flowchart-v2` / `er` / `sequence`)。判定できなかった時は None。
     pub family: Option<String>,
     pub errors: Vec<ParseError>,
+    /// GUI で開けるか、開くと何が落ちるか (spec 01 D5')。文法エラーの時は dropped が空。
+    pub editor: EditorCompat,
 }
 
 pub fn validate(source: &str) -> Result<ValidationResult, CoreError> {
     match parse(source) {
-        Ok(parsed) => Ok(ValidationResult {
-            ok: true,
-            family: Some(parsed.meta.diagram_type),
-            errors: Vec::new(),
-        }),
-        Err(CoreError::Parse(err)) => Ok(ValidationResult {
-            ok: false,
-            family: family_of_failure(source),
-            errors: vec![err],
-        }),
+        Ok(parsed) => {
+            let family = parsed.meta.diagram_type;
+            let payload = editor::convert(&family, &parsed.model)?;
+            Ok(ValidationResult {
+                ok: true,
+                editor: EditorCompat {
+                    editable: payload.is_some(),
+                    dropped: payload.map(|p| p.dropped().to_vec()).unwrap_or_default(),
+                },
+                family: Some(family),
+                errors: Vec::new(),
+            })
+        }
+        Err(CoreError::Parse(err)) => {
+            let family = family_of_failure(source);
+            Ok(ValidationResult {
+                ok: false,
+                editor: EditorCompat {
+                    editable: family.as_deref().is_some_and(is_editable_in_gui),
+                    dropped: Vec::new(),
+                },
+                family,
+                errors: vec![err],
+            })
+        }
         Err(other) => Err(other),
     }
 }

@@ -186,7 +186,7 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
   4. ~~GUI サブシステム exe の stdio~~ → 現況 5 で確認済み。配布ビルドでの確認は P3
   5. フォーク元パーサーに subgraph / classDef / style / linkStyle / click / `%%` コメントを食わせた時の挙動（D5）
   6. merman のパースエラーが行番号を返すか（`ValidationResult.errors[].line`）
-- **P1 `crates/lorelei_core`**（**前半着地 2026-09-24**: validate / render / OutputPathPolicy / inbox のパス / 同梱フォント。
+- **P1 `crates/lorelei_core`**（**着地 2026-09-24**。後半 = 変換器 D5' と validate の editor 欄。**日本語 ID の件は下の「P1 で判明したこと」**。前半: validate / render / OutputPathPolicy / inbox のパス / 同梱フォント。
   実装で分かったこと: merman の SVG はルートに `background-color:white` を持つので、背景の既定は白（data_contract を訂正）。
   背景の指定はこの値の書き換えで行い 3 形式で揃える）: validate / render（svg / png / pdf）/ 意味モデル → エディタのデータ形の変換と dropped（D5'）/
   OutputPathPolicy / inbox のパス。
@@ -237,6 +237,29 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
   - フロントの変更は D9 の「open イベントを受けて既存の import 関数へ流す」が
     「open イベントで受けた JSON をキャンバスへ載せる」に変わる。既存の import 関数がパース後に行っている処理
     （レイアウト配置など）を再利用できるかは P4 の最初に確認する
+
+## P1 で判明したこと（2026-09-24）
+
+### merman は日本語のノード ID を受け付けない（本家は受け付ける）— **利用者の判断待ち**
+
+`flowchart TD
+  開始 --> 終了` を merman 0.8.0-alpha.6 は `Unexpected character at 15` で拒否する。同じ入力
+（ほか 4 件）を **mermaid.js 11.17.2**（merman が追従を称する版。jsDelivr から読み込み `mermaid.parse`）は全部受け付けた。
+**merman 側の互換性のバグ**。原因は `merman-core/src/diagrams/flowchart/lexer.rs` の `lex_id` が
+ASCII 英数字と `_` しか ID に取らないバイト単位の実装であること（同種の判定が同ファイルに 7 か所）。
+さらにこのエラーは生成時に span を持つのに呼び出し元へ届く時には `span: None` になり、行番号が返らない。
+
+影響:
+- AI が日本語 ID で書いた図は validate / render / open_in_editor が全部失敗する（正しい Mermaid なのに）
+- **フォーク元エディタは日本語の変数名を意図して保持する**（`getSafeVariableName`）。GUI で日本語の変数名を
+  付けた図は、Lorelei 自身の書き出し（D9）で描けない
+- ラベル（`A[開始]`）と ER のエンティティ名・属性名の日本語は問題ない（テストで確認済み）
+
+### 変換器（D5'）の実装で分かった merman の出力の癖
+
+- `click` を付けたノードには `clickable` クラスが自動で付く → ユーザーの class として数えない
+- subgraph を辺の行き先にすると、その subgraph がノード一覧にも入る → subgraph の ID はノードから除く
+- ER の `relSpec` は `cardB` が左側（source 側）、`cardA` が右側の記号。フォーク元の 7 記号すべてで往復を確認
 
 ## 受け入れ条件
 

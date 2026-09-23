@@ -75,11 +75,50 @@ OutputPathPolicy:
     - WSL のパス (/home/...) は Windows では絶対パスにならず拒否される。WSL 上のクライアントは非対応
 
 EditorPayload:
-  description: GUI へ渡す変換済みの図 (spec 01 D5')。フォーク元パーサーの出力と同じ形
+  description: >-
+    GUI へ渡す変換済みの図 (spec 01 D5')。data はフォーク元パーサーの出力と同じ形なので、
+    フォーク元エディタの既存の取り込み処理 (flow-editor の handleImportMermaid / er-diagram-editor の
+    handleImportMermaid) にそのまま渡せる
   fields:
     editor: { enum: [flowchart, erDiagram] }
-    data: "flowchart なら FlowData、erDiagram なら ER のノード / 辺 (形は P1 でフォーク元の型から写す)"
+    data: "flowchart なら ParsedMermaidData、erDiagram なら ParsedMermaidERData (下の mapping)"
     dropped: "EditorCompat.dropped"
+  mapping:
+    flowchart:
+      output: "ParsedMermaidData { nodes: [{ id, variableName, label, shapeType }], edges: [{ id, source, target, label, arrowType }] }"
+      node: "id = variableName = merman の id。label はそのまま (markdown の記法も文字列のまま)"
+      edge_id: "{source}-{target}。同じ組が 2 本目以降なら -2, -3 … を付ける (フォーク元は重複 ID を作る)"
+      shape:   # merman の shape → エディタの shapeType。表に無い形は rectangle にして dropped "shape:<名前>"
+        square: rectangle
+        round: rounded
+        diamond: diamond
+        circle: circle
+        hexagon: hexagon
+        stadium: stadium
+      arrow:   # (merman の type, stroke) → arrowType。表に無い組は近いものにして dropped "edge:<元の矢印>"
+        "arrow_point, normal": arrow
+        "arrow_point, thick": thick
+        "arrow_point, dotted": dotted
+        "arrow_open, invisible": invisible
+        "double_arrow_point, normal": bidirectional
+        "double_arrow_point, thick": bidirectional-thick
+      arrow_fallback: "stroke が invisible → invisible / double_* → bidirectional (thick なら -thick) / それ以外 → stroke に応じて arrow・thick・dotted"
+      edge_to_subgraph: "subgraph 自体を指す辺はエディタに行き先が無いので落とし、dropped edge_to_subgraph"
+      dropped_constructs: [subgraph, edge_to_subgraph, classDef, class, style, click, tooltip, "direction:<LR 等>", "shape:<名前>", "edge:<矢印>", edge_length, accessibility]
+    erDiagram:
+      output: "ParsedMermaidERData { nodes: [{ id, name, columns: [{ name, type, pk, uk }] }], edges: [{ id: edge-N, type: erEdge, source, target, data: { label, cardinality } }] }"
+      entity: "id = name = merman の entities のキー (alias は使わない)"
+      label: "roleA をそのまま。空なら空 (フォーク元の生成器が出力時に relation で補う)"
+      cardinality:   # merman の (cardB = 左側の記号, cardA = 右側の記号)。2026-09-24 実測で確認
+        "ONLY_ONE, ONLY_ONE": one-to-one               # ||--||
+        "ONLY_ONE, ZERO_OR_MORE": one-to-many          # ||--o{
+        "ZERO_OR_MORE, ONLY_ONE": many-to-one          # }o--||
+        "ZERO_OR_MORE, ZERO_OR_MORE": many-to-many     # }o--o{
+        "ZERO_OR_ONE, ONLY_ONE": zero-to-one           # o|--||
+        "ONLY_ONE, ZERO_OR_ONE": one-to-zero           # ||--o|
+        "ONLY_ONE, ONE_OR_MORE": one-to-many-mandatory # ||--|{
+      cardinality_fallback: "表に無い組はフォーク元の既定 one-to-many にして dropped cardinality_unsupported"
+      dropped_constructs: [alias, attribute_comment, fk, non_identifying, cardinality_unsupported, classDef, class, style, "direction:<LR 等>", accessibility]
 
 RenderConfigOverrides:
   description: 入力の %%{init}%% より優先して Lorelei が固定する設定

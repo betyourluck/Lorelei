@@ -48,8 +48,8 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 
 ## 現状
 
-- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1 前半（`lorelei_core` の検査・描画・書き出し）着地**、
-  テスト 15 件。次は P1 後半 = 意味モデル → エディタのデータ形の変換（D5'）
+- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1（`lorelei_core`）着地**、テスト 28 件。
+  **未決: merman が日本語のノード ID を拒否する**（本家 mermaid.js は受け付ける。spec 01「P1 で判明したこと」）
 - 同梱フォントのライセンス文は `crates/lorelei_core/fonts/OFL.txt`（google/fonts の ofl/notosansjp から取得）。
   About 画面と THIRD_PARTY_LICENSES への表示は P3 / P4 で
 - 同梱フォントは `scripts/build-fonts.py` で Noto Sans JP の可変フォントから切り出す（手順と理由はスクリプト冒頭）
