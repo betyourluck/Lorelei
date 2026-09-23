@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "lorelei": {
+      "command": "./src-tauri/target/release/lorelei.exe",
+      "args": ["--mcp"]
+    }
+  }
+}

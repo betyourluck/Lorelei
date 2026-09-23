@@ -198,7 +198,9 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
 - **P3 `src-tauri/`**（**着地 2026-09-24**。下の「P3 で判明したこと」）: Tauri 2 の殻（workspace の外）。Next の Tauri 用書き出しを読む。single-instance、
   identifier 確定。**配布ビルドで `--mcp` のスモークテスト**（D1 の切り替え条件）
 - **P4 GUI 側**（**着地 2026-09-24**。下の「P4 で判明したこと」）: D9 の変更。open_in_editor の往復（MCP → inbox → GUI → キャンバス → 警告 → inbox 削除）
-- **P5 実運用**: Claude Code へ登録（`.mcp.json` の例を README へ）。DB の MCP からスキーマを読ませて ER 図を
+- **P5 実運用**（進行中 2026-09-24: リポジトリの `.mcp.json` に登録。`command` はプロジェクトのルートからの相対パス。
+  使い方は README ではなく `LORELEI.md` に書き、README には 1 行の案内だけ足した（フォーク元の紹介を崩さない）。
+  `claude mcp get lorelei` は「承認待ち」— 承認は利用者が対話中の Claude Code で行う）: Claude Code へ登録（`.mcp.json` の例を README へ）。DB の MCP からスキーマを読ませて ER 図を
   作らせ、PDF まで出す。**利用者が実際に使って判定する**
 
 ## P0 結果（2026-09-24 実測。scratchpad の使い捨てコード、Windows）

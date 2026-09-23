@@ -42,6 +42,7 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 
 | 知りたいこと | 読む場所 |
 |---|---|
+| 使う人向けの説明（ビルド・.mcp.json・ツール・既知の制約） | [LORELEI.md](LORELEI.md)（README からは 1 行で案内） |
 | 名詞・型・MCP ツールの入出力 | [data_contract.yaml](data_contract.yaml) |
 | 決定事項と Phase 計画 | `specs/NN_*.md`（起票 → 査読 → rev 改訂 → Phase 単位で main へ直接コミット） |
 | 踏んだ罠（症状 → 真因 → 処方 → 一般化） | [failures.md](failures.md) |
@@ -50,7 +51,7 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 
 ## 現状
 
-- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1〜P4 着地**（core / MCP / Tauri の殻 / GUI の受け口と書き出し）。次は P5（Claude Code に登録して実運用）
+- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1〜P4 着地**（core / MCP / Tauri の殻 / GUI の受け口と書き出し）。P5 進行中（`.mcp.json` 登録済み・利用者の承認と実運用待ち）
 - 開発コマンド: フロントの依存は `corepack pnpm@9 install --ignore-scripts`（pnpm が無い環境でも corepack で足りる。
   lefthook の hooks は入れていない）。GUI は `corepack pnpm@9 exec tauri dev` / `... tauri build --no-bundle`。
   Rust は `cargo test --workspace`（core / mcp）と `cd src-tauri && cargo test`（GUI の殻、独立 project）

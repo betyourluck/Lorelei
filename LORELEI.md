@@ -1,0 +1,70 @@
+# Lorelei — AI が書いた Mermaid を、そのまま使える図にする
+
+Lorelei は [illionillion/mermaid-editor](https://github.com/illionillion/mermaid-editor)（MIT）のフォークに、
+Rust + Tauri 2 のデスクトップアプリと **MCP サーバー**を足したものです。
+
+- Claude Code などの AI から MCP で Mermaid を渡すと、**検査**し、**SVG / PNG / PDF に書き出し**、**GUI エディタで開いて**人が手直しできます
+- 日本語は同梱フォント（Noto Sans JP）で描くので、端末のフォントに左右されません
+- Lorelei は DB やリポジトリには繋がりません。図の素材（DB のスキーマ・コード）は AI 側が読み、Mermaid にして渡します
+
+設計と決定事項は [specs/01_tauri-mcp-foundation.md](specs/01_tauri-mcp-foundation.md)、型とツールの入出力は [data_contract.yaml](data_contract.yaml) にあります。
+
+## ビルド（Windows で確認）
+
+必要なもの: Rust（1.95 以上）、Node.js（corepack で pnpm 9 を使う）
+
+```bash
+corepack pnpm@9 install --ignore-scripts
+```
+
+```bash
+corepack pnpm@9 exec tauri build --no-bundle
+```
+
+`src-tauri/target/release/lorelei.exe` ができます。この 1 つの exe が GUI と MCP サーバー（`--mcp`）を兼ねます。
+
+## Claude Code から使う
+
+このリポジトリの [.mcp.json](.mcp.json) に登録済みです（パスはリポジトリのルートからの相対）。
+ビルドしたあと、このフォルダで Claude Code を起動すると、初回に `lorelei` サーバーの承認を求められます。
+
+別のプロジェクトから使う場合は、そのプロジェクトの `.mcp.json` に exe の絶対パスを書きます:
+
+```json
+{
+  "mcpServers": {
+    "lorelei": {
+      "command": "D:/path/to/Lorelei/src-tauri/target/release/lorelei.exe",
+      "args": ["--mcp"]
+    }
+  }
+}
+```
+
+### ツール
+
+| ツール           | すること                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `validate`       | 文法を検査する。GUI エディタで開けるか、開くと何が省かれるかも返す                                                        |
+| `render`         | SVG / PNG / PDF に描画する。png / pdf は `output_path`（絶対パス）に書き出す。`preview: true` で縮小した PNG も画像で返す |
+| `open_in_editor` | GUI エディタで開く（flowchart と erDiagram）。GUI が起動していなければ起動する                                            |
+
+頼み方の例:
+
+- 「この DB のスキーマから ER 図を Mermaid で書いて、Lorelei で検査してから `D:/out/schema.pdf` に書き出して」
+- 「`src/order.rs` の処理の流れをフローチャートにして、Lorelei のエディタで開いて」
+
+## 既知の制約
+
+- **WSL 上の Claude Code からは使えません**（`/home/...` のようなパスは Windows では絶対パスにならず、書き出しを拒否します）
+- GUI エディタで開けるのは flowchart と erDiagram だけです。subgraph・classDef・style などエディタで表現できない要素は省かれ、
+  MCP の戻り値と GUI の通知でその件数を知らせます（描画・書き出しは省かずに行います）
+- 長いラベルの折り返しで、行頭に「、」が来ることがあります（禁則処理がありません）
+- Mermaid の描画には [merman](https://github.com/Latias94/merman) を使っています。日本語などのノード ID を受け付けるよう修正した版を
+  同梱しています（[vendor/merman-core/LORELEI_PATCH.md](vendor/merman-core/LORELEI_PATCH.md)、上流へ提出済み: Latias94/merman#146）
+
+## ライセンス
+
+- Lorelei / mermaid-editor — MIT（[LICENSE](LICENSE)）
+- merman — MIT OR Apache-2.0
+- Noto Sans JP — SIL Open Font License 1.1（[crates/lorelei_core/fonts/OFL.txt](crates/lorelei_core/fonts/OFL.txt)）
