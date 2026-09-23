@@ -1,6 +1,6 @@
 # Lorelei data contract — 実装より先にここが正。
 # 変更したら名前で全台帳を grep する (CLAUDE.md 掟)。
-# status: draft (spec 01 rev2, 2026-09-24)
+# status: draft (spec 01 rev3, 2026-09-24)
 
 version: 0.1.0
 
@@ -41,9 +41,8 @@ EditorCompat:
         construct: string           # 例: subgraph / classDef / style / linkStyle / click / comment
         count: int
   notes:
-    - "dropped = merman が入力に見つけた構文 ∩ FORK_PARSER_DROPS"
-    - "FORK_PARSER_DROPS は lorelei_core に置き、vitest の fixture (JSON) と一致することを Rust のテストで検査する (spec 01 D5)"
-    - "GUI は MCP から渡された dropped をそのまま表示する (再計算しない)"
+    - "dropped = merman の意味モデルのうち、エディタのデータ形への変換器が写せなかった要素 (spec 01 D5')"
+    - "MCP の戻り値と GUI の警告は同じ変換関数 (lorelei_core) の出力。フォーク元パーサーは通さない"
 
 RenderFormat:
   enum: [svg, png, pdf]
@@ -75,9 +74,20 @@ OutputPathPolicy:
     - rename 失敗時は一時ファイルを消してエラー (途中で切れた壊れファイルを残さない)
     - WSL のパス (/home/...) は Windows では絶対パスにならず拒否される。WSL 上のクライアントは非対応
 
+EditorPayload:
+  description: GUI へ渡す変換済みの図 (spec 01 D5')。フォーク元パーサーの出力と同じ形
+  fields:
+    editor: { enum: [flowchart, erDiagram] }
+    data: "flowchart なら FlowData、erDiagram なら ER のノード / 辺 (形は P1 でフォーク元の型から写す)"
+    dropped: "EditorCompat.dropped"
+
+RenderConfigOverrides:
+  description: 入力の %%{init}%% より優先して Lorelei が固定する設定
+  htmlLabels: false            # 最上位と flowchart.htmlLabels。true だと resvg-safe の代替テキストが折り返しを失う (P0-2)
+
 FontBundle:
   description: PNG / PDF 変換で使うフォント。OS のフォントに依存しない
-  fonts: [NotoSansJP-Regular, NotoSansJP-Bold]   # OFL-1.1。同梱形式 (静的 / 可変) は P0-3 で確定。About と THIRD_PARTY_LICENSES に表示
+  fonts: [NotoSansJP-Regular, NotoSansJP-Bold]   # OFL-1.1。静的フォント (可変は fontdb が Thin で読む, P0-3)。About と THIRD_PARTY_LICENSES に表示
   sharing: "OnceLock<Arc<fontdb::Database>> (プロセスで 1 つ)"
   system_fonts: false   # システムフォントは読まない (端末ごとに出力が変わるのを防ぐ)
 
@@ -110,5 +120,5 @@ EditorInbox:
   description: open_in_editor が GUI へ渡すファイルの置き場
   path: "{app_data_dir}/inbox/{uuid}.mmd"   # app_data_dir = dirs::data_dir()/AppIdentity.identifier (Tauri の app_data_dir() と一致をテストで固定)
   handoff: "lorelei --open <絶対パス>"        # MCP 側は GUI を切り離して起動し、終了を待たない
-  reader: rust                               # JS からは読まない (plugin-fs を入れない)。本文はイベントでフロントへ
+  reader: rust                               # JS からは読まない (plugin-fs を入れない)。Rust が変換した EditorPayload をイベントでフロントへ
   retention: GUI が読み込んだら削除。起動時に 24 時間より古いものを掃除

@@ -48,6 +48,6 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 
 ## 現状
 
-- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev2 承認済み。次は P0 実測。コードはフォーク元のまま
+- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3 承認（P0 完了、D5 → D5': GUI へはフォーク元パーサーを通さず merman の意味モデルを変換して渡す）。次は P1
 - merman 0.8.0-alpha.6 で日本語のフローチャートと ER 図を SVG / PNG / PDF に出力できることを確認済み
-  （scratchpad の使い捨て PoC。日本語が BIZ UDGothic Bold へ代替される問題あり → spec 01 D3）
+  （scratchpad の使い捨て PoC。merman-export のままだと日本語が BIZ UDGothic Bold に置き換わる → spec 01 D3 で回避、P0-1 で確認済み）

@@ -2,7 +2,7 @@
 
 **ID**: 01
 **Date**: 2026-09-24
-**Status**: **rev2 承認**（2026-09-24 利用者承認。査読 1 の採否は末尾「査読 1 への応答」）
+**Status**: **rev3 承認**（2026-09-24。rev2 承認 → P0 完了 → D5 を D5' へ置き換え。査読 1 の採否は末尾「査読 1 への応答」）
 **Branch**: なし（Phase 単位で main へ直接コミット）
 
 ## Goal
@@ -72,12 +72,10 @@ Python の `subprocess.Popen(stdin=PIPE, stdout=PIPE)` と Node の `child_proce
 `GetStdHandle` はそのパイプを返す。Claude Code は MCP サーバーを Node の子プロセスとして起動するので同じ条件。
 **未確認なのは「Tauri を組み込んだ配布ビルドで同じか」だけ**（P3 で確認）。
 
-### 6. フォーク元パーサーは未知の構文を黙って捨てる可能性が高い
+### 6. フォーク元パーサーは AI が普通に書く構文で図を壊す
 
-`parseMermaidCode` は `flowchart` / `graph` のヘッダ行を読み飛ばす処理はあるが、
-`subgraph` / `classDef` / `style` / `%%` コメントを扱う分岐が grep で見つからない。
-**AI は subgraph や classDef を普通に書く**ので、そのまま GUI で開くと構文が黙って消える。
-正確な挙動は未測定（P0-5）。
+rev2 時点では「未知の構文を黙って捨てる」と見ていたが、P0-5 の実測で**それより深刻**と分かった —
+ノードが生える・辺が付け替わる・図が空になる（詳細は「P0 結果」節）。同じ入力を merman は全部正しく解釈した。
 
 ## 設計の核
 
@@ -88,7 +86,7 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
                                    ├─ {app_data_dir}/inbox/{uuid}.mmd を書く（絶対パス）
                                    └─ `lorelei --open <絶対パス>` を切り離して起動（終了を待たない）
                                         └─ 起動中の GUI があれば single-instance が argv を渡し、2 つ目は終了
-                                           └─ Rust が inbox を読んで削除 → フロントへイベント → 既存の import 関数
+                                           └─ Rust が inbox を読んで削除 → merman の意味モデルをエディタのデータ形へ変換 → フロントへイベント
 ```
 
 **Fuseforks（Spec 25）と違い、HTTP の口は開けない。** Fuseforks が GUI の中で HTTP サーバーを
@@ -117,33 +115,31 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
 - **D3 PNG / PDF の変換は Lorelei 側で書く。merman は SVG 生成だけに使う。**
   - merman は `default-features = false` で `svg` 系の feature だけを有効にする。**`png` / `pdf` / `jpeg` は入れない**。
     どのレイアウト feature（`layout-cytoscape` / `math` 等）が要るかは P1 で図の種類ごとに決める
+  - **`htmlLabels` は常に false に固定する**（最上位と `flowchart.htmlLabels`。入力の `%%{init}%%` で true にされても上書き）。
+    true のままだと resvg-safe の代替テキストが折り返しを失う（P0-2）
   - merman の SVG（`SvgPipeline::resvg_safe()` で foreignObject を外した形）を、**同梱フォントだけを読んだ
     fontdb** と一緒に usvg へ渡し、PNG は resvg、PDF は krilla-svg で作る。バージョンは merman が持ち込むもの
     （usvg 0.47 / krilla-svg 0.8）に揃え、二重に入れない
   - fontdb はプロセスで 1 つ（`OnceLock<Arc<fontdb::Database>>`）。並行する render で共有する
   - システムフォントは読まない — 端末ごとに出力が変わるのを防ぐ（`FontBundle.system_fonts: false`）
-  - 同梱は Noto Sans JP（OFL-1.1）の Regular / Bold。静的 2 本か可変 1 本かは P0-3 の実測（容量・fontdb が
-    Bold を引けるか）で決める。About 画面と `THIRD_PARTY_LICENSES` に OFL の表示を入れる
-  - **計測と描画のずれの扱い（P0-2 の結果で分岐）**: 長い日本語ラベルで、ラベルが箱からはみ出す、
-    または箱の余白がラベル幅の 20% を超えてずれるなら、P1 で同梱フォントの字幅を返す `HostTextMeasurer` を
-    実装して差し込む（現況 4 の口）。ずれが無ければ既定の計測のまま進める
+  - 同梱は Noto Sans JP（OFL-1.1）の**静的** Regular / Bold 2 本（P0-3: 可変フォントは Thin で描かれる）。
+    日本語だけの版の容量は P1 で測る。About 画面と `THIRD_PARTY_LICENSES` に OFL の表示を入れる
+  - 計測と描画のずれは P0-2 でしきい値内だったので、`HostTextMeasurer` は使わない。行頭の「、」（禁則なし）は
+    既知の制約として README に書く
 
 - **D4 merman はバージョンを `=0.8.0-alpha.6` で固定する。** alpha 版で API が動く。上げる時は
   構造テストを見てから。フォント DB の差し替え口が無い件は merman へ issue を出す（待たない。D3 で回避済み）。
 
-- **D5 GUI で開いた時に消える構文は、開く前に数えて返す。**
-
-  ```text
-  dropped = merman が入力の中に見つけた構文 ∩ フォーク元パーサーが捨てる構文
-  ```
-
-  - 右辺の「フォーク元パーサーが捨てる構文」の表は `lorelei_core` に持つ（`FORK_PARSER_DROPS`）
-  - その表の正は TS 側の挙動なので、**フォーク元パーサーの挙動を固定する vitest を足す**
-    （subgraph 等を食わせて消えることを assert）。vitest の期待値と `FORK_PARSER_DROPS` は同じ構文名の一覧で、
-    **Rust のテストが vitest の fixture ファイル（JSON）を読んで一致を検査する**。片方だけ変えると落ちる
-  - 左辺は merman の意味モデルで数える（正規表現で数えない）
-  - GUI は、MCP から渡された `dropped` をそのまま警告に出す（GUI 側で再計算しない = 2 つの数字がずれない）
-  - フォーク元パーサーを改修して subgraph 等に対応させるのは**本 spec のスコープ外**（構造を崩さない掟）
+- **D5' MCP 経由で GUI に開く時は、フォーク元パーサーを通さない**（rev3。rev2 の D5 は P0-5 で前提が崩れたため置き換え）。
+  - `lorelei_core` が merman の意味モデル（`Engine::parse_diagram_sync` の JSON）を、フォーク元エディタの
+    データ形（flowchart の `FlowData`、ER のノード / 辺）へ変換する。パーサーは merman の 1 つだけになる
+  - `dropped` は**変換器が写せなかった要素**（subgraph・classDef・style・属性コメント等）を変換器自身が数える。
+    MCP の戻り値も GUI の警告も同じ変換関数の出力なので、数がずれない
+  - inbox には Mermaid 本文（`.mmd`）を置き、変換は GUI プロセスの Rust 側で行う（同じ `lorelei_core`）。
+    フロントが受け取るのは変換済みの JSON と `dropped`
+  - フォーク元パーサーは**触らない**。手で貼り付ける既存の import ダイアログはフォーク元のまま残る
+    （その不具合は上流への issue 候補。本 spec では直さない）
+  - rev2 で予定していた「フォーク元パーサーの挙動を固定する vitest」と「fixture と Rust の表の同期検査」は**作らない**
 
 - **D6 図の種類は merman のパース結果で決める。flowchart / erDiagram 以外は GUI で開かない。**
   先頭行の正規表現では判定しない（`%%{init}%%` やコメントが先に来る）。`open_in_editor` は、種類が
@@ -176,21 +172,22 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
   | `package.json` のスクリプトを `build`（Pages、従来どおり）と `build:tauri` の 2 本に。Tauri の `frontendDist` は `../out` | — |
   | `lib/desktop/`（新規）: `isTauri()`・invoke の薄い包み・open イベントの購読 | Tauri 依存をここへ閉じ込める |
   | 既存の download-modal（flowchart / ER）に SVG / PNG / PDF の書き出しを追加（Tauri 時のみ表示） | 手直しした図を GUI から書き出す |
-  | エディタのページで open イベントを受けて既存の import 関数へ流し、`dropped` を警告表示 | open_in_editor の受け口 |
+  | エディタのページで open イベントを受け、変換済みの JSON をキャンバスへ載せ、`dropped` を警告表示 | open_in_editor の受け口（D5'）。既存 import 関数のパース後の処理（配置など）を再利用できるかは P4 の最初に確認 |
   | `package.json` に `@tauri-apps/api` / `@tauri-apps/plugin-dialog`（保存先の選択用） | — |
 
   上流の GitHub へのリンク（`contribution-panel.tsx`）などデザイン面の調整は別 spec。
 
 ## Phase
 
-- **P0 実測（製品コードなし）**。現況 5 で D1 の核は確認済み。残りは **1 → 2 → 5 を先に**（P1 の設計が変わる順）、3 と 6 は P1 と並行でよい
+- **P0 実測（製品コードなし）** — **完了**（結果は「P0 結果」節）
   1. `svg` feature だけの merman ＋ resvg-safe SVG ＋ 同梱 Noto Sans JP だけの fontdb → PNG / PDF で太字化が消えるか
   2. 長い日本語ラベルで計測と描画のずれが D3 のしきい値を超えるか。超えるなら `HostTextMeasurer` を仮配線して解消するか
   3. 同梱形式（静的 2 本 / 可変 1 本）の容量と、fontdb が Bold を引けるか
   4. ~~GUI サブシステム exe の stdio~~ → 現況 5 で確認済み。配布ビルドでの確認は P3
   5. フォーク元パーサーに subgraph / classDef / style / linkStyle / click / `%%` コメントを食わせた時の挙動（D5）
   6. merman のパースエラーが行番号を返すか（`ValidationResult.errors[].line`）
-- **P1 `crates/lorelei_core`**: validate / render（svg / png / pdf）/ EditorCompat / OutputPathPolicy / inbox のパス。
+- **P1 `crates/lorelei_core`**: validate / render（svg / png / pdf）/ 意味モデル → エディタのデータ形の変換と dropped（D5'）/
+  OutputPathPolicy / inbox のパス。
   テストは SVG のバイト一致ではなく構造（viewBox・テキスト内容・埋め込みフォント名）で見る
 - **P2 MCP モード**: rmcp の stdio サーバー、ツール 3 本。initialize → tools/list → tools/call のスモークテストを
   バイナリ単体で通す。stdout に JSON-RPC 以外が 1 バイトも出ないことも検査する
@@ -200,13 +197,53 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
 - **P5 実運用**: Claude Code へ登録（`.mcp.json` の例を README へ）。DB の MCP からスキーマを読ませて ER 図を
   作らせ、PDF まで出す。**利用者が実際に使って判定する**
 
+## P0 結果（2026-09-24 実測。scratchpad の使い捨てコード、Windows）
+
+| # | 結果 | 帰結 |
+|---|---|---|
+| 1 | **成立。** merman を `default-features = false, features = ["svg"]` にし、`SvgPipeline::resvg_safe()` の SVG を「同梱フォントだけの fontdb」で usvg → resvg / krilla-svg に通すと、太字化は消えた。PDF は `NotoSansCJKjp-Regular` のサブセット + ToUnicode。依存は `cargo tree -e normal` で 481 → 365 行 | D3 どおり |
+| 2 | **条件付きで成立。** 既定（HTML ラベル）では resvg-safe の代替テキストが**折り返しを失い**、長いラベルが 1 行で箱から大きくはみ出して隣と重なった。`htmlLabels: false`（最上位と `flowchart.htmlLabels`）にすると SVG の `<tspan>` で折り返され、箱に収まり余白もしきい値内。副作用として行頭に「、」が来る（禁則処理なし）。見た目の問題で機能は壊れない | **htmlLabels は Lorelei が常に false に固定する**（入力の `%%{init}%%` で true に戻されても上書き）。`HostTextMeasurer` は不要。禁則は既知の制約として README に書く |
+| 3 | **静的フォントに決定。** 可変フォント `NotoSansJP-VF.ttf`（9.6 MB）は fontdb が既定インスタンスを weight 100 と読み、**Thin で描かれる**（PDF の BaseFont も `NotoSansJP-Thin`）。静的の `NotoSansCJKjp-Regular/Bold.otf` は 400 / 700 を正しく引いた。ただしこの 2 本は CJK 全域で計 33 MB | 同梱するのは静的 2 本。日本語だけに絞った版（Google Fonts の静的 NotoSansJP）の容量は P1 で入手して測る |
+| 4 | 現況 5 で確認済み | D1 どおり |
+| 5 | **想定より深刻。** 下表。「知らない構文を捨てる」だけでなく、**図の中身を壊す**入力がある | **D5 を作り直す（rev3 案、下記）** |
+| 6 | **成立。** merman のパースエラーは `SourceSpan { start, end }`（バイト位置）を持つ。行番号は Lorelei 側で計算できる。図の種類が判定できない入力は `DetectType` エラー | `ValidationResult.errors[].line` を埋められる |
+
+### P0-5 の詳細: フォーク元パーサーに AI が普通に書く構文を食わせた結果
+
+| 入力 | フォーク元パーサーの結果 | merman の結果 |
+|---|---|---|
+| `subgraph 受注 … end` | `end` という**名前のノードが生える**（subgraph 自体は消える） | subgraph を正しく保持 |
+| `A --> B --> C`（連鎖） | **`A → C` の辺 1 本、ラベル `> B[b]`**。B が消える | A→B, B→C |
+| `A[a]:::hot --> B` / `A & B --> C` / `A --- B` / 行末の `;` | **ノード 0・辺 0（図が空になる）** | 正しく解釈 |
+| `classDef` / `class` / `style` / `linkStyle` / `click` / `%%` | 黙って捨てる（ノードと辺は残る） | 保持 |
+| ER の基本形（日本語の属性名 `string 氏名`） | **同じエンティティが 2 つ生え、日本語名の属性が消える** | 正しく解釈 |
+| ER の属性コメント `"主キー"` / `PK, FK` | そのエンティティの**属性が全部消える** | 保持 |
+| ER の非識別関係 `||..o{` / 単語形式 `one or zero to many` | **ノード 0・辺 0** | 正しく解釈 |
+
+**D5（数えて警告する）は前提が崩れた。** D5 は「消えるだけ」を想定していたが、実際は B が消えて辺が付け替わる・
+ノードが生える・図が空になる。これらは「何件消えた」では説明できない。
+
+### rev3（2026-09-24 利用者承認）: D5 を置き換える
+
+- **D5' MCP 経由で GUI に開く時は、フォーク元パーサーを通さない。** `lorelei_core` が merman の意味モデル
+  （`Engine::parse_diagram_sync` が返す JSON。flowchart / ER ともに上の表のとおり正しい）を、フォーク元エディタの
+  データ形（flowchart の `FlowData`、ER のノード / 辺）へ変換し、GUI へはその JSON を渡す
+  - `dropped` は**変換器が写せなかった要素**（subgraph・classDef・style・属性コメント等）を変換器自身が数える。
+    パーサーが 1 つになるので、vitest の fixture と Rust の表を同期させる仕組み（D5 の中核）が**まるごと要らなくなる**
+  - フォーク元パーサーは**触らない**。手で貼り付ける既存の import ダイアログはフォーク元のまま残る
+    （その不具合は上流の問題として issue を出す候補。本 spec では直さない）
+  - フロントの変更は D9 の「open イベントを受けて既存の import 関数へ流す」が
+    「open イベントで受けた JSON をキャンバスへ載せる」に変わる。既存の import 関数がパース後に行っている処理
+    （レイアウト配置など）を再利用できるかは P4 の最初に確認する
+
 ## 受け入れ条件
 
 1. Claude Code から `render` で日本語の flowchart と ER 図を PDF に書き出せ、日本語が太字になっていない
 2. 同じ入力を OS のフォント設定が違う 2 台で PNG にしても、埋め込み・使用フォントが同じ（同梱フォント）
 3. `validate` に文法エラーのある Mermaid を渡すと `ok: false` と理由が返る（行が分かれば行も）
 4. subgraph を含む flowchart を `open_in_editor` すると GUI で開き、**subgraph が消えることが MCP の戻り値と
-   GUI の警告の両方に、同じ数で出る**
+   GUI の警告の両方に、同じ数で出る**。P0-5 の表の入力（連鎖・`&`・`---`・`;`・日本語の属性名・`PK, FK`・`..`）は、
+   ノードと辺が merman の解釈どおりにキャンバスへ載る
 5. GUI が起動していない状態で `open_in_editor` しても GUI が立ち上がって図が開く。起動中なら 2 つ目の窓も
    エラー表示も出ず、既存の窓に図が開く。読み込んだ inbox のファイルは消えている
 6. `output_path` に相対パス・WSL パス・拡張子違い・存在しない親ディレクトリ・既存ファイル（overwrite なし）を
@@ -239,7 +276,7 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
 | 2 | PoC と D3 が矛盾。merman の png/pdf feature を切らないと static fontdb が初期化され回避策が効かない | **一部採用** | PoC は merman-export の測定用で採用構成ではない、と現況 3 に明記。feature を `svg` 系に絞るのは採用（依存が減る）。ただし「static fontdb が回避策を無効にする」機序は誤り — 自前の `usvg::Options.fontdb` は merman-export の static と独立で、merman-export を呼ばなければ使われない |
 | 3 | `with_text_measurement_policy` が存在するか未確認。ずれた時の方針が無い | **採用（前提は訂正）** | API はソースで存在確認済み（`HostTextMeasurer` 経路、現況 4）。ずれた時の分岐としきい値を D3 に追加 |
 | 4 | inbox が相対パス | **一部採用** | data_contract では rev1 から `{app_data_dir}/inbox/` の絶対パスだったが、spec の図が相対に見えた。MCP モードでのパスの組み立てと一致テスト、掃除の方針を D8 に追加 |
-| 5 | dropped の正が 2 つ | **採用** | 集合の式、Rust の表、vitest の fixture との一致検査、GUI は再計算しないを D5 に明記 |
+| 5 | dropped の正が 2 つ | **採用** | 集合の式、Rust の表、vitest の fixture との一致検査、GUI は再計算しないを D5 に明記。**rev3 で D5' に置き換え、この仕組みごと撤去**（P0-5） |
 | 6 | 図の種類を正規表現で判定できない | **採用** | D6 に merman のパース結果で決めると明記 |
 | 7 | OutputPathPolicy の TOCTOU / EXDEV / WSL | **採用** | 一時ファイルは同じディレクトリ、rename 失敗時の後始末、WSL 非対応を D7 に。親ディレクトリが途中で消える件は rename の失敗として扱えば壊れファイルは残らない |
 | 8 | next.config の分岐不足・ビルド 2 本・plugin-fs が要る | **一部採用** | `assetPrefix` とビルド 2 本は採用（D9）。`images.unoptimized` は既に常時 true（現況 2）。**plugin-fs は不採用** — inbox は Rust が読んで本文をイベントで渡すので不要で、入れると JS から任意のファイルを読める口が開く（D8） |
