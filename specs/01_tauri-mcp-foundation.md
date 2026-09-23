@@ -195,7 +195,7 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
   スモークテスト 6 件 + 起動経路の単体テスト 2 件。GUI の起動は stdio を引き継がせず、Windows ではジョブから抜けて
   起動する（抜けられなければ抜けずに起動し直す）— **実際に Claude Code から起動した GUI が残るかは P4 で確認**）: rmcp の stdio サーバー、ツール 3 本。initialize → tools/list → tools/call のスモークテストを
   バイナリ単体で通す。stdout に JSON-RPC 以外が 1 バイトも出ないことも検査する
-- **P3 `src-tauri/`**: Tauri 2 の殻（workspace の外）。Next の Tauri 用書き出しを読む。single-instance、
+- **P3 `src-tauri/`**（**着地 2026-09-24**。下の「P3 で判明したこと」）: Tauri 2 の殻（workspace の外）。Next の Tauri 用書き出しを読む。single-instance、
   identifier 確定。**配布ビルドで `--mcp` のスモークテスト**（D1 の切り替え条件）
 - **P4 GUI 側**: D9 の変更。open_in_editor の往復（MCP → inbox → GUI → キャンバス → 警告 → inbox 削除）
 - **P5 実運用**: Claude Code へ登録（`.mcp.json` の例を README へ）。DB の MCP からスキーマを読ませて ER 図を
@@ -267,6 +267,30 @@ ASCII 英数字と `_` しか ID に取らないバイト単位の実装であ�
 - `click` を付けたノードには `clickable` クラスが自動で付く → ユーザーの class として数えない
 - subgraph を辺の行き先にすると、その subgraph がノード一覧にも入る → subgraph の ID はノードから除く
 - ER の `relSpec` は `cardB` が左側（source 側）、`cardA` が右側の記号。フォーク元の 7 記号すべてで往復を確認
+
+## P3 で判明したこと（2026-09-24）
+
+- **D1 は単一 exe で確定**: 配布ビルド（`tauri build --no-bundle`、GUI サブシステム）の `lorelei.exe --mcp` に
+  P2 のスモークテストを当てて全件緑（`LORELEI_MCP_EXE` で差し替え。open_in_editor の 1 件は実物だと GUI を起動するので
+  スキップ）。2 bin の退路は不要。
+- **single-instance の往復**: 起動中の GUI へ 2 つ目の `lorelei.exe --open <inbox の .mmd>` を投げると、2 つ目は終了コード 0 で
+  即終了し、窓は 1 つのまま、inbox のファイルは読まれて消えた（実機）。フロントの受け口は P4。
+- **CSP: Tauri は同梱 HTML のインライン `<style>` のハッシュを `style-src` へ自動で足す**。ハッシュが入ると
+  ブラウザは `'unsafe-inline'` を無視するので、要素の `style` 属性が全部止まり、ReactFlow のノード配置や読み上げ用テキストの
+  隠しが効かず画面が崩れた（実機で確認）。`dangerousDisableAssetCspModification: ["style-src"]` で style-src だけ
+  自動追記を止めて解消（script-src のハッシュ追記は残る）。failures #2。
+- **ルートの `[patch.crates-io]` は src-tauri に効かない**（独立 project）。同じ patch を src-tauri/Cargo.toml にも書き、
+  GUI 側のテストで日本語 ID が通ることを固定した。
+- **Windows の cargo test**: Tauri を含むテストの exe は Common-Controls v6 の manifest が無く `STATUS_ENTRYPOINT_NOT_FOUND`
+  で落ちる。tauri-build の manifest 埋め込みを止め、同じ manifest をリンカで全 exe に埋め込んだ（`src-tauri/build.rs`）。
+- **D9 の変更**: ビルドのスクリプトは 2 本にせず、Tauri の CLI が渡す `TAURI_ENV_PLATFORM` を `next.config.mjs` が見て切り替える
+  （追加の道具が要らず Windows でも同じ）。**保存ダイアログは plugin-dialog でなく Rust 側の `rfd` にする案**（AppPromoVideo と同じ。
+  JS に権限を足さない）— P4 で採否を決める。
+- **フロントの依存は `corepack pnpm@9 install --ignore-scripts` で入れた**。`prepare` の `lefthook install`（git hooks）を走らせないため。
+  フックを有効にするかは利用者の判断待ち。
+- **アイコンは仮**（`src-tauri/app-icon.png`、同梱フォントの「L」）。フォーク元の favicon は Next.js 既定のもので使わない。
+- 既存テスト: 基準値 478 件緑。P3 後の全件実行で `arrow-type-selector.test.tsx` の 1 件が落ちたが、単独で 3 回とも緑。
+  全件並列時の負荷によるタイムアウトと見ている（ログでタイムアウトと確認はしていない）。フォーク元のテストなので触らない。
 
 ## 受け入れ条件
 

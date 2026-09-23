@@ -40,3 +40,7 @@ storybook-static
 test-results
 # rust
 target/
+
+# tauri / next (Tauri 用の書き出し)
+/out/
+/src-tauri/gen/

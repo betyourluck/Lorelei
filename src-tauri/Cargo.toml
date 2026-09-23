@@ -1,0 +1,37 @@
+[package]
+name = "lorelei"
+version = "0.1.0"
+description = "Lorelei — Mermaid を AI から検査・描画・書き出しし、GUI で手直しするデスクトップアプリ"
+edition = "2024"
+license = "MIT"
+publish = false
+
+# 親 workspace (crates/*) に属さない独立 project。重い tauri 依存を `cargo test --workspace` から隔離する
+# (AppPromoVideo / Kataribe と同じ流儀, spec 01)。
+[workspace]
+
+[lib]
+name = "lorelei_lib"
+# デスクトップのみ。モバイル用の staticlib / cdylib は作らない (リンカの余計な出力とビルド時間を省く)
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+lorelei_core = { path = "../crates/lorelei_core" }
+lorelei_mcp = { path = "../crates/lorelei_mcp" }
+tokio = { version = "1", features = ["rt-multi-thread"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
+
+# **ルートの [patch.crates-io] はこの独立 project には効かない**。同じ patch を書かないと、GUI だけが
+# 日本語のノード ID を拒否する修正前の merman-core を使う (vendor/merman-core/LORELEI_PATCH.md)。
+# 効いていることは tests で固定している (japanese_node_ids_are_accepted_in_the_gui_build)
+[patch.crates-io]
+merman-core = { path = "../vendor/merman-core" }

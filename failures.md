@@ -13,3 +13,16 @@
 - **一般化**: workspace から外したディレクトリは「別の project」として振る舞い、ルートの前提（成果物の置き場・
   lock ファイル）が効かない。**ディレクトリ単位で `git add` した時は、コミット前に `git status --short` の件数を見る** —
   予想した件数（今回は 8）と桁が違えば止まる。
+
+## #2 Tauri の CSP 自動追記で `'unsafe-inline'` が無効になり、GUI が崩れた（2026-09-24）
+
+- **症状**: 配布ビルドの GUI で、ReactFlow のノードが枠の無い素の文字になり、本来隠れている読み上げ用テキスト
+  （「Press enter or space to select an edge…」）が画面に出た。JS は動いていた（ボタンやミニマップは出る）。
+- **真因**: `style-src 'self' 'unsafe-inline'` を書いていたが、Tauri は同梱 HTML のインライン `<style>` のハッシュを
+  `style-src` へ自動で足す。**ハッシュが 1 つでも入るとブラウザは `'unsafe-inline'` を無視する**（CSP の仕様）ので、
+  要素の `style="…"` 属性が全部止まった。ReactFlow はノードの位置も読み上げ用テキストの隠しも `style` 属性で行う。
+- **処方**: `tauri.conf.json` の `app.security.dangerousDisableAssetCspModification: ["style-src"]`。style-src だけ
+  自動追記を止める（script-src のハッシュ追記は残す）。実機で崩れ → 直る、の両方を画面で確認。
+- **一般化**: CSP に書いた値と、実際に効いている CSP は同じとは限らない。フレームワークが足すもの（ハッシュ・nonce）が
+  他の指定を無効にする組み合わせがある。**CSS-in-JS や style 属性を使う UI を Tauri に載せたら、配布ビルドを起動して見るまで
+  CSP は確かめたことにならない**（dev サーバー経由では同梱アセットのハッシュ追記が起きないため再現しない可能性がある）。

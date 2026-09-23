@@ -1,5 +1,8 @@
 //! バイナリ単体のスモークテスト (spec 01 P2): initialize → tools/list → tools/call を stdio で通し、
 //! stdout に JSON-RPC 以外が 1 行も出ないことを検査する (受け入れ条件 7)。
+//!
+//! 環境変数 `LORELEI_MCP_EXE` を設定すると、単体 bin の代わりにその exe を `--mcp` で起動する。
+//! 配布ビルド (`lorelei.exe`, GUI サブシステム) で stdio の MCP が成立するかの確認 (spec 01 D1 の切り替え条件)。
 
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
@@ -15,7 +18,15 @@ struct Client {
 
 impl Client {
     fn start() -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_lorelei-mcp"))
+        let mut command = match std::env::var_os("LORELEI_MCP_EXE") {
+            Some(exe) => {
+                let mut c = Command::new(exe);
+                c.arg("--mcp");
+                c
+            }
+            None => Command::new(env!("CARGO_BIN_EXE_lorelei-mcp")),
+        };
+        let mut child = command
             .env_remove("LORELEI_GUI_EXE")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -178,6 +189,10 @@ fn preview_comes_back_as_a_png_image() {
 
 #[test]
 fn open_in_editor_without_a_gui_explains_why() {
+    if std::env::var_os("LORELEI_MCP_EXE").is_some() {
+        // 実物の exe は自分自身を GUI として起動してしまう (単一 exe 構成)。GUI の往復は P4 で確認する
+        return;
+    }
     let mut c = Client::start();
     let res = c.call("open_in_editor", json!({ "source": FLOW }));
     let out = &res["structuredContent"];

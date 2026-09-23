@@ -50,8 +50,12 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 
 ## 現状
 
-- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1（`lorelei_core`）・P2（`lorelei_mcp`）着地**、テスト 40 件。
-  次は P3（`src-tauri/` の殻。`lorelei --mcp` の単一 exe 化）
+- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1〜P3 着地**（core / MCP / Tauri の殻。`lorelei --mcp` は単一 exe で確定）。次は P4（GUI 側の受け口と書き出し）
+- 開発コマンド: フロントの依存は `corepack pnpm@9 install --ignore-scripts`（pnpm が無い環境でも corepack で足りる。
+  lefthook の hooks は入れていない）。GUI は `corepack pnpm@9 exec tauri dev` / `... tauri build --no-bundle`。
+  Rust は `cargo test --workspace`（core / mcp）と `cd src-tauri && cargo test`（GUI の殻、独立 project）
+- **`src-tauri/Cargo.toml` にもルートと同じ `[patch.crates-io]` がある**（独立 project なのでルートの patch が効かない）。
+  merman-core の patch を外す時は両方消す
 - **merman-core は `vendor/` の修正版を使っている**（日本語のノード ID を受け付けるため）。
   上流が同等の修正を出したら消す。経緯は `vendor/merman-core/LORELEI_PATCH.md`、上流 PR は [Latias94/merman#146](https://github.com/Latias94/merman/pull/146)
 - 同梱フォントのライセンス文は `crates/lorelei_core/fonts/OFL.txt`（google/fonts の ofl/notosansjp から取得）。

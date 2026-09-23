@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Lorelei メインウィンドウの権限。custom command は app 定義ゆえ追加権限不要。ファイル読み書きの plugin は入れない (inbox は Rust が読む, spec 01 D8)。",
+  "windows": ["main"],
+  "permissions": ["core:default", "core:event:default"]
+}

@@ -2,7 +2,8 @@
 
 この `vendor/merman-core/` は crates.io の `merman-core 0.8.0-alpha.6` の写し（上流:
 https://github.com/Latias94/merman 、MIT OR Apache-2.0）。ルートの `Cargo.toml` の
-`[patch.crates-io]` で差し替えている。**上流が同等の修正を含む版を出したら、この写しと patch を消す。**
+`[patch.crates-io]` で差し替えている。**`src-tauri/Cargo.toml` にも同じ patch がある**（独立 project なのでルートの patch が効かない）。
+**上流が同等の修正を含む版を出したら、この写しと両方の patch を消す。**
 
 無改変の写しは `dd4cca1`。そこからの差分が下の修正のすべて（`git diff dd4cca1 -- vendor/`）。
 

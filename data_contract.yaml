@@ -134,7 +134,7 @@ FontBundle:
 
 McpServer:
   transport: stdio        # ネットワークに口を開けない。トークン・ポート・Origin 検査は不要
-  entry: "lorelei --mcp"  # tauri::Builder より前に分岐。配布ビルドで通らなければ lorelei-mcp を別 bin に (spec 01 D1, P3 で判定)
+  entry: "lorelei --mcp"  # tauri::Builder より前に分岐。配布ビルド (GUI サブシステム) でスモークテスト緑 = 単一 exe で確定 (spec 01 P3)
   stdout: json_rpc_only   # ログは全部 stderr
   dev_binary: "lorelei-mcp (crates/lorelei_mcp)。開発・スモークテスト・D1 の退路用。GUI の場所は環境変数 LORELEI_GUI_EXE"
   tool_errors: >-
