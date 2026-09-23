@@ -1,0 +1,114 @@
+# Lorelei data contract — 実装より先にここが正。
+# 変更したら名前で全台帳を grep する (CLAUDE.md 掟)。
+# status: draft (spec 01 rev2, 2026-09-24)
+
+version: 0.1.0
+
+AppIdentity:
+  product_name: Lorelei
+  identifier: jp.outcasts.lorelei   # app_data と WebView プロファイルの場所を決める。公開後は変更不可
+  single_instance: true             # 2 つ目の起動は argv を 1 つ目へ渡して終了する (open_in_editor の経路)
+
+DiagramSource:
+  description: Mermaid のテキスト 1 本。1 ソース = 1 図
+  fields:
+    text: { type: string, max_bytes: 262144 }   # 256 KiB。超えたら InputTooLarge で拒否 (上限値は P0 で見直す)
+  notes:
+    - "%%{init}%% ディレクティブは受け付ける (merman が解釈する範囲で)"
+
+DiagramFamily:
+  description: merman のパース結果で決まる図の種類 (先頭行の正規表現では判定しない)。値の一覧は merman の対応範囲に従い、ここでは列挙しない
+  editable_in_gui: [flowchart, erDiagram]   # フォーク元エディタが扱える 2 種だけ。他は描画・書き出しのみ
+
+ValidationResult:
+  fields:
+    ok: bool
+    family: { type: DiagramFamily, nullable: true }   # 判定できなかった時 null
+    errors:
+      type: list
+      item:
+        message: string
+        line: { type: int, nullable: true }   # 行が分からない時は null。行を偽らない
+    editor: EditorCompat
+
+EditorCompat:
+  description: GUI エディタで開いた時に何が落ちるか
+  fields:
+    editable: bool                  # family が editable_in_gui に入っているか
+    dropped:                        # エディタが表現できず、開くと失われる構文
+      type: list
+      item:
+        construct: string           # 例: subgraph / classDef / style / linkStyle / click / comment
+        count: int
+  notes:
+    - "dropped = merman が入力に見つけた構文 ∩ FORK_PARSER_DROPS"
+    - "FORK_PARSER_DROPS は lorelei_core に置き、vitest の fixture (JSON) と一致することを Rust のテストで検査する (spec 01 D5)"
+    - "GUI は MCP から渡された dropped をそのまま表示する (再計算しない)"
+
+RenderFormat:
+  enum: [svg, png, pdf]
+
+RenderOptions:
+  fields:
+    scale: { type: float, default: 2.0, range: [0.5, 8.0] }    # png のみ有効
+    background: { type: string, nullable: true, default: null } # null = 透過 (pdf は白)。CSS 色文字列
+    theme: { enum: [default, neutral, dark, forest], default: default }
+
+RenderResult:
+  fields:
+    format: RenderFormat
+    family: DiagramFamily
+    width: float
+    height: float
+    svg: { type: string, nullable: true }        # format=svg かつ output_path 未指定の時だけ本文を返す
+    output_path: { type: string, nullable: true } # 書き出した時の絶対パス
+    bytes: { type: int, nullable: true }
+
+OutputPathPolicy:
+  description: MCP 経由のファイル書き出しの規則
+  rules:
+    - 絶対パスのみ
+    - 拡張子は format と一致 (.svg / .png / .pdf)。不一致は拒否
+    - 親ディレクトリは既存であること (勝手に作らない)
+    - 既存ファイルは overwrite=true の時だけ上書き
+    - 書き込みは output_path と同じディレクトリの一時ファイル `.{name}.tmp.{uuid}` → rename (別ボリュームだと rename が失敗するため)
+    - rename 失敗時は一時ファイルを消してエラー (途中で切れた壊れファイルを残さない)
+    - WSL のパス (/home/...) は Windows では絶対パスにならず拒否される。WSL 上のクライアントは非対応
+
+FontBundle:
+  description: PNG / PDF 変換で使うフォント。OS のフォントに依存しない
+  fonts: [NotoSansJP-Regular, NotoSansJP-Bold]   # OFL-1.1。同梱形式 (静的 / 可変) は P0-3 で確定。About と THIRD_PARTY_LICENSES に表示
+  sharing: "OnceLock<Arc<fontdb::Database>> (プロセスで 1 つ)"
+  system_fonts: false   # システムフォントは読まない (端末ごとに出力が変わるのを防ぐ)
+
+McpServer:
+  transport: stdio        # ネットワークに口を開けない。トークン・ポート・Origin 検査は不要
+  entry: "lorelei --mcp"  # tauri::Builder より前に分岐。配布ビルドで通らなければ lorelei-mcp を別 bin に (spec 01 D1, P3 で判定)
+  stdout: json_rpc_only   # ログは全部 stderr
+  tools:
+    validate:
+      input: { source: string }
+      output: ValidationResult
+    render:
+      input:
+        source: string
+        format: RenderFormat
+        output_path: { type: string, nullable: true }   # png / pdf では必須
+        overwrite: { type: bool, default: false }
+        options: { type: RenderOptions, nullable: true }
+        preview: { type: bool, default: false }          # true なら PNG を MCP image content でも返す (AI が目で検める用)。長辺 1568px 以内へ縮小
+      output: RenderResult
+    open_in_editor:
+      input: { source: string }
+      output:
+        opened: bool
+        editor: { enum: [flowchart, erDiagram], nullable: true }
+        dropped: "EditorCompat.dropped"
+        reason: { type: string, nullable: true }   # opened=false の理由
+
+EditorInbox:
+  description: open_in_editor が GUI へ渡すファイルの置き場
+  path: "{app_data_dir}/inbox/{uuid}.mmd"   # app_data_dir = dirs::data_dir()/AppIdentity.identifier (Tauri の app_data_dir() と一致をテストで固定)
+  handoff: "lorelei --open <絶対パス>"        # MCP 側は GUI を切り離して起動し、終了を待たない
+  reader: rust                               # JS からは読まない (plugin-fs を入れない)。本文はイベントでフロントへ
+  retention: GUI が読み込んだら削除。起動時に 24 時間より古いものを掃除
