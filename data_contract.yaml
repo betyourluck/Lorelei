@@ -140,7 +140,7 @@ McpServer:
   tool_errors: >-
     入力や規則の問題 (文法エラー・書き出し規則違反・png/pdf で output_path なし) は、プロトコルのエラーではなく
     ツール結果のエラー (isError: true, structuredContent: { error, line? }) で返す。呼ぶ側の AI が読んで直せるように
-  result_shape: "成功時は structuredContent に JSON (validate は ValidationResult、render は RenderResult、open_in_editor は下の output)。render の preview は content に image/png を足す"
+  result_shape: "成功時は structuredContent に JSON (validate は ValidationResult、render は RenderResult、open_in_editor は下の output)。render は preview (既定 true) の時 content に image/png を足す"
   tools:
     validate:
       input: { source: string }
@@ -152,7 +152,7 @@ McpServer:
         output_path: { type: string, nullable: true }   # png / pdf では必須
         overwrite: { type: bool, default: false }
         options: { type: RenderOptions, nullable: true }
-        preview: { type: bool, default: false }          # true なら PNG を MCP image content でも返す (AI が目で検める用)。長辺 1568px 以内へ縮小
+        preview: { type: bool, default: true }           # PNG を MCP image content でも返す (AI が目で検める用)。長辺 1568px 以内へ縮小。既定 true は利用者 FB 2026-09-24 (spec 01 D2)
       output: RenderResult
     open_in_editor:
       input: { source: string }

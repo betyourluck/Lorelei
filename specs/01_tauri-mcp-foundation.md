@@ -111,6 +111,9 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
   `list_diagram_types` は入れない — 対応している図の種類は `render` のツール説明に書けば足りる。
   `render` の `preview: true` は PNG を MCP の image content でも返す（AI が描画結果を目で検めて直すループ用）。
   **preview は長辺 1568 px 以内へ縮小してから返す**（元の書き出しファイルは縮小しない）。
+  **P5 で既定を true に変更**（2026-09-24 利用者 FB: 説明文で「preview で確かめるのが確実」と勧めても、
+  頼まれるまで AI がプレビューしなかった。勧めは制御にならないので既定値で担保する。代償は 1 回の render ごとに画像 1 枚分の入力。
+  不要なら `preview: false`）。
 
 - **D3 PNG / PDF の変換は Lorelei 側で書く。merman は SVG 生成だけに使う。**
   - merman は `default-features = false` で `svg` 系の feature だけを有効にする。**`png` / `pdf` / `jpeg` は入れない**。

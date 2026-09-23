@@ -187,6 +187,30 @@ fn preview_comes_back_as_a_png_image() {
     assert!(image["data"].as_str().unwrap().len() > 100);
 }
 
+/// preview は既定で返す (利用者 FB 2026-09-24: 頼まないと AI がプレビューしなかった)。
+/// 説明文で勧めるだけでは AI が従うとは限らないので、既定値で担保する。不要なら preview: false。
+#[test]
+fn preview_is_returned_by_default_and_can_be_turned_off() {
+    let mut c = Client::start();
+    let has_image = |res: &Value| {
+        res["content"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|b| b["type"] == "image")
+    };
+    let default = c.call("render", json!({ "source": FLOW, "format": "svg" }));
+    assert!(
+        has_image(&default),
+        "preview を指定しない render に画像が無い"
+    );
+    let off = c.call(
+        "render",
+        json!({ "source": FLOW, "format": "svg", "preview": false }),
+    );
+    assert!(!has_image(&off), "preview: false なのに画像が返った");
+}
+
 #[test]
 fn open_in_editor_without_a_gui_explains_why() {
     if std::env::var_os("LORELEI_MCP_EXE").is_some() {

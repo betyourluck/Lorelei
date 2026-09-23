@@ -64,9 +64,16 @@ pub struct RenderParams {
     pub overwrite: bool,
     #[serde(default)]
     pub options: Option<RenderOptionsParam>,
-    /// true なら PNG のプレビュー (長辺 1568px 以内) を画像でも返す。描画結果を目で確かめる用。
-    #[serde(default)]
+    /// 描画結果の PNG (長辺 1568px 以内) を画像でも返す。既定は true。
+    /// 返ってきた画像で見た目を確かめ、崩れていれば Mermaid を直してから書き出し直すこと。
+    /// 画像が不要な時だけ false にする。
+    // 既定を true にしたのは利用者 FB (2026-09-24): 説明文で勧めても、頼まれるまで AI がプレビューしなかった
+    #[serde(default = "preview_default")]
     pub preview: bool,
+}
+
+fn preview_default() -> bool {
+    true
 }
 
 // data_contract `RenderOptions`。ドキュメントコメント (///) はそのままツールの説明として AI に見えるので、
@@ -178,7 +185,8 @@ impl LoreleiServer {
         description = "Mermaid を SVG / PNG / PDF に描画する。日本語は同梱フォント (Noto Sans JP) で描く。\
                        png / pdf は output_path (絶対パス、拡張子は形式と一致、親フォルダは既存) に書き出す。\
                        svg で output_path を省くと SVG 本文を返す。既存ファイルは overwrite=true の時だけ上書きする。\
-                       preview=true なら縮小した PNG を画像でも返すので、描画結果を見て直すのに使える。\
+                       描画結果の縮小 PNG を毎回画像で返す (preview、既定 true)。画像で見た目を確かめ、\
+                       ラベルの重なりや読みにくい配置があれば Mermaid を直して描き直すこと。\
                        flowchart / erDiagram / sequenceDiagram / classDiagram / stateDiagram ほか Mermaid の図に対応。"
     )]
     async fn render(
@@ -219,7 +227,8 @@ impl ServerHandler for LoreleiServer {
         info.instructions = Some(
             "Lorelei は Mermaid の図を検査・描画・書き出しし、GUI で手直しできるようにします。\
              DB やコードは読みません — 図の素材はあなたが読み、Mermaid にして渡してください。\
-             書いたら validate で確かめ、render の preview で見た目を確認してから書き出すのが確実です。"
+             書いたら validate で確かめてください。render は描画結果の画像を毎回返すので、\
+             その画像で見た目を確かめ、必要なら直してから書き出してください。"
                 .into(),
         );
         info

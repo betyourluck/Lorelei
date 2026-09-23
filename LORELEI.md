@@ -46,7 +46,7 @@ corepack pnpm@9 exec tauri build --no-bundle
 | ツール           | すること                                                                                                                  |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `validate`       | 文法を検査する。GUI エディタで開けるか、開くと何が省かれるかも返す                                                        |
-| `render`         | SVG / PNG / PDF に描画する。png / pdf は `output_path`（絶対パス）に書き出す。`preview: true` で縮小した PNG も画像で返す |
+| `render`         | SVG / PNG / PDF に描画する。png / pdf は `output_path`（絶対パス）に書き出す。描画結果の縮小 PNG も毎回画像で返す（不要なら `preview: false`） |
 | `open_in_editor` | GUI エディタで開く（flowchart と erDiagram）。GUI が起動していなければ起動する                                            |
 
 頼み方の例:
