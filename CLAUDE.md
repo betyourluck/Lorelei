@@ -20,8 +20,9 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 
 - **`crates/lorelei_core`**: merman で Mermaid → SVG。PNG / PDF への変換は自前（usvg + resvg / krilla-svg に
   **同梱フォント**を渡す — merman-export はフォント DB を差し替えられず、日本語が太字へ落ちるため）
-- **`crates/lorelei_mcp`**: stdio の MCP サーバー（rmcp）のライブラリ。ツールは 3 本。`src-tauri` の `main()` が
-  `tauri::Builder` より前に `--mcp` を判定して呼ぶ。**stdout は JSON-RPC 専用、ログは stderr**
+- **`crates/lorelei_mcp`**: stdio の MCP サーバー（rmcp 2.2）のライブラリ。ツールは 3 本。`src-tauri` の `main()` が
+  `tauri::Builder` より前に `--mcp` を判定して呼ぶ（P3）。**stdout は JSON-RPC 専用、ログは stderr**。
+  開発・スモークテスト用に単体 bin `lorelei-mcp` もある
 - **`src-tauri/`**: GUI。workspace の外に置く（AppPromoVideo / Kataribe と同じ流儀）
 - **フロント（`app/` `features/` `components/`）**: フォーク元のまま。変更は下の掟に従う
 
@@ -49,7 +50,8 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 
 ## 現状
 
-- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1（`lorelei_core`）着地**、テスト 32 件。次は P2（MCP モード）
+- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1（`lorelei_core`）・P2（`lorelei_mcp`）着地**、テスト 40 件。
+  次は P3（`src-tauri/` の殻。`lorelei --mcp` の単一 exe 化）
 - **merman-core は `vendor/` の修正版を使っている**（日本語のノード ID を受け付けるため）。
   上流が同等の修正を出したら消す。経緯は `vendor/merman-core/LORELEI_PATCH.md`、上流 PR は [Latias94/merman#146](https://github.com/Latias94/merman/pull/146)
 - 同梱フォントのライセンス文は `crates/lorelei_core/fonts/OFL.txt`（google/fonts の ofl/notosansjp から取得）。

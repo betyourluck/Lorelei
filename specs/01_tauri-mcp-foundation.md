@@ -191,7 +191,9 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
   背景の指定はこの値の書き換えで行い 3 形式で揃える）: validate / render（svg / png / pdf）/ 意味モデル → エディタのデータ形の変換と dropped（D5'）/
   OutputPathPolicy / inbox のパス。
   テストは SVG のバイト一致ではなく構造（viewBox・テキスト内容・埋め込みフォント名）で見る
-- **P2 MCP モード**: rmcp の stdio サーバー、ツール 3 本。initialize → tools/list → tools/call のスモークテストを
+- **P2 MCP モード**（**着地 2026-09-24**: `crates/lorelei_mcp`（ライブラリ + 開発用の単体 bin `lorelei-mcp`）。
+  スモークテスト 6 件 + 起動経路の単体テスト 2 件。GUI の起動は stdio を引き継がせず、Windows ではジョブから抜けて
+  起動する（抜けられなければ抜けずに起動し直す）— **実際に Claude Code から起動した GUI が残るかは P4 で確認**）: rmcp の stdio サーバー、ツール 3 本。initialize → tools/list → tools/call のスモークテストを
   バイナリ単体で通す。stdout に JSON-RPC 以外が 1 バイトも出ないことも検査する
 - **P3 `src-tauri/`**: Tauri 2 の殻（workspace の外）。Next の Tauri 用書き出しを読む。single-instance、
   identifier 確定。**配布ビルドで `--mcp` のスモークテスト**（D1 の切り替え条件）

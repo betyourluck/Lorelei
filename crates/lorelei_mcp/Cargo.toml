@@ -1,0 +1,23 @@
+[package]
+name = "lorelei_mcp"
+version = "0.1.0"
+description = "Lorelei の MCP サーバー (stdio)。GUI の exe が `--mcp` で呼ぶライブラリと、開発・退路用の単体 bin"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "lorelei-mcp"
+path = "src/main.rs"
+
+[dependencies]
+lorelei_core = { path = "../lorelei_core" }
+rmcp.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+uuid.workspace = true
