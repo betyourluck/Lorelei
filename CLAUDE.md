@@ -51,7 +51,7 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 
 ## 現状
 
-- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1〜P4 着地**（core / MCP / Tauri の殻 / GUI の受け口と書き出し）。P5 進行中（`.mcp.json` 登録済み・利用者の承認と実運用待ち）
+- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。次の候補は spec 02（人が直した図を AI への指示として読み戻す）
 - 開発コマンド: フロントの依存は `corepack pnpm@9 install --ignore-scripts`（pnpm が無い環境でも corepack で足りる。
   lefthook の hooks は入れていない）。GUI は `corepack pnpm@9 exec tauri dev` / `... tauri build --no-bundle`。
   Rust は `cargo test --workspace`（core / mcp）と `cd src-tauri && cargo test`（GUI の殻、独立 project）
