@@ -39,4 +39,4 @@ storybook-static
 
 test-results
 # rust
-/target
+target/

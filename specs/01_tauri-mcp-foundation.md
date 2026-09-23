@@ -240,7 +240,7 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
 
 ## P1 で判明したこと（2026-09-24）
 
-### merman は日本語のノード ID を受け付けない（本家は受け付ける）— **利用者の判断待ち**
+### merman は日本語のノード ID を受け付けない（本家は受け付ける）— **案 A で対応済み（2026-09-24 利用者承認）**
 
 `flowchart TD
   開始 --> 終了` を merman 0.8.0-alpha.6 は `Unexpected character at 15` で拒否する。同じ入力
@@ -254,6 +254,11 @@ ASCII 英数字と `_` しか ID に取らないバイト単位の実装であ�
 - **フォーク元エディタは日本語の変数名を意図して保持する**（`getSafeVariableName`）。GUI で日本語の変数名を
   付けた図は、Lorelei 自身の書き出し（D9）で描けない
 - ラベル（`A[開始]`）と ER のエンティティ名・属性名の日本語は問題ない（テストで確認済み）
+
+**対応（案 A）**: `vendor/merman-core/`（`merman-core 0.8.0-alpha.6` の写し）の字句解析を直し、`[patch.crates-io]` で
+差し替えた。ASCII 以外の文字は `char::is_alphabetic()` なら ID に含める。全角数字・読点は mermaid.js と同じく拒否する
+（本家で確認）。修正内容・上流向けの差分・PR の下書きは `vendor/merman-core/LORELEI_PATCH.md`。**PR は未提出**。
+残る差: 全角スペースを区切りに使う書き方（本家は受け付ける）と、字句エラーで行番号が返らない件は別件。
 
 ### 変換器（D5'）の実装で分かった merman の出力の癖
 

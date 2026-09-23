@@ -261,3 +261,56 @@ fn payload_serializes_in_the_fork_parser_shape() {
         "one-to-many"
     );
 }
+
+// ---------- 日本語のノード ID (vendor/merman-core の修正。mermaid.js 11.17.2 は受け付ける) ----------
+
+#[test]
+fn japanese_node_ids_are_accepted() {
+    let (data, dropped) =
+        flow("flowchart TD\n  開始 --> 在庫確認{在庫はあるか}\n  在庫確認 -->|はい| 出荷\n");
+    assert_eq!(node_ids(&data), ["開始", "在庫確認", "出荷"]);
+    assert_eq!(
+        edge_pairs(&data),
+        [("開始", "在庫確認"), ("在庫確認", "出荷")]
+    );
+    assert_eq!(data.nodes[1].label, "在庫はあるか");
+    assert!(dropped.is_empty(), "{dropped:?}");
+}
+
+#[test]
+fn japanese_ids_work_in_subgraph_class_style_and_click_statements() {
+    let src = "flowchart TD\n  subgraph 受注\n    受付 --> 確認\n  end\n  確認 --> 受注\n  classDef 強調 fill:#f96\n  class 受付 強調\n  style 確認 fill:#9f6\n  click 確認 \"https://example.com\"\n  受付:::強調 --> 完了ー\n";
+    let (data, dropped) = flow(src);
+    assert_eq!(node_ids(&data), ["受付", "確認", "完了ー"]);
+    assert_eq!(edge_pairs(&data), [("受付", "確認"), ("受付", "完了ー")]);
+    assert_eq!(
+        dropped,
+        [
+            d("class", 1),
+            d("classDef", 1),
+            d("click", 1),
+            d("edge_to_subgraph", 1),
+            d("style", 1),
+            d("subgraph", 1)
+        ]
+    );
+}
+
+#[test]
+fn bare_node_ids_are_rectangles_without_a_drop() {
+    let (data, dropped) = flow("flowchart TD\n  A --> B\n");
+    let shapes: Vec<_> = data.nodes.iter().map(|n| n.shape_type).collect();
+    assert_eq!(shapes, ["rectangle", "rectangle"]);
+    assert!(dropped.is_empty(), "{dropped:?}");
+}
+
+/// mermaid.js 11.17.2 と同じく、ASCII 以外の数字と句読点は ID に使えない (広げすぎていないことの見張り)。
+#[test]
+fn fullwidth_digits_and_touten_in_ids_are_rejected_like_mermaid_js() {
+    for src in [
+        "flowchart TD\n  手順１ --> 手順２\n",
+        "flowchart TD\n  開始、 --> 終了\n",
+    ] {
+        assert!(!validate(src).unwrap().ok, "{src}");
+    }
+}

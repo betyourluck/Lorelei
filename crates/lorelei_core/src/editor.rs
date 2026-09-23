@@ -218,7 +218,11 @@ fn flowchart(model: &Value) -> Result<EditorPayload, CoreError> {
         if subgraph_ids.contains(id) {
             continue;
         }
-        let shape = str_of(n, "shape");
+        // 括弧の無い裸のノード (`A --> B`) は shape が null (layoutShape は squareRect)
+        let shape = match str_of(n, "shape") {
+            "" => "square",
+            s => s,
+        };
         let shape_type = match shape {
             "square" => "rectangle",
             "round" => "rounded",

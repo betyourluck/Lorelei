@@ -44,12 +44,14 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 | 名詞・型・MCP ツールの入出力 | [data_contract.yaml](data_contract.yaml) |
 | 決定事項と Phase 計画 | `specs/NN_*.md`（起票 → 査読 → rev 改訂 → Phase 単位で main へ直接コミット） |
 | 踏んだ罠（症状 → 真因 → 処方 → 一般化） | [failures.md](failures.md) |
+| 上流 crate に当てている修正（merman-core） | [vendor/merman-core/LORELEI_PATCH.md](vendor/merman-core/LORELEI_PATCH.md) |
 | フォーク元の開発手順・テスト・VRT | [DEVELOPMENT.md](DEVELOPMENT.md) / [TESTING.md](TESTING.md) |
 
 ## 現状
 
-- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1（`lorelei_core`）着地**、テスト 28 件。
-  **未決: merman が日本語のノード ID を拒否する**（本家 mermaid.js は受け付ける。spec 01「P1 で判明したこと」）
+- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1（`lorelei_core`）着地**、テスト 32 件。次は P2（MCP モード）
+- **merman-core は `vendor/` の修正版を使っている**（日本語のノード ID を受け付けるため）。
+  上流が同等の修正を出したら消す。経緯と PR の下書き（未提出）は `vendor/merman-core/LORELEI_PATCH.md`
 - 同梱フォントのライセンス文は `crates/lorelei_core/fonts/OFL.txt`（google/fonts の ofl/notosansjp から取得）。
   About 画面と THIRD_PARTY_LICENSES への表示は P3 / P4 で
 - 同梱フォントは `scripts/build-fonts.py` で Noto Sans JP の可変フォントから切り出す（手順と理由はスクリプト冒頭）
