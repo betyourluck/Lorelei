@@ -173,7 +173,7 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
   | `lib/desktop/`（新規）: `isTauri()`・invoke の薄い包み・open イベントの購読 | Tauri 依存をここへ閉じ込める |
   | 既存の download-modal（flowchart / ER）に SVG / PNG / PDF の書き出しを追加（Tauri 時のみ表示） | 手直しした図を GUI から書き出す |
   | エディタのページで open イベントを受け、変換済みの JSON をキャンバスへ載せ、`dropped` を警告表示 | open_in_editor の受け口（D5'）。既存 import 関数のパース後の処理（配置など）を再利用できるかは P4 の最初に確認 |
-  | `package.json` に `@tauri-apps/api` / `@tauri-apps/plugin-dialog`（保存先の選択用） | — |
+  | `package.json` に `@tauri-apps/api`（保存先の選択は plugin-dialog でなく Rust 側の rfd — P4 で利用者承認） | — |
 
   上流の GitHub へのリンク（`contribution-panel.tsx`）などデザイン面の調整は別 spec。
 
@@ -197,7 +197,7 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
   バイナリ単体で通す。stdout に JSON-RPC 以外が 1 バイトも出ないことも検査する
 - **P3 `src-tauri/`**（**着地 2026-09-24**。下の「P3 で判明したこと」）: Tauri 2 の殻（workspace の外）。Next の Tauri 用書き出しを読む。single-instance、
   identifier 確定。**配布ビルドで `--mcp` のスモークテスト**（D1 の切り替え条件）
-- **P4 GUI 側**: D9 の変更。open_in_editor の往復（MCP → inbox → GUI → キャンバス → 警告 → inbox 削除）
+- **P4 GUI 側**（**着地 2026-09-24**。下の「P4 で判明したこと」）: D9 の変更。open_in_editor の往復（MCP → inbox → GUI → キャンバス → 警告 → inbox 削除）
 - **P5 実運用**: Claude Code へ登録（`.mcp.json` の例を README へ）。DB の MCP からスキーマを読ませて ER 図を
   作らせ、PDF まで出す。**利用者が実際に使って判定する**
 
@@ -284,13 +284,30 @@ ASCII 英数字と `_` しか ID に取らないバイト単位の実装であ�
 - **Windows の cargo test**: Tauri を含むテストの exe は Common-Controls v6 の manifest が無く `STATUS_ENTRYPOINT_NOT_FOUND`
   で落ちる。tauri-build の manifest 埋め込みを止め、同じ manifest をリンカで全 exe に埋め込んだ（`src-tauri/build.rs`）。
 - **D9 の変更**: ビルドのスクリプトは 2 本にせず、Tauri の CLI が渡す `TAURI_ENV_PLATFORM` を `next.config.mjs` が見て切り替える
-  （追加の道具が要らず Windows でも同じ）。**保存ダイアログは plugin-dialog でなく Rust 側の `rfd` にする案**（AppPromoVideo と同じ。
-  JS に権限を足さない）— P4 で採否を決める。
+  （追加の道具が要らず Windows でも同じ）。**保存ダイアログは plugin-dialog でなく Rust 側の `rfd`**（AppPromoVideo と同じ。
+  JS に権限を足さない）— 2026-09-24 利用者承認、P4 で実装。
 - **フロントの依存は `corepack pnpm@9 install --ignore-scripts` で入れた**。`prepare` の `lefthook install`（git hooks）を走らせないため。
   フックを有効にするかは利用者の判断待ち。
 - **アイコンは仮**（`src-tauri/app-icon.png`、同梱フォントの「L」）。フォーク元の favicon は Next.js 既定のもので使わない。
 - 既存テスト: 基準値 478 件緑。P3 後の全件実行で `arrow-type-selector.test.tsx` の 1 件が落ちたが、単独で 3 回とも緑。
   全件並列時の負荷によるタイムアウトと見ている（ログでタイムアウトと確認はしていない）。フォーク元のテストなので触らない。
+
+## P4 で判明したこと（2026-09-24）
+
+- **フォーク元のファイルへの変更は 4 ファイル・8 行**（各エディタに `useDesktopOpen` の import と呼び出し、
+  各コード表示ダイアログに `ExportButtons` の import と配置）。新しいコードは `lib/desktop/` と `src-tauri/src/desktop.rs`
+- **実機での往復**（配布ビルドと debug ビルド、MCP クライアントは Python の最小実装）:
+  - GUI が起動していない状態から `open_in_editor` → GUI が立ち上がり図が載る。`dropped` の警告が通知で出る（閉じるまで残る）
+  - フローチャート画面を開いたまま ER 図を送る → ER 図のページへ移動して載る。窓は 1 つのまま
+  - GUI のコード表示ダイアログの PDF ボタン → OS の保存ダイアログ（rfd）→ 保存。埋め込みフォントは NotoSansJP-Regular のみ
+  - ヘルプ → Lorelei について → ライセンス一覧（rfd の MessageDialog）
+- **About とライセンス**: フォーク元の画面は変えず、Tauri のネイティブメニューから出す。ライセンスの全文
+  （Lorelei / フォーク元の MIT、Noto Sans JP の OFL、merman の MIT / Apache）は `bundle.resources` で `licenses/` に同梱。
+  **依存する Rust crate 全体の第三者ライセンス一覧（cargo-about 等）は配布の spec へ回す**
+- **フォーク元の vitest は、この環境では変更の有無に関係なく 2〜3 件が時間切れで落ちる**。P3 の基準値（478 件緑）は
+  1 回だけ測ったもので、たまたま収まっていた。P4 の変更を退避した状態でも 2 回とも 2 件落ちた
+  （`arrow-type-selector` / `panel-content`。所要 5,150ms 前後で既定の 5,000ms を超える）。フォーク元のテストなので触らない。failures #3
+- 同じ図が複数届いたら最後の 1 件を載せる（取り込み処理がキャンバスを置き換えるため）
 
 ## 受け入れ条件
 

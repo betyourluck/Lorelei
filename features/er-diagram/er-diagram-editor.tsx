@@ -13,6 +13,7 @@ import type { FC } from "@yamada-ui/react";
 import { Box, useToken } from "@yamada-ui/react";
 import { useCallback, useState, useRef } from "react";
 import { FlowLayout } from "@/components/layout/";
+import { useDesktopOpen } from "@/lib/desktop";
 import { ErEdge } from "./components/edge/er-edge";
 import type { ERColumn } from "./components/node/er-table-content";
 import type { ERTableNodeProps } from "./components/node/er-table-node";
@@ -164,6 +165,9 @@ export const ERDiagramEditor: FC = () => {
     },
     [setNodes, setEdges]
   );
+
+  // Lorelei: MCP の open_in_editor で届いた図を既存の取り込み処理へ流す (デスクトップ版のみ)
+  useDesktopOpen<ParsedMermaidERData>("erDiagram", handleImportMermaid);
 
   // エッジからノード作成
   const onConnectStart = useCallback(

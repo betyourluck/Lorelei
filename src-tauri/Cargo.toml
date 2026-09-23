@@ -26,6 +26,9 @@ lorelei_mcp = { path = "../crates/lorelei_mcp" }
 tokio = { version = "1", features = ["rt-multi-thread"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# 保存ダイアログと About は OS ネイティブのダイアログ。plugin-dialog を足さず custom command で完結する
+# (JS に権限を足さない。AppPromoVideo と同じ, spec 01 P4)
+rfd = "0.17"
 
 [dev-dependencies]
 tauri = { version = "2", features = ["test"] }

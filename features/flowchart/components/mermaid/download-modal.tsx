@@ -25,6 +25,7 @@ import {
 } from "@yamada-ui/react";
 import { useCallback, useState, useMemo } from "react";
 import { CopyButton, MermaidHighlight } from "@/components/ui";
+import { ExportButtons } from "@/lib/desktop";
 import type { FlowData } from "../../hooks/flow-helpers";
 import { generateMermaidCode } from "../../hooks/mermaid";
 import type { GraphType } from "../../types/";
@@ -85,6 +86,7 @@ export const DownloadModal: FC<DownloadModalProps> = ({ open, onClose, flowData 
           >
             ダウンロード
           </Button>
+          <ExportButtons code={currentMermaidCode} fileStem="flowchart" />
 
           <Menu open={openMenu} onOpen={onOpenMenu} onClose={onCloseMenu}>
             <MenuButton size="sm" as={Button} rightIcon={<ChevronDownIcon fontSize="xl" />}>

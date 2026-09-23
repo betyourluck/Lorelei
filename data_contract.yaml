@@ -162,6 +162,14 @@ McpServer:
         dropped: "EditorCompat.dropped"
         reason: { type: string, nullable: true }   # opened=false の理由
 
+GuiCommands:
+  description: GUI (Tauri) の custom command とイベント。フロント側は lib/desktop/ だけがこれを呼ぶ
+  take_pending_open: "溜まっている OpenRequest の配列を返して空にする。フロントは準備でき次第と OPEN_EVENT のたびに呼ぶ"
+  open_event: "lorelei://open-pending (本体を持たない合図)"
+  open_request: "{ source, payload: EditorPayload | null, dropped, error: string | null }"
+  export_diagram: "(source, format: svg|png|pdf, fileStem) → 保存したパス | null (取り消し)。保存ダイアログは rfd。上書きの確認は OS のダイアログが行う"
+  about: "メニューの ヘルプ → Lorelei について。ライセンスの全文は bundle.resources で licenses/ に同梱"
+
 EditorInbox:
   description: open_in_editor が GUI へ渡すファイルの置き場
   path: "{app_data_dir}/inbox/{uuid}.mmd"   # app_data_dir = dirs::data_dir()/AppIdentity.identifier (Tauri の app_data_dir() と一致をテストで固定)

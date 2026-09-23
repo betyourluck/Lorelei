@@ -3,6 +3,8 @@
 //! - `lorelei --mcp`: MCP サーバー (stdio)。本体は `lorelei_mcp`
 //! - `lorelei [--open <inbox のファイル>]`: GUI。2 つ目の起動は single-instance が argv を 1 つ目へ渡して終わる
 
+mod desktop;
+
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
@@ -65,6 +67,12 @@ pub fn run_gui() {
             }
         }))
         .manage(PendingOpens::default())
+        .menu(desktop::menu)
+        .on_menu_event(|app, event| {
+            if event.id() == desktop::MENU_ABOUT {
+                desktop::show_about(app);
+            }
+        })
         .setup(|app| {
             if let Some(inbox) = lorelei_core::paths::inbox_dir() {
                 sweep_inbox(&inbox, INBOX_MAX_AGE);
@@ -72,7 +80,10 @@ pub fn run_gui() {
             accept_argv(app.handle(), std::env::args());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![take_pending_open])
+        .invoke_handler(tauri::generate_handler![
+            take_pending_open,
+            desktop::export_diagram
+        ])
         .run(tauri::generate_context!())
         .expect("Lorelei の起動に失敗しました");
 }
@@ -88,7 +99,10 @@ fn accept_argv(app: &AppHandle, argv: impl Iterator<Item = String>) {
     let Some(path) = open_arg(argv) else { return };
     let request = match lorelei_core::paths::inbox_dir() {
         Some(inbox) => open_request(&path, &inbox),
-        None => OpenRequest::failed(String::new(), "アプリのデータフォルダを決められません".into()),
+        None => OpenRequest::failed(
+            String::new(),
+            "アプリのデータフォルダを決められません".into(),
+        ),
     };
     if let Some(state) = app.try_state::<PendingOpens>() {
         state.0.lock().expect("pending opens").push(request);
@@ -147,14 +161,19 @@ fn read_inbox_file(path: &Path, inbox: &Path) -> Result<String, String> {
     let in_inbox = file.parent() == Some(inbox.as_path());
     let is_mmd = file.extension().is_some_and(|e| e == "mmd");
     if !in_inbox || !is_mmd {
-        return Err(format!("inbox の外のファイルは開きません: {}", path.display()));
+        return Err(format!(
+            "inbox の外のファイルは開きません: {}",
+            path.display()
+        ));
     }
     std::fs::read_to_string(&file).map_err(|e| format!("読めません ({}): {e}", file.display()))
 }
 
 /// 古い inbox のファイルを捨てる。GUI が読む前に落ちた分の後始末。
 pub fn sweep_inbox(inbox: &Path, max_age: Duration) {
-    let Ok(entries) = std::fs::read_dir(inbox) else { return };
+    let Ok(entries) = std::fs::read_dir(inbox) else {
+        return;
+    };
     let now = SystemTime::now();
     for entry in entries.flatten() {
         let path = entry.path();
@@ -206,9 +225,15 @@ mod tests {
     #[test]
     fn open_arg_takes_the_path_after_the_flag() {
         let argv = ["lorelei", "--open", "C:/x/a.mmd"].map(String::from);
-        assert_eq!(open_arg(argv.into_iter()), Some(PathBuf::from("C:/x/a.mmd")));
+        assert_eq!(
+            open_arg(argv.into_iter()),
+            Some(PathBuf::from("C:/x/a.mmd"))
+        );
         assert_eq!(open_arg(["lorelei"].map(String::from).into_iter()), None);
-        assert_eq!(open_arg(["lorelei", "--open"].map(String::from).into_iter()), None);
+        assert_eq!(
+            open_arg(["lorelei", "--open"].map(String::from).into_iter()),
+            None
+        );
     }
 
     #[test]
@@ -239,6 +264,43 @@ mod tests {
         }
         std::fs::remove_dir_all(inbox).unwrap();
         std::fs::remove_dir_all(outside).unwrap();
+    }
+
+    #[test]
+    fn export_writes_each_format_and_overwrites_the_chosen_file() {
+        let dir = scratch();
+        let src = "flowchart TD\n  開始 --> 終了\n";
+        for (format, magic) in [
+            (lorelei_core::RenderFormat::Svg, &b"<svg"[..]),
+            (lorelei_core::RenderFormat::Png, &b"\x89PNG"[..]),
+            (lorelei_core::RenderFormat::Pdf, &b"%PDF"[..]),
+        ] {
+            let path = dir.join(format!("図.{}", format.extension()));
+            std::fs::write(&path, b"old").unwrap();
+            desktop::export_to(&path, src, format).unwrap();
+            assert!(std::fs::read(&path).unwrap().starts_with(magic), "{path:?}");
+        }
+        let err = desktop::export_to(
+            &dir.join("x.svg"),
+            "flowchart TD\n  A[a --> B\n",
+            lorelei_core::RenderFormat::Svg,
+        );
+        assert!(err.is_err());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn about_names_every_bundled_license() {
+        let text = desktop::about_text("9.9.9");
+        for needle in [
+            "9.9.9",
+            "MIT",
+            "Apache-2.0",
+            "Open Font License",
+            "Reserved Font Name 'Source'",
+        ] {
+            assert!(text.contains(needle), "{needle}");
+        }
     }
 
     #[test]

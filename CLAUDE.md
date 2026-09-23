@@ -50,7 +50,7 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 
 ## 現状
 
-- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1〜P3 着地**（core / MCP / Tauri の殻。`lorelei --mcp` は単一 exe で確定）。次は P4（GUI 側の受け口と書き出し）
+- 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1〜P4 着地**（core / MCP / Tauri の殻 / GUI の受け口と書き出し）。次は P5（Claude Code に登録して実運用）
 - 開発コマンド: フロントの依存は `corepack pnpm@9 install --ignore-scripts`（pnpm が無い環境でも corepack で足りる。
   lefthook の hooks は入れていない）。GUI は `corepack pnpm@9 exec tauri dev` / `... tauri build --no-bundle`。
   Rust は `cargo test --workspace`（core / mcp）と `cd src-tauri && cargo test`（GUI の殻、独立 project）
@@ -59,5 +59,7 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 - **merman-core は `vendor/` の修正版を使っている**（日本語のノード ID を受け付けるため）。
   上流が同等の修正を出したら消す。経緯は `vendor/merman-core/LORELEI_PATCH.md`、上流 PR は [Latias94/merman#146](https://github.com/Latias94/merman/pull/146)
 - 同梱フォントのライセンス文は `crates/lorelei_core/fonts/OFL.txt`（google/fonts の ofl/notosansjp から取得）。
-  About 画面と THIRD_PARTY_LICENSES への表示は P3 / P4 で
+  配布物の `licenses/` に同梱し、About（ヘルプ → Lorelei について）に一覧を出す
+- フォーク元の vitest は、この環境では変更と無関係に 2〜3 件が時間切れで落ちる（failures #3）。
+  「全件緑」を完了の条件にせず、落ちたテストが変更前と同じ顔ぶれかで判断する
 - 同梱フォントは `scripts/build-fonts.py` で Noto Sans JP の可変フォントから切り出す（手順と理由はスクリプト冒頭）

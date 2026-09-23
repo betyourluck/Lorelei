@@ -10,6 +10,7 @@ import {
 } from "@yamada-ui/react";
 import type { FC } from "react";
 import { CopyButton, MermaidHighlight } from "@/components/ui";
+import { ExportButtons } from "@/lib/desktop";
 
 export interface ERDiagramMermaidModalProps {
   open: boolean;
@@ -43,6 +44,7 @@ export const ERDiagramMermaidModal: FC<ERDiagramMermaidModalProps> = ({
           >
             ダウンロード
           </Button>
+          <ExportButtons code={code} fileStem="er-diagram" />
         </HStack>
       </ModalHeader>
       <ModalCloseButton />

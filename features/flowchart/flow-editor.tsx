@@ -5,6 +5,7 @@ import { ReactFlow, addEdge, useNodesState, useEdgesState, useReactFlow } from "
 import { Box, useToken } from "@yamada-ui/react";
 import { useCallback, useState, useRef, useEffect } from "react";
 import { FlowLayout } from "@/components/layout/";
+import { useDesktopOpen } from "@/lib/desktop";
 import { edgeTypes } from "./components/edge/edge-types";
 import { nodeTypes } from "./components/node/node-types";
 import { FlowPanel } from "./components/panel/flow-panel";
@@ -438,6 +439,9 @@ export function FlowEditor() {
       handleEdgeDelete,
     ]
   );
+
+  // Lorelei: MCP の open_in_editor で届いた図を既存の取り込み処理へ流す (デスクトップ版のみ)
+  useDesktopOpen<ParsedMermaidData>("flowchart", handleImportMermaid);
 
   return (
     <Box h="100vh" w="full">
