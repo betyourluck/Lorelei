@@ -257,7 +257,7 @@ ASCII 英数字と `_` しか ID に取らないバイト単位の実装であ�
 
 **対応（案 A）**: `vendor/merman-core/`（`merman-core 0.8.0-alpha.6` の写し）の字句解析を直し、`[patch.crates-io]` で
 差し替えた。ASCII 以外の文字は `char::is_alphabetic()` なら ID に含める。全角数字・読点は mermaid.js と同じく拒否する
-（本家で確認）。修正内容・上流向けの差分・PR の下書きは `vendor/merman-core/LORELEI_PATCH.md`。**PR は未提出**。
+（本家で確認）。修正内容・上流向けの差分・PR の下書きは `vendor/merman-core/LORELEI_PATCH.md`。**上流 PR: Latias94/merman#146**（2026-09-24）。
 残る差: 全角スペースを区切りに使う書き方（本家は受け付ける）と、字句エラーで行番号が返らない件は別件。
 
 ### 変換器（D5'）の実装で分かった merman の出力の癖

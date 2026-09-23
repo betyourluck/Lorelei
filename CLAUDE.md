@@ -51,7 +51,7 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**P1（`lorelei_core`）着地**、テスト 32 件。次は P2（MCP モード）
 - **merman-core は `vendor/` の修正版を使っている**（日本語のノード ID を受け付けるため）。
-  上流が同等の修正を出したら消す。経緯と PR の下書き（未提出）は `vendor/merman-core/LORELEI_PATCH.md`
+  上流が同等の修正を出したら消す。経緯は `vendor/merman-core/LORELEI_PATCH.md`、上流 PR は [Latias94/merman#146](https://github.com/Latias94/merman/pull/146)
 - 同梱フォントのライセンス文は `crates/lorelei_core/fonts/OFL.txt`（google/fonts の ofl/notosansjp から取得）。
   About 画面と THIRD_PARTY_LICENSES への表示は P3 / P4 で
 - 同梱フォントは `scripts/build-fonts.py` で Noto Sans JP の可変フォントから切り出す（手順と理由はスクリプト冒頭）

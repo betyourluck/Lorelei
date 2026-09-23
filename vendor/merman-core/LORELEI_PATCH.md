@@ -25,7 +25,8 @@ https://github.com/Latias94/merman 、MIT OR Apache-2.0）。ルートの `Cargo
 - 上流 main（`54d257aa`、2026-09-24 時点）でも `lex_id` は ASCII のみ。`lex_edge_id` だけは既に
   Unicode 対応に書き換わっているので、**上流向けの差分は `lex_edge_id` を含まない**（`patches/` の方）。
 - 関連 issue は無い（"unicode OR japanese OR CJK OR non-ascii" で検索）。
-- **PR は未提出**（利用者の GitHub アカウントから出す）。
+- **PR: https://github.com/Latias94/merman/pull/146**（2026-09-24 提出、betyourluck/merman の `fix/flowchart-unicode-node-ids`）。
+  提出前に同種の PR / issue が無いことを全件（PR 118・issue 27、状態不問）で確認。本文は利用者の査読を経て修正済み。
 
 ### 残っている差（今回の修正の範囲外）
 
@@ -36,7 +37,7 @@ https://github.com/Latias94/merman 、MIT OR Apache-2.0）。ルートの `Cargo
 - `char::is_alphabetic()` は Unicode の Alphabetic 属性で、mermaid.js の `UNICODE_TEXT`（文字カテゴリ L*）より
   わずかに広い（結合記号の一部など）。日本語の範囲では差は無い。
 
-## 上流へ出す PR の下書き
+## 上流へ出した PR の本文（提出版は #146 を正とする。下は初稿）
 
 **Title**: `fix(flowchart): accept non-ASCII letters in node ids`
 
