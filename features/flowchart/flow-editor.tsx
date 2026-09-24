@@ -444,7 +444,7 @@ export function FlowEditor() {
   useDesktopOpen<ParsedMermaidData>("flowchart", handleImportMermaid);
 
   return (
-    <Box h="100vh" w="full">
+    <Box h="var(--lorelei-editor-h, 100vh)" w="full">
       <ReactFlow
         nodes={nodes}
         edges={edges}

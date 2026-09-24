@@ -168,7 +168,8 @@ GuiCommands:
   open_event: "lorelei://open-pending (本体を持たない合図)"
   open_request: "{ source, payload: EditorPayload | null, dropped, error: string | null }"
   export_diagram: "(source, format: svg|png|pdf, fileStem) → 保存したパス | null (取り消し)。保存ダイアログは rfd。上書きの確認は OS のダイアログが行う"
-  about: "メニューの ヘルプ → Lorelei について。ライセンスの全文は bundle.resources で licenses/ に同梱"
+  show_about: "() → ()。About (rfd の MessageDialog) を出す。入口はタイトルバーの「?」(spec 02 D5。ネイティブのメニューは持たない)。フォーク元への謝辞とライセンス一覧を載せ、全文は bundle.resources で licenses/ に同梱"
+  window: "自作タイトルバーのウィンドウ操作は @tauri-apps/api/window (minimize / toggleMaximize / close / data-tauri-drag-region)。権限は capabilities/default.json の core:window:*"
 
 EditorInbox:
   description: open_in_editor が GUI へ渡すファイルの置き場

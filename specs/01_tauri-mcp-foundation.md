@@ -306,7 +306,7 @@ ASCII 英数字と `_` しか ID に取らないバイト単位の実装であ�
   - GUI が起動していない状態から `open_in_editor` → GUI が立ち上がり図が載る。`dropped` の警告が通知で出る（閉じるまで残る）
   - フローチャート画面を開いたまま ER 図を送る → ER 図のページへ移動して載る。窓は 1 つのまま
   - GUI のコード表示ダイアログの PDF ボタン → OS の保存ダイアログ（rfd）→ 保存。埋め込みフォントは NotoSansJP-Regular のみ
-  - ヘルプ → Lorelei について → ライセンス一覧（rfd の MessageDialog）
+  - ヘルプ → Lorelei について → ライセンス一覧（rfd の MessageDialog）。※ spec 02 P1 でネイティブのメニューを撤去し、入口はタイトルバーの「?」に移った
 - **About とライセンス**: フォーク元の画面は変えず、Tauri のネイティブメニューから出す。ライセンスの全文
   （Lorelei / フォーク元の MIT、Noto Sans JP の OFL、merman の MIT / Apache）は `bundle.resources` で `licenses/` に同梱。
   **依存する Rust crate 全体の第三者ライセンス一覧（cargo-about 等）は配布の spec へ回す**

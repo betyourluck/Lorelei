@@ -67,12 +67,6 @@ pub fn run_gui() {
             }
         }))
         .manage(PendingOpens::default())
-        .menu(desktop::menu)
-        .on_menu_event(|app, event| {
-            if event.id() == desktop::MENU_ABOUT {
-                desktop::show_about(app);
-            }
-        })
         .setup(|app| {
             if let Some(inbox) = lorelei_core::paths::inbox_dir() {
                 sweep_inbox(&inbox, INBOX_MAX_AGE);
@@ -82,7 +76,8 @@ pub fn run_gui() {
         })
         .invoke_handler(tauri::generate_handler![
             take_pending_open,
-            desktop::export_diagram
+            desktop::export_diagram,
+            desktop::show_about
         ])
         .run(tauri::generate_context!())
         .expect("Lorelei の起動に失敗しました");
@@ -298,6 +293,8 @@ mod tests {
             "Apache-2.0",
             "Open Font License",
             "Reserved Font Name 'Source'",
+            // フォーク元の GitHub メニューを隠すので、上流への謝辞は About が持つ (spec 02 D2)
+            "https://github.com/illionillion/mermaid-editor",
         ] {
             assert!(text.contains(needle), "{needle}");
         }

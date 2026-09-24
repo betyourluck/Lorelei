@@ -49,17 +49,10 @@ fn parse_format(format: &str) -> Result<RenderFormat, String> {
     }
 }
 
-pub const MENU_ABOUT: &str = "about";
-
-/// アプリのメニュー (ヘルプ → Lorelei について)。フォーク元の画面には手を入れずに About を出す。
-pub fn menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
-    use tauri::menu::{Menu, MenuItem, Submenu};
-    let about = MenuItem::with_id(app, MENU_ABOUT, "Lorelei について", true, None::<&str>)?;
-    let help = Submenu::with_items(app, "ヘルプ", true, &[&about])?;
-    Menu::with_items(app, &[&help])
-}
-
-pub fn show_about(app: &AppHandle) {
+/// About を出す。入口はタイトルバーの「?」(spec 02 D5)。ネイティブのメニューは持たない —
+/// decorations: false にすると Windows ではメニューバーごと消えるため (spec 02 P0-2)。
+#[tauri::command]
+pub fn show_about(app: AppHandle) {
     let window = app.get_webview_window("main");
     let text = about_text(env!("CARGO_PKG_VERSION"));
     std::thread::spawn(move || {
@@ -78,7 +71,8 @@ pub fn show_about(app: &AppHandle) {
 pub fn about_text(version: &str) -> String {
     format!(
         "Lorelei {version}\n\
-         AI が書いた Mermaid を検査・描画・書き出しし、GUI で手直しするアプリです。\n\n\
+         AI が書いた Mermaid を検査・描画・書き出しし、GUI で手直しするアプリです。\n\
+         フォーク元: mermaid-editor (illionillion) https://github.com/illionillion/mermaid-editor\n\n\
          ライセンス\n\
          ・Lorelei / mermaid-editor (illionillion) — MIT License\n\
          ・merman (Latias94) — MIT OR Apache-2.0 (merman-core は修正版を同梱)\n\

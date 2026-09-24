@@ -299,7 +299,7 @@ export const ERDiagramEditor: FC = () => {
   });
 
   return (
-    <Box h="100vh" w="full">
+    <Box h="var(--lorelei-editor-h, 100vh)" w="full">
       <ReactFlow
         nodes={nodesWithHandlers}
         edges={edgesWithHandlers}

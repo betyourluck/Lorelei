@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import type { ReactNode } from "react";
 import { AppProviders } from "../components/providers";
+import { DesktopShell } from "../lib/desktop";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,7 +19,9 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={inter.className}>
-        <AppProviders>{children}</AppProviders>
+        <AppProviders>
+          <DesktopShell>{children}</DesktopShell>
+        </AppProviders>
       </body>
     </html>
   );
