@@ -107,7 +107,7 @@ impl Store {
         Self { root }
     }
 
-    /// 実際の置き場 `{app_data_dir}`。MCP 側 (inbox) と同じ組み立て方
+    /// 実際の置き場 `{app_data_dir}` (lorelei_core::paths::app_data_dir。Tauri の app_data_dir と一致)
     pub fn open_default() -> Option<Self> {
         lorelei_core::paths::app_data_dir().map(Self::new)
     }

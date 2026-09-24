@@ -25,9 +25,9 @@ serde_json = "1"
 thiserror = "2"
 dirs = "6"
 uuid = { version = "1", features = ["v4"] }
-# Fuseforks と同じ 2.2 系。stdio のサーバーだけなので transport-io を足す (HTTP は開けない: spec 01 設計の核)
-rmcp = { version = "2.2", features = ["transport-io"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std"] }
+# Fuseforks と同じ 2.2 系。GUI の中の Streamable HTTP の features は lorelei_mcp が足す (spec 03)
+rmcp = "2.2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 base64 = "0.22"
 
 # merman-core 0.8.0-alpha.6 は日本語などのノード ID を拒否する (mermaid.js は受け付ける)。

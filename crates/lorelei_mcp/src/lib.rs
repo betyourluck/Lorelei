@@ -1,13 +1,10 @@
 //! Lorelei の MCP サーバー。ツールの入出力の正は data_contract `McpServer.tools`。
 //!
-//! - **HTTP** (`start_http`, spec 03): GUI のプロセスの中で `127.0.0.1:{port}/mcp` に待ち受ける。
-//!   `open_in_editor` は `EditorPort` で GUI へじかに届ける
-//! - **stdio** (`run_stdio`, spec 01): `lorelei --mcp`。spec 03 P3 で撤去する。
-//!   **stdout は JSON-RPC 専用** — このクレートは stdout へ何も書かない。GUI を起動する時も子プロセスに stdio を引き継がせない
+//! GUI のプロセスの中で `127.0.0.1:{port}/mcp` に Streamable HTTP で待ち受ける (`start_http`, spec 03)。
+//! `open_in_editor` は `EditorPort` で GUI へじかに届ける。stdio の `lorelei --mcp` は spec 03 P3 で撤去した。
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
-use std::process::{Command, Stdio};
 
 use base64::Engine as _;
 use lorelei_core::output::write_output;
@@ -18,7 +15,7 @@ use lorelei_core::{
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{CallToolResult, ContentBlock, ServerCapabilities, ServerInfo};
-use rmcp::{ErrorData, ServerHandler, ServiceExt, schemars, tool, tool_handler, tool_router};
+use rmcp::{ErrorData, ServerHandler, schemars, tool, tool_handler, tool_router};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -33,24 +30,6 @@ pub use http::{RunningHttp, start_http};
 pub trait EditorPort: Send + Sync + 'static {
     /// 図を GUI の一覧に新しい 1 件として足し、開く。届けられなかった理由は Err で返す (opened: false の reason になる)
     fn open(&self, source: String, title: Option<String>) -> Result<(), String>;
-}
-
-/// stdio の MCP で、GUI を別プロセスとして起動する口 (spec 01 D8)。spec 03 P3 で撤去する。
-#[derive(Debug, Clone, Default)]
-pub struct GuiLauncher {
-    /// GUI の実行ファイル。単一 exe 構成 (D1) では `current_exe()`。None なら GUI では開けない。
-    pub exe: Option<PathBuf>,
-    /// inbox の場所 (`lorelei_core::paths::inbox_dir()`)。None なら開けない
-    pub inbox: Option<PathBuf>,
-}
-
-/// stdin / stdout で MCP を喋る。クライアントが切断するまで戻らない。spec 03 P3 で撤去する。
-pub async fn run_stdio(launcher: GuiLauncher) -> Result<(), Box<dyn std::error::Error>> {
-    let service = LoreleiServer::new(Arc::new(launcher))
-        .serve(rmcp::transport::stdio())
-        .await?;
-    service.waiting().await?;
-    Ok(())
 }
 
 #[derive(Clone)]
@@ -217,7 +196,7 @@ impl LoreleiServer {
     #[tool(
         name = "open_in_editor",
         description = "Mermaid を Lorelei の GUI エディタで開き、人が手直しできるようにする。\
-                       対応は flowchart と erDiagram だけ。GUI が起動していなければ起動し、起動中ならその窓で開く。\
+                       対応は flowchart と erDiagram だけ。開いている Lorelei の窓に出る。\
                        図は GUI の図の一覧に新しい 1 件として足され、開いている図は上書きしない。title でその名前を付けられる。\
                        エディタで表現できない要素 (subgraph・classDef・style など) は dropped に件数が返る。"
     )]
@@ -341,64 +320,6 @@ pub fn open_in_editor(
     })
 }
 
-/// stdio の MCP (`lorelei --mcp`) が GUI へ届ける口: inbox に書いて GUI を `--open` で起動する。
-/// spec 03 P3 で stdio ごと撤去する
-impl EditorPort for GuiLauncher {
-    fn open(&self, source: String, title: Option<String>) -> Result<(), String> {
-        let exe = self.exe.as_ref().ok_or("GUI の実行ファイルが見つかりません")?;
-        let inbox = self
-            .inbox
-            .as_ref()
-            .ok_or("アプリのデータフォルダを決められません")?;
-        // { source, title } の JSON (spec 02 D8)。GUI は同じ型 (InboxItem) で読む
-        let file = inbox.join(format!(
-            "{}.{}",
-            uuid::Uuid::new_v4(),
-            lorelei_core::paths::INBOX_EXTENSION
-        ));
-        let item = lorelei_core::paths::InboxItem { source, title };
-        let body = serde_json::to_vec(&item).expect("InboxItem は常に JSON にできる");
-        std::fs::create_dir_all(inbox)
-            .and_then(|_| std::fs::write(&file, body))
-            .map_err(|e| format!("inbox に書けません ({}): {e}", inbox.display()))?;
-        spawn_gui(exe, &file).map_err(|e| {
-            let _ = std::fs::remove_file(&file);
-            format!("GUI を起動できません ({}): {e}", exe.display())
-        })
-    }
-}
-
-/// GUI を切り離して起動する。終了は待たない (D8)。
-fn spawn_gui(exe: &Path, file: &Path) -> std::io::Result<()> {
-    let mut cmd = Command::new(exe);
-    cmd.arg("--open")
-        .arg(file)
-        // MCP の stdio を引き継がせない (stdout に JSON-RPC 以外が混ざるのを防ぐ)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const DETACHED_PROCESS: u32 = 0x0000_0008;
-        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
-        const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
-        // MCP クライアントがジョブで子孫ごと終了させる場合でも GUI が残るよう、ジョブから抜ける。
-        // ジョブが抜けることを許していなければ spawn が失敗するので、抜けずに起動し直す
-        cmd.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB);
-        if cmd.spawn().is_ok() {
-            return Ok(());
-        }
-        cmd.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        cmd.process_group(0);
-    }
-    cmd.spawn().map(drop)
-}
-
 async fn blocking<T: Send + 'static>(
     f: impl FnOnce() -> T + Send + 'static,
 ) -> Result<T, ErrorData> {
@@ -422,59 +343,4 @@ fn core_error(e: &CoreError) -> CallToolResult {
         v["line"] = json!(p.line);
     }
     tool_error(v)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn scratch() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("lorelei-inbox-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&dir).unwrap();
-        dir
-    }
-
-    /// GUI の代わりに、このテストの実行ファイル自身を起動する (起動できること・inbox に書くことを見る)。
-    #[test]
-    fn open_writes_to_the_inbox_and_launches_the_gui() {
-        let inbox = scratch();
-        let launcher = GuiLauncher {
-            exe: Some(std::env::current_exe().unwrap()),
-            inbox: Some(inbox.clone()),
-        };
-        let r = open_in_editor(
-            "flowchart TD\n  subgraph S\n    A --> B\n  end\n",
-            Some("注文フロー".into()),
-            &launcher,
-        )
-        .unwrap();
-        assert!(r.opened, "{r:?}");
-        assert_eq!(r.editor, Some("flowchart"));
-        assert_eq!(r.dropped[0].construct, "subgraph");
-        let files: Vec<_> = std::fs::read_dir(&inbox).unwrap().flatten().collect();
-        assert_eq!(files.len(), 1);
-        // inbox は { source, title } の JSON (spec 02 D8)
-        let path = files[0].path();
-        assert_eq!(path.extension().unwrap(), "json");
-        let item: lorelei_core::paths::InboxItem =
-            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert!(item.source.contains("subgraph S"));
-        assert_eq!(item.title.as_deref(), Some("注文フロー"));
-        std::fs::remove_dir_all(inbox).unwrap();
-    }
-
-    #[test]
-    fn a_launch_failure_leaves_no_file_behind() {
-        let inbox = scratch();
-        let launcher = GuiLauncher {
-            exe: Some(inbox.join("no-such-gui.exe")),
-            inbox: Some(inbox.clone()),
-        };
-        let r = open_in_editor("erDiagram\n  A ||--o{ B : has\n", None, &launcher).unwrap();
-        assert!(!r.opened);
-        assert_eq!(r.editor, Some("erDiagram"));
-        assert!(r.reason.unwrap().contains("起動できません"));
-        assert_eq!(std::fs::read_dir(&inbox).unwrap().count(), 0);
-        std::fs::remove_dir_all(inbox).unwrap();
-    }
 }

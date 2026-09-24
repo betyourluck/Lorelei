@@ -1,13 +1,13 @@
 # Lorelei data contract — 実装より先にここが正。
 # 変更したら名前で全台帳を grep する (CLAUDE.md 掟)。
-# status: draft (spec 01 rev3, 2026-09-24)
+# status: draft (spec 01 rev3 → spec 02 → spec 03, 2026-09-25)
 
 version: 0.1.0
 
 AppIdentity:
   product_name: Lorelei
   identifier: jp.outcasts.lorelei   # app_data と WebView プロファイルの場所を決める。公開後は変更不可
-  single_instance: true             # 2 つ目の起動は argv を 1 つ目へ渡して終了する (open_in_editor の経路)
+  single_instance: true             # 2 つ目の起動は 1 つ目を前に出して終了する (同じ MCP のポートを取り合わない, spec 03 D5)
 
 DiagramSource:
   description: Mermaid のテキスト 1 本。1 ソース = 1 図
@@ -133,7 +133,7 @@ FontBundle:
   system_fonts: false   # システムフォントは読まない (端末ごとに出力が変わるのを防ぐ)
 
 McpServer:
-  transport: streamable_http   # spec 03 で stdio から移す。GUI のプロセスの中で待ち受ける (GUI を閉じていると使えない)
+  transport: streamable_http   # spec 03 で stdio から移した (stdio の lorelei --mcp・単体 bin lorelei-mcp は P3 で撤去)。GUI のプロセスの中で待ち受ける (GUI を閉じていると使えない)
   http:
     bind: "127.0.0.1:{port}"      # 固定。0.0.0.0 にしない (LAN へ出さない)
     path: /mcp
@@ -142,10 +142,6 @@ McpServer:
     host_check: "rmcp の既定 allowed_hosts (loopback 3 種)。DNS rebinding 対策"
     origin_check: "http://127.0.0.1:{port} と http://localhost:{port} だけ。Origin ヘッダの無い要求 (CLI のクライアント) は通す"
     editor_port: "open_in_editor が GUI へ図を届ける口 (lorelei_mcp::EditorPort)。lorelei_mcp は Tauri に依存しない"
-  stdio_legacy:                # spec 03 P3 で撤去する (撤去までは残す)
-    entry: "lorelei --mcp"     # tauri::Builder より前に分岐 (spec 01 P3)
-    stdout: json_rpc_only      # ログは全部 stderr
-    dev_binary: "lorelei-mcp (crates/lorelei_mcp)。開発・スモークテスト用。GUI の場所は環境変数 LORELEI_GUI_EXE"
   tool_errors: >-
     入力や規則の問題 (文法エラー・書き出し規則違反・png/pdf で output_path なし) は、プロトコルのエラーではなく
     ツール結果のエラー (isError: true, structuredContent: { error, line? }) で返す。呼ぶ側の AI が読んで直せるように
@@ -247,12 +243,8 @@ DocumentSummary:
 DocumentState:
   path: "{app_data_dir}/state.json"
   fields:
-    last_opened: { type: string, format: uuid, nullable: true }   # 起動時に開く図。無い・消えている時は updated_at が一番新しい図、1 件も無ければフローチャートを 1 件作る (D9)
+    last_opened: { type: string, format: uuid, nullable: true }   # 起動時に開く図。無い・消えている時は一覧の先頭 (最後に「保存」した図, spec 02 D12)、1 件も無ければフローチャートを 1 件作る (D9)
 
-EditorInbox:
-  description: open_in_editor が GUI へ渡すファイルの置き場
-  path: "{app_data_dir}/inbox/{uuid}.json"  # app_data_dir = dirs::data_dir()/AppIdentity.identifier (Tauri の app_data_dir() と一致をテストで固定)
-  format: "{ source: string, title: string | null }"   # lorelei_core::paths::InboxItem (MCP と GUI が同じ型で読み書きする)。spec 01 の {uuid}.mmd (本文だけ) は spec 02 P4 で廃止し、GUI は読まない
-  handoff: "lorelei --open <絶対パス>"        # MCP 側は GUI を切り離して起動し、終了を待たない
-  reader: rust                               # JS からは読まない (plugin-fs を入れない)。Rust が変換した EditorPayload をイベントでフロントへ
-  retention: GUI が読み込んだら削除。起動時に 24 時間より古いもの (.json と、移行期に残った .mmd) を掃除
+# EditorInbox ({app_data_dir}/inbox/{uuid}.json と lorelei --open) は spec 03 P3 で撤去した。
+# open_in_editor は GUI の中の HTTP の MCP から EditorPort でじかに届く (McpServer.http.editor_port)。
+# 既に残っている inbox/ のファイルは誰も読まない (利用者裁定 2026-09-25: 放置でよい)

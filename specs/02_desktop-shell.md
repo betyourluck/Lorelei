@@ -5,7 +5,7 @@
 **Status**: **Done**（2026-09-25。rev4 → P0〜P4 着地。受け入れ条件 1 の配布ビルドでの確認と 3 の VRT は残したまま閉じる（利用者裁定）— 「受け入れ条件の結果」節。rev4: 「保存」の手順 (D12)、rev3: 種類の切り替え (D11)。査読 2 件の採否は末尾）
 **Branch**: なし（Phase 単位で main へ直接コミット）
 
-> **後継**: MCP を GUI の中の HTTP へ移す [spec 03](03_http-mcp-in-gui.md) で、この spec の D8 の inbox（`{uuid}.json`・`--open`）は撤去する予定。
+> **後継**: MCP を GUI の中の HTTP へ移す [spec 03](03_http-mcp-in-gui.md) の P3 で、この spec の D8 の inbox（`{uuid}.json`・`--open`）は撤去した。
 
 ## Goal
 

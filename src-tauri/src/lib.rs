@@ -1,17 +1,12 @@
-//! Lorelei のデスクトップ殻 (spec 01 P3)。
-//!
-//! - `lorelei --mcp`: MCP サーバー (stdio)。本体は `lorelei_mcp`
-//! - `lorelei [--open <inbox のファイル>]`: GUI。2 つ目の起動は single-instance が argv を 1 つ目へ渡して終わる
+//! Lorelei のデスクトップ殻。GUI と、その中で待ち受ける MCP (spec 03)。
+//! single-instance なので 2 つ目の起動は 1 つ目を前に出して終わる (同じポートを取り合わない)。
 
 mod desktop;
 mod documents;
 mod mcp_host;
 
-use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::time::{Duration, SystemTime};
 
-use lorelei_core::paths::{INBOX_EXTENSION, InboxItem};
 use lorelei_core::{DroppedItem, EditorPayload};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
@@ -19,31 +14,6 @@ use tauri::{AppHandle, Emitter, Manager};
 /// フロントへ「開く図が届いた」ことを知らせるイベント。本体は `take_pending_open` で取りに来る
 /// (初回起動時はフロントの読み込み前に届くので、イベントだけだと取りこぼす)。
 pub const OPEN_EVENT: &str = "lorelei://open-pending";
-
-/// クラッシュ等で残った inbox のファイルを捨てる目安 (spec 01 D8)。
-const INBOX_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
-
-/// MCP モード。戻り値はプロセスの終了コード。stdout は JSON-RPC 専用なので、失敗は stderr へ。
-pub fn run_mcp() -> i32 {
-    let launcher = lorelei_mcp::GuiLauncher {
-        exe: std::env::current_exe().ok(),
-        inbox: lorelei_core::paths::inbox_dir(),
-    };
-    let runtime = match tokio::runtime::Runtime::new() {
-        Ok(rt) => rt,
-        Err(e) => {
-            eprintln!("lorelei --mcp: {e}");
-            return 1;
-        }
-    };
-    match runtime.block_on(lorelei_mcp::run_stdio(launcher)) {
-        Ok(()) => 0,
-        Err(e) => {
-            eprintln!("lorelei --mcp: {e}");
-            1
-        }
-    }
-}
 
 /// GUI へ届いた「開く図」1 件。フロントは editor ごとに既存の取り込み処理へ data を渡す。
 #[derive(Debug, Clone, Serialize)]
@@ -98,8 +68,8 @@ fn store() -> Result<documents::Store, String> {
 pub fn run_gui() {
     tauri::Builder::default()
         // single-instance は最初に登録する (プラグインの要求)
-        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            accept_argv(app, argv.into_iter());
+        // 2 つ目の起動は 1 つ目を前に出して終わる。図の受け渡しは MCP (HTTP) がじかに行うので argv は読まない (spec 03 D5)
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
                 let _ = window.set_focus();
@@ -107,10 +77,6 @@ pub fn run_gui() {
         }))
         .manage(PendingOpens::default())
         .setup(|app| {
-            if let Some(inbox) = lorelei_core::paths::inbox_dir() {
-                sweep_inbox(&inbox, INBOX_MAX_AGE);
-            }
-            accept_argv(app.handle(), std::env::args());
             // MCP の待ち受け (spec 03 D2: 既定で ON)。失敗しても GUI は起動する (状態として見せる)
             let editor = std::sync::Arc::new(GuiEditor(app.handle().clone()));
             let host = mcp_host::McpHost::new(mcp_host::ConfigStore::load_default(), editor);
@@ -306,31 +272,6 @@ async fn regenerate_mcp_token(
     Ok(status)
 }
 
-/// argv の `--open <path>` を拾って溜め、フロントへ知らせる。
-fn accept_argv(app: &AppHandle, argv: impl Iterator<Item = String>) {
-    let Some(path) = open_arg(argv) else { return };
-    let request = match (lorelei_core::paths::inbox_dir(), store()) {
-        (Some(inbox), Ok(store)) => match read_inbox(&path, &inbox) {
-            Ok(item) => incoming(&store, item.source, documents::Origin::Ai, item.title),
-            Err(e) => OpenRequest::failed(String::new(), e),
-        },
-        _ => OpenRequest::failed(
-            String::new(),
-            "アプリのデータフォルダを決められません".into(),
-        ),
-    };
-    push_open(app, request);
-}
-
-fn open_arg(mut argv: impl Iterator<Item = String>) -> Option<PathBuf> {
-    while let Some(arg) = argv.next() {
-        if arg == "--open" {
-            return argv.next().map(PathBuf::from);
-        }
-    }
-    None
-}
-
 impl OpenRequest {
     fn failed(source: String, error: String) -> Self {
         Self {
@@ -340,21 +281,6 @@ impl OpenRequest {
             error: Some(error),
             document: None,
         }
-    }
-}
-
-/// inbox のファイルを読んで消す (spec 01 D8)。
-fn read_inbox(path: &Path, inbox: &Path) -> Result<InboxItem, String> {
-    let text = read_inbox_file(path, inbox)?;
-    let _ = std::fs::remove_file(path);
-    serde_json::from_str(&text).map_err(|e| format!("inbox のファイルが壊れています: {e}"))
-}
-
-/// inbox のファイルを読み、エディタのデータ形へ変換し、ファイルを消す (spec 01 D8)。一覧には足さない
-pub fn open_request(path: &Path, inbox: &Path) -> OpenRequest {
-    match read_inbox(path, inbox) {
-        Ok(item) => request_from_source(item.source),
-        Err(e) => OpenRequest::failed(String::new(), e),
     }
 }
 
@@ -374,59 +300,12 @@ pub fn request_from_source(source: String) -> OpenRequest {
     }
 }
 
-/// `--open` で渡されたパスが inbox の中の `.json` である時だけ読む (spec 02 D8。spec 01 の `.mmd` は読まない)。
-/// argv は誰でも渡せるので、任意のファイルを読む口にしない。
-fn read_inbox_file(path: &Path, inbox: &Path) -> Result<String, String> {
-    let file = path
-        .canonicalize()
-        .map_err(|e| format!("開くファイルが見つかりません ({}): {e}", path.display()))?;
-    let inbox = inbox
-        .canonicalize()
-        .map_err(|e| format!("inbox が見つかりません ({}): {e}", inbox.display()))?;
-    let in_inbox = file.parent() == Some(inbox.as_path());
-    let is_item = file.extension().is_some_and(|e| e == INBOX_EXTENSION);
-    if !in_inbox || !is_item {
-        return Err(format!(
-            "inbox の外のファイルは開きません: {}",
-            path.display()
-        ));
-    }
-    std::fs::read_to_string(&file).map_err(|e| format!("読めません ({}): {e}", file.display()))
-}
-
-/// 古い inbox のファイルを捨てる。GUI が読む前に落ちた分の後始末。
-pub fn sweep_inbox(inbox: &Path, max_age: Duration) {
-    let Ok(entries) = std::fs::read_dir(inbox) else {
-        return;
-    };
-    let now = SystemTime::now();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let old = entry
-            .metadata()
-            .and_then(|m| m.modified())
-            .ok()
-            .and_then(|t| now.duration_since(t).ok())
-            .is_some_and(|age| age > max_age);
-        // spec 01 の形式 (.mmd) の取り残しも一緒に捨てる
-        if old && path.extension().is_some_and(|e| e == INBOX_EXTENSION || e == "mmd") {
-            let _ = std::fs::remove_file(path);
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn scratch() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "lorelei-gui-{}",
-            SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
+    fn scratch() -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("lorelei-gui-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -460,9 +339,9 @@ mod tests {
         assert_eq!(store.list().unwrap().len(), 1);
     }
 
-    /// MCP モードは Tauri を使わずに inbox の場所を組み立てる。Tauri の app_data_dir() と一致すること (D8)。
+    /// 図の一覧と MCP の設定は lorelei_core の app_data_dir() に置く。Tauri の app_data_dir() と一致すること
     #[test]
-    fn inbox_location_matches_tauri_app_data_dir() {
+    fn app_data_dir_matches_tauri() {
         let app = tauri::test::mock_builder()
             .build(tauri::generate_context!())
             .expect("mock app");
@@ -470,75 +349,23 @@ mod tests {
         assert_eq!(Some(tauri_dir), lorelei_core::paths::app_data_dir());
     }
 
-    #[test]
-    fn open_arg_takes_the_path_after_the_flag() {
-        let argv = ["lorelei", "--open", "C:/x/a.json"].map(String::from);
-        assert_eq!(
-            open_arg(argv.into_iter()),
-            Some(PathBuf::from("C:/x/a.json"))
-        );
-        assert_eq!(open_arg(["lorelei"].map(String::from).into_iter()), None);
-        assert_eq!(
-            open_arg(["lorelei", "--open"].map(String::from).into_iter()),
-            None
-        );
-    }
-
-    fn write_item(path: &Path, source: &str, title: Option<&str>) {
-        let item = lorelei_core::paths::InboxItem {
-            source: source.into(),
-            title: title.map(Into::into),
-        };
-        std::fs::write(path, serde_json::to_string(&item).unwrap()).unwrap();
-    }
-
-    #[test]
-    fn open_request_converts_and_consumes_the_inbox_file() {
-        let inbox = scratch();
-        let file = inbox.join("a.json");
-        write_item(&file, "flowchart TD\n  subgraph S\n    A --> B\n  end\n", None);
-        let r = open_request(&file, &inbox);
-        assert!(r.error.is_none(), "{r:?}");
-        assert!(matches!(r.payload, Some(EditorPayload::Flowchart { .. })));
-        assert_eq!(r.dropped[0].construct, "subgraph");
-        assert!(!file.exists(), "読んだファイルが残っている");
-        std::fs::remove_dir_all(inbox).unwrap();
-    }
-
     // MCP の open_in_editor の title が図の名前になる (spec 02 D8)
     #[test]
-    fn inbox_title_names_the_new_document() {
-        let inbox = scratch();
+    fn title_names_the_new_document() {
         let store = documents::Store::new(scratch());
-        let file = inbox.join("b.json");
-        write_item(&file, "flowchart TD\n  A --> B\n", Some("注文フロー"));
-        let item = read_inbox(&file, &inbox).unwrap();
-        let r = incoming(&store, item.source, documents::Origin::Ai, item.title);
+        let r = incoming(&store, "flowchart TD\n  A --> B\n".into(), documents::Origin::Ai, Some("注文フロー".into()));
         assert_eq!(r.document.unwrap().title, "注文フロー");
 
         let untitled = incoming(&store, "flowchart TD\n  A --> B\n".into(), documents::Origin::Ai, None);
         assert!(untitled.document.unwrap().title.starts_with("AI の図 "));
-        std::fs::remove_dir_all(inbox).unwrap();
     }
 
     #[test]
-    fn files_outside_the_inbox_or_not_json_are_refused() {
-        let inbox = scratch();
-        let outside = scratch();
-        let secret = outside.join("secret.json");
-        write_item(&secret, "flowchart TD\n  A --> B\n", None);
-        let txt = inbox.join("note.txt");
-        std::fs::write(&txt, "flowchart TD\n  A --> B\n").unwrap();
-        // spec 01 の形式 (本文だけの .mmd) は読まない。移行期に残った分は起動時の掃除で消える
-        let old = inbox.join("old.mmd");
-        std::fs::write(&old, "flowchart TD\n  A --> B\n").unwrap();
-        for path in [&secret, &txt, &old] {
-            let r = open_request(path, &inbox);
-            assert!(r.error.unwrap().contains("inbox の外"), "{path:?}");
-            assert!(path.exists(), "拒否したのにファイルを消した: {path:?}");
-        }
-        std::fs::remove_dir_all(inbox).unwrap();
-        std::fs::remove_dir_all(outside).unwrap();
+    fn a_converted_request_reports_what_the_editor_drops() {
+        let r = request_from_source("flowchart TD\n  subgraph S\n    A --> B\n  end\n".into());
+        assert!(r.error.is_none(), "{r:?}");
+        assert!(matches!(r.payload, Some(EditorPayload::Flowchart { .. })));
+        assert_eq!(r.dropped[0].construct, "subgraph");
     }
 
     #[test]
@@ -625,32 +452,5 @@ mod tests {
         ] {
             assert!(text.contains(needle), "{needle}");
         }
-    }
-
-    #[test]
-    fn sweep_removes_only_old_inbox_files() {
-        let inbox = scratch();
-        let old = inbox.join("old.json");
-        let old_mmd = inbox.join("old.mmd"); // spec 01 の形式の取り残し
-        let fresh = inbox.join("fresh.json");
-        let other = inbox.join("old.txt");
-        for p in [&old, &old_mmd, &fresh, &other] {
-            std::fs::write(p, "x").unwrap();
-        }
-        let two_days_ago = SystemTime::now() - Duration::from_secs(2 * 24 * 60 * 60);
-        for p in [&old, &old_mmd, &other] {
-            std::fs::File::options()
-                .write(true)
-                .open(p)
-                .unwrap()
-                .set_modified(two_days_ago)
-                .unwrap();
-        }
-        sweep_inbox(&inbox, INBOX_MAX_AGE);
-        assert!(!old.exists());
-        assert!(!old_mmd.exists());
-        assert!(fresh.exists());
-        assert!(other.exists(), "inbox の形式以外は触らない");
-        std::fs::remove_dir_all(inbox).unwrap();
     }
 }

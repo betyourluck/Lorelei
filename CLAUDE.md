@@ -10,21 +10,22 @@ Rust + Tauri 2 の殻を被せる。
 AI 側であり、Lorelei は受け取った Mermaid の**検査・描画・書き出し・GUI での手直し**だけを受け持つ。
 Lorelei は DB にもリポジトリにも繋がない（秘密を置く欄を構造上持たない）。
 
-## アーキテクチャ（spec 01 で確定）
+## アーキテクチャ（spec 01 → spec 03 で MCP を GUI の中の HTTP へ移した）
 
 ```text
-Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core（検査・描画・書き出し。純 Rust）
-                                             └─ open_in_editor ──▶ inbox ──▶ 動いている GUI（Tauri、single-instance）
-                                                                              └─ フォーク元の React エディタ（lib/desktop が受け口）
+Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いている GUI（Tauri、single-instance）
+                                                          ├─ lorelei_mcp（待ち受け・ツール 3 本）─ lorelei_core（検査・描画・書き出し。純 Rust）
+                                                          └─ open_in_editor ─ EditorPort ─▶ 図の一覧に 1 件 ─▶ フォーク元の React エディタ（lib/desktop が受け口）
 ```
 
 - **`crates/lorelei_core`**: merman で Mermaid → SVG。PNG / PDF への変換は自前（usvg + resvg / krilla-svg に
   **同梱フォント**を渡す — merman-export はフォント DB を差し替えられず、日本語が太字へ落ちるため）
-- **`crates/lorelei_mcp`**: stdio の MCP サーバー（rmcp 2.2）のライブラリ。ツールは 3 本。`src-tauri` の `main()` が
-  `tauri::Builder` より前に `--mcp` を判定して呼ぶ（P3）。**stdout は JSON-RPC 専用、ログは stderr**。
-  開発・スモークテスト用に単体 bin `lorelei-mcp` もある
-- **`src-tauri/`**: GUI。workspace の外に置く（AppPromoVideo / Kataribe と同じ流儀）。1 つの exe が GUI と
-  `--mcp` を兼ねる。保存ダイアログと About は rfd（JS に権限を足さない）。CSP は style-src の自動ハッシュ追記を止めている
+- **`crates/lorelei_mcp`**: MCP サーバー（rmcp 2.2 の Streamable HTTP + axum）のライブラリ。ツールは 3 本。
+  `start_http` で `127.0.0.1` だけに待ち受け、トークン・Host・Origin を検査する。GUI へは `EditorPort` で届ける（Tauri に依存しない）。
+  **GUI を閉じていると MCP は使えない**（stdio の `lorelei --mcp` は spec 03 P3 で撤去）
+- **`src-tauri/`**: GUI。workspace の外に置く（AppPromoVideo / Kataribe と同じ流儀）。起動時に MCP を待ち受ける（既定で ON、
+  設定は `{app_data_dir}/mcp_server.json`、設定画面から切り替え）。保存ダイアログと About は rfd（JS に権限を足さない）。
+  CSP は style-src の自動ハッシュ追記を止めている
 - **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは spec 01 の 4 ファイル・8 行 + spec 02 の 5 ファイル・12 行（`app/layout.tsx` の外枠、エディタ 2 つの高さ、パネル 2 つの `useDesktopActions`。重なりを除いて計 7 ファイル）
 - **フロント（`app/` `features/` `components/`）**: フォーク元のコード。直してよい（下の掟の「フォーク元は必要なら直してよい」）
 
@@ -47,7 +48,7 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 
 | 知りたいこと | 読む場所 |
 |---|---|
-| 使う人向けの説明（ビルド・.mcp.json・ツール・既知の制約） | [LORELEI.md](LORELEI.md)（README からは 1 行で案内） |
+| 使う人向けの説明（ビルド・Claude Code への登録・ツール・既知の制約） | [LORELEI.md](LORELEI.md)（README からは 1 行で案内） |
 | 名詞・型・MCP ツールの入出力 | [data_contract.yaml](data_contract.yaml) |
 | 決定事項と Phase 計画 | `specs/NN_*.md`（起票 → 査読 → rev 改訂 → Phase 単位で main へ直接コミット） |
 | 踏んだ罠（症状 → 真因 → 処方 → 一般化） | [failures.md](failures.md) |

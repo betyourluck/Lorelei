@@ -184,6 +184,21 @@ axum 0.8 で `127.0.0.1:39642/mcp` に立てた。トークンは固定値（`Au
   **利用者が確認**: 「● MCP」と歯車のどちらからも設定画面が開く / 登録コマンドのコピー / 切ると止まる
 - 途中で `next dev` が 3001 で立ち上がり画面が読み込まれないことが 1 回あった。前に止めた dev 版の Next の残りが 3000 を握っていた（コードの問題ではない）
 
+## P3 結果（2026-09-25）
+
+- 撤去したもの: `src-tauri` の `run_mcp` と `main()` の `--mcp` の分岐 / `accept_argv`・`open_arg`・`read_inbox`・`read_inbox_file`・`open_request`・`sweep_inbox`・`INBOX_MAX_AGE`
+  （single-instance は残し、2 つ目の起動は 1 つ目を前に出すだけにした）/ `lorelei_mcp` の `run_stdio`・`GuiLauncher`・`spawn_gui` と stdio のテスト 2 件 /
+  単体 bin `lorelei-mcp`（`src/main.rs`）と `tests/smoke.rs`（stdio のスモークテスト。役目は `tests/http.rs` に移っている）/
+  `lorelei_core::paths` の `inbox_dir`・`INBOX_EXTENSION`・`InboxItem` / リポジトリの `.mcp.json` / 依存の `rmcp` の `transport-io`・`tokio` の `io-std`・`lorelei_mcp` の `uuid`
+- 書き直したテスト: inbox を通していた 2 件を、`incoming` と `request_from_source` を直接呼ぶ形にした（`title_names_the_new_document` / `a_converted_request_reports_what_the_editor_drops`）。
+  `inbox_location_matches_tauri_app_data_dir` は `app_data_dir_matches_tauri` に改名して残した（図の一覧と MCP の設定の置き場の一致を守る）
+- 直した台帳: CLAUDE.md（アーキテクチャ節・案内表）、data_contract（`McpServer` から `stdio_legacy` を外す・`EditorInbox` を撤去の注記に・`AppIdentity.single_instance`・
+  ついでに D12 以前のままだった `DocumentState.last_opened` の既定）、LORELEI.md（登録手順を設定画面の登録コマンドに書き直し・`open_in_editor` の説明）、
+  spec 02 の後継の注記、`open_in_editor` のツールの説明文（「GUI が起動していなければ起動し」を削除）、capabilities と documents.rs のコメント
+- 残した inbox のファイル: 誰も読まない（利用者裁定 2026-09-25: 放置でよい）
+- 受け入れ条件 8: 撤去した名前で grep すると、残るのは「撤去した」という経緯の注記と無関係な識別子（入力欄の id、テストの一時フォルダ名）だけ。spec の本文（当時の記録）は除く
+- Rust はワークスペース・src-tauri（29 件）とも緑、clippy 警告 0。実機（`tauri dev`）: 起動すると 39642 で待ち受け、トークン付きの `validate` が `ok: true`
+
 ## 受け入れ条件
 
 1. GUI を起動すると `127.0.0.1:39642/mcp` で待ち受け、Claude Code から `validate` / `render` / `open_in_editor` が使える
