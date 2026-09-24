@@ -57,8 +57,9 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
-- 2026-09-25: [spec 02](specs/02_desktop-shell.md) rev4（デスクトップの外枠 = 自作タイトルバー・ツールバー・図の一覧・「保存」）。P0〜P4 着地。
-  残りは受け入れ条件 1（配布ビルドのタイトルバー）と 3（VRT）の確認。読み戻しは spec 03 へ繰り下げ。図の一覧は `{app_data_dir}/documents/` を Rust だけが読み書きする
+- 2026-09-25: [spec 03](specs/03_http-mcp-in-gui.md) rev1 承認（MCP を GUI の中の HTTP へ移す）。P0 から。読み戻しは spec 04 へ
+- 2026-09-25: [spec 02](specs/02_desktop-shell.md) **Done** — rev4（デスクトップの外枠 = 自作タイトルバー・ツールバー・図の一覧・「保存」）。P0〜P4 着地。
+  受け入れ条件 1（配布ビルドのタイトルバー）と 3（VRT）は未確認のまま閉じた。図の一覧は `{app_data_dir}/documents/` を Rust だけが読み書きする
 - 開発コマンド: フロントの依存は `corepack pnpm@9 install --ignore-scripts`（pnpm が無い環境でも corepack で足りる。
   lefthook の hooks は入れていない）。GUI は `corepack pnpm@9 exec tauri dev` / `... tauri build --no-bundle`。
   Rust は `cargo test --workspace`（core / mcp）と `cd src-tauri && cargo test`（GUI の殻、独立 project）
