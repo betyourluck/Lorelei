@@ -155,7 +155,9 @@ McpServer:
         preview: { type: bool, default: true }           # PNG を MCP image content でも返す (AI が目で検める用)。長辺 1568px 以内へ縮小。既定 true は利用者 FB 2026-09-24 (spec 01 D2)
       output: RenderResult
     open_in_editor:
-      input: { source: string }
+      input:
+        source: string
+        title: { type: string, nullable: true }   # GUI の図の一覧での名前 (spec 02 D8)。省略・空白だけなら「AI の図 HH:MM:SS」。届いた図は新しい 1 件になり、開いている図は上書きしない
       output:
         opened: bool
         editor: { enum: [flowchart, erDiagram], nullable: true }
@@ -216,7 +218,8 @@ DocumentState:
 
 EditorInbox:
   description: open_in_editor が GUI へ渡すファイルの置き場
-  path: "{app_data_dir}/inbox/{uuid}.mmd"   # app_data_dir = dirs::data_dir()/AppIdentity.identifier (Tauri の app_data_dir() と一致をテストで固定)
+  path: "{app_data_dir}/inbox/{uuid}.json"  # app_data_dir = dirs::data_dir()/AppIdentity.identifier (Tauri の app_data_dir() と一致をテストで固定)
+  format: "{ source: string, title: string | null }"   # lorelei_core::paths::InboxItem (MCP と GUI が同じ型で読み書きする)。spec 01 の {uuid}.mmd (本文だけ) は spec 02 P4 で廃止し、GUI は読まない
   handoff: "lorelei --open <絶対パス>"        # MCP 側は GUI を切り離して起動し、終了を待たない
   reader: rust                               # JS からは読まない (plugin-fs を入れない)。Rust が変換した EditorPayload をイベントでフロントへ
-  retention: GUI が読み込んだら削除。起動時に 24 時間より古いものを掃除
+  retention: GUI が読み込んだら削除。起動時に 24 時間より古いもの (.json と、移行期に残った .mmd) を掃除

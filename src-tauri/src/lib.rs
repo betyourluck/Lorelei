@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
+use lorelei_core::paths::{INBOX_EXTENSION, InboxItem};
 use lorelei_core::{DroppedItem, EditorPayload};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
@@ -67,12 +68,18 @@ fn editor_of(payload: &EditorPayload) -> documents::Editor {
 }
 
 /// 届いた図を変換し、開ける時だけ一覧に新しい 1 件を作る。今開いている図は上書きしない (spec 02 P3 の設計の補足 1)
-fn incoming(store: &documents::Store, source: String, origin: documents::Origin) -> OpenRequest {
+/// `title` は MCP の open_in_editor で AI が付けた名前 (無ければ既定の名前, spec 02 D8)
+fn incoming(
+    store: &documents::Store,
+    source: String,
+    origin: documents::Origin,
+    title: Option<String>,
+) -> OpenRequest {
     let mut request = request_from_source(source);
     let Some(payload) = &request.payload else {
         return request;
     };
-    match store.create(editor_of(payload), None, origin, Some(request.source.clone())) {
+    match store.create(editor_of(payload), title, origin, Some(request.source.clone())) {
         Ok(doc) => request.document = Some((&doc).into()),
         Err(e) => {
             request.payload = None;
@@ -134,7 +141,7 @@ fn take_pending_open(state: tauri::State<'_, PendingOpens>) -> Vec<OpenRequest> 
 /// 失敗や省いた要素の通知もそちらに揃う。
 #[tauri::command]
 fn import_source(app: AppHandle, source: String) -> Result<(), String> {
-    push_open(&app, incoming(&store()?, source, documents::Origin::Import));
+    push_open(&app, incoming(&store()?, source, documents::Origin::Import, None));
     Ok(())
 }
 
@@ -210,7 +217,7 @@ fn accept_argv(app: &AppHandle, argv: impl Iterator<Item = String>) {
     let Some(path) = open_arg(argv) else { return };
     let request = match (lorelei_core::paths::inbox_dir(), store()) {
         (Some(inbox), Ok(store)) => match read_inbox(&path, &inbox) {
-            Ok(source) => incoming(&store, source, documents::Origin::Ai),
+            Ok(item) => incoming(&store, item.source, documents::Origin::Ai, item.title),
             Err(e) => OpenRequest::failed(String::new(), e),
         },
         _ => OpenRequest::failed(
@@ -243,16 +250,16 @@ impl OpenRequest {
 }
 
 /// inbox のファイルを読んで消す (spec 01 D8)。
-fn read_inbox(path: &Path, inbox: &Path) -> Result<String, String> {
-    let source = read_inbox_file(path, inbox)?;
+fn read_inbox(path: &Path, inbox: &Path) -> Result<InboxItem, String> {
+    let text = read_inbox_file(path, inbox)?;
     let _ = std::fs::remove_file(path);
-    Ok(source)
+    serde_json::from_str(&text).map_err(|e| format!("inbox のファイルが壊れています: {e}"))
 }
 
 /// inbox のファイルを読み、エディタのデータ形へ変換し、ファイルを消す (spec 01 D8)。一覧には足さない
 pub fn open_request(path: &Path, inbox: &Path) -> OpenRequest {
     match read_inbox(path, inbox) {
-        Ok(source) => request_from_source(source),
+        Ok(item) => request_from_source(item.source),
         Err(e) => OpenRequest::failed(String::new(), e),
     }
 }
@@ -273,7 +280,7 @@ pub fn request_from_source(source: String) -> OpenRequest {
     }
 }
 
-/// `--open` で渡されたパスが inbox の中の `.mmd` である時だけ読む。
+/// `--open` で渡されたパスが inbox の中の `.json` である時だけ読む (spec 02 D8。spec 01 の `.mmd` は読まない)。
 /// argv は誰でも渡せるので、任意のファイルを読む口にしない。
 fn read_inbox_file(path: &Path, inbox: &Path) -> Result<String, String> {
     let file = path
@@ -283,8 +290,8 @@ fn read_inbox_file(path: &Path, inbox: &Path) -> Result<String, String> {
         .canonicalize()
         .map_err(|e| format!("inbox が見つかりません ({}): {e}", inbox.display()))?;
     let in_inbox = file.parent() == Some(inbox.as_path());
-    let is_mmd = file.extension().is_some_and(|e| e == "mmd");
-    if !in_inbox || !is_mmd {
+    let is_item = file.extension().is_some_and(|e| e == INBOX_EXTENSION);
+    if !in_inbox || !is_item {
         return Err(format!(
             "inbox の外のファイルは開きません: {}",
             path.display()
@@ -307,7 +314,8 @@ pub fn sweep_inbox(inbox: &Path, max_age: Duration) {
             .ok()
             .and_then(|t| now.duration_since(t).ok())
             .is_some_and(|age| age > max_age);
-        if old && path.extension().is_some_and(|e| e == "mmd") {
+        // spec 01 の形式 (.mmd) の取り残しも一緒に捨てる
+        if old && path.extension().is_some_and(|e| e == INBOX_EXTENSION || e == "mmd") {
             let _ = std::fs::remove_file(path);
         }
     }
@@ -348,10 +356,10 @@ mod tests {
 
     #[test]
     fn open_arg_takes_the_path_after_the_flag() {
-        let argv = ["lorelei", "--open", "C:/x/a.mmd"].map(String::from);
+        let argv = ["lorelei", "--open", "C:/x/a.json"].map(String::from);
         assert_eq!(
             open_arg(argv.into_iter()),
-            Some(PathBuf::from("C:/x/a.mmd"))
+            Some(PathBuf::from("C:/x/a.json"))
         );
         assert_eq!(open_arg(["lorelei"].map(String::from).into_iter()), None);
         assert_eq!(
@@ -360,11 +368,19 @@ mod tests {
         );
     }
 
+    fn write_item(path: &Path, source: &str, title: Option<&str>) {
+        let item = lorelei_core::paths::InboxItem {
+            source: source.into(),
+            title: title.map(Into::into),
+        };
+        std::fs::write(path, serde_json::to_string(&item).unwrap()).unwrap();
+    }
+
     #[test]
     fn open_request_converts_and_consumes_the_inbox_file() {
         let inbox = scratch();
-        let file = inbox.join("a.mmd");
-        std::fs::write(&file, "flowchart TD\n  subgraph S\n    A --> B\n  end\n").unwrap();
+        let file = inbox.join("a.json");
+        write_item(&file, "flowchart TD\n  subgraph S\n    A --> B\n  end\n", None);
         let r = open_request(&file, &inbox);
         assert!(r.error.is_none(), "{r:?}");
         assert!(matches!(r.payload, Some(EditorPayload::Flowchart { .. })));
@@ -373,15 +389,34 @@ mod tests {
         std::fs::remove_dir_all(inbox).unwrap();
     }
 
+    // MCP の open_in_editor の title が図の名前になる (spec 02 D8)
     #[test]
-    fn files_outside_the_inbox_or_not_mmd_are_refused() {
+    fn inbox_title_names_the_new_document() {
+        let inbox = scratch();
+        let store = documents::Store::new(scratch());
+        let file = inbox.join("b.json");
+        write_item(&file, "flowchart TD\n  A --> B\n", Some("注文フロー"));
+        let item = read_inbox(&file, &inbox).unwrap();
+        let r = incoming(&store, item.source, documents::Origin::Ai, item.title);
+        assert_eq!(r.document.unwrap().title, "注文フロー");
+
+        let untitled = incoming(&store, "flowchart TD\n  A --> B\n".into(), documents::Origin::Ai, None);
+        assert!(untitled.document.unwrap().title.starts_with("AI の図 "));
+        std::fs::remove_dir_all(inbox).unwrap();
+    }
+
+    #[test]
+    fn files_outside_the_inbox_or_not_json_are_refused() {
         let inbox = scratch();
         let outside = scratch();
-        let secret = outside.join("secret.mmd");
-        std::fs::write(&secret, "flowchart TD\n  A --> B\n").unwrap();
+        let secret = outside.join("secret.json");
+        write_item(&secret, "flowchart TD\n  A --> B\n", None);
         let txt = inbox.join("note.txt");
         std::fs::write(&txt, "flowchart TD\n  A --> B\n").unwrap();
-        for path in [&secret, &txt] {
+        // spec 01 の形式 (本文だけの .mmd) は読まない。移行期に残った分は起動時の掃除で消える
+        let old = inbox.join("old.mmd");
+        std::fs::write(&old, "flowchart TD\n  A --> B\n").unwrap();
+        for path in [&secret, &txt, &old] {
             let r = open_request(path, &inbox);
             assert!(r.error.unwrap().contains("inbox の外"), "{path:?}");
             assert!(path.exists(), "拒否したのにファイルを消した: {path:?}");
@@ -418,7 +453,7 @@ mod tests {
     fn incoming_source_becomes_a_new_document() {
         let store = documents::Store::new(scratch());
         let src = "erDiagram\n  会員 ||--o{ 注文 : places\n";
-        let r = incoming(&store, src.into(), documents::Origin::Import);
+        let r = incoming(&store, src.into(), documents::Origin::Import, None);
         let summary = r.document.clone().expect("document");
         let doc = store.load(&summary.id).unwrap();
         assert_eq!(doc.editor, documents::Editor::ErDiagram);
@@ -432,7 +467,7 @@ mod tests {
     #[test]
     fn incoming_source_that_cannot_open_creates_nothing() {
         let store = documents::Store::new(scratch());
-        let r = incoming(&store, "sequenceDiagram\n  A->>B: hi\n".into(), documents::Origin::Ai);
+        let r = incoming(&store, "sequenceDiagram\n  A->>B: hi\n".into(), documents::Origin::Ai, None);
         assert!(r.document.is_none());
         assert!(r.error.is_some());
         assert!(store.list().unwrap().is_empty());
@@ -477,16 +512,17 @@ mod tests {
     }
 
     #[test]
-    fn sweep_removes_only_old_mmd_files() {
+    fn sweep_removes_only_old_inbox_files() {
         let inbox = scratch();
-        let old = inbox.join("old.mmd");
-        let fresh = inbox.join("fresh.mmd");
+        let old = inbox.join("old.json");
+        let old_mmd = inbox.join("old.mmd"); // spec 01 の形式の取り残し
+        let fresh = inbox.join("fresh.json");
         let other = inbox.join("old.txt");
-        for p in [&old, &fresh, &other] {
+        for p in [&old, &old_mmd, &fresh, &other] {
             std::fs::write(p, "x").unwrap();
         }
         let two_days_ago = SystemTime::now() - Duration::from_secs(2 * 24 * 60 * 60);
-        for p in [&old, &other] {
+        for p in [&old, &old_mmd, &other] {
             std::fs::File::options()
                 .write(true)
                 .open(p)
@@ -496,8 +532,9 @@ mod tests {
         }
         sweep_inbox(&inbox, INBOX_MAX_AGE);
         assert!(!old.exists());
+        assert!(!old_mmd.exists());
         assert!(fresh.exists());
-        assert!(other.exists(), ".mmd 以外は触らない");
+        assert!(other.exists(), "inbox の形式以外は触らない");
         std::fs::remove_dir_all(inbox).unwrap();
     }
 }

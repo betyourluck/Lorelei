@@ -22,7 +22,8 @@ Claude Code などの AI から **MCP で Mermaid を渡し、検査・SVG / PNG
   （AppPromoVideo の `claude -p` 型）は作らない
 - **DB 接続を持たない帰結**として、Lorelei には接続文字列やパスワードを置く欄が構造上存在しない
 - **フォーク元を崩さない**（利用者裁定 2026-09-23）。React のまま。書き換えはデザイン調整と
-  MCP / Tauri 接続の不整合修正だけ
+  MCP / Tauri 接続の不整合修正だけ。※ 2026-09-25 に利用者が改訂 —「必要なら直してよい、Web 版はなるべく壊さない、
+  上流へ返せる修正は分けておく」(CLAUDE.md の掟)
 
 ## 現況（実測 2026-09-23〜24）
 
@@ -139,6 +140,7 @@ Claude Code ──stdio(MCP)──▶ lorelei --mcp（ヘッドレス。Tauri �
   - `dropped` は**変換器が写せなかった要素**（subgraph・classDef・style・属性コメント等）を変換器自身が数える。
     MCP の戻り値も GUI の警告も同じ変換関数の出力なので、数がずれない
   - inbox には Mermaid 本文（`.mmd`）を置き、変換は GUI プロセスの Rust 側で行う（同じ `lorelei_core`）。
+    ※ spec 02 P4 で inbox は `{uuid}.json`（`{ source, title }`）に替わった。この節の `.mmd` は spec 01 当時の形
     フロントが受け取るのは変換済みの JSON と `dropped`
   - フォーク元パーサーは**触らない**。手で貼り付ける既存の import ダイアログはフォーク元のまま残る
     （その不具合は上流への issue 候補。本 spec では直さない）

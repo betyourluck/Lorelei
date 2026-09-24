@@ -18,6 +18,9 @@ export const queueOpen = (request: OpenRequest): void => {
   stash.push(request);
 };
 
+/** 別のページのエディタへ回した図が、まだ取り込まれずに残っている (起動処理が前回の図を開くのを控えるため) */
+export const hasPendingOpens = (): boolean => stash.length > 0;
+
 /**
  * 図の一覧 (外枠) との橋渡し。取り込みの前後とページを移る前に呼ぶ。
  * **どれも同期**。取り込みの前で await すると、開発モード (StrictMode) で effect が 2 回走る間に取り込みを取りこぼす
@@ -97,11 +100,17 @@ export function useDesktopOpen<T>(editor: EditorKind, onImport: (data: T) => voi
         bridge?.beforeLeave();
         stash = [...stash, ...others];
         router.push(routeOf(target));
+        // まだ取り込んでいない。回した先のページの取り込みで合図を出す (出すと起動処理が前回の図を開いてしまう)
+        return false;
       }
+      return true;
     };
 
-    void drain().finally(() => resolveFirstDrain());
-    void listen(OPEN_EVENT, () => void drain()).then((u) => {
+    const settle = (done: boolean) => {
+      if (done) resolveFirstDrain();
+    };
+    void drain().then(settle, () => settle(true));
+    void listen(OPEN_EVENT, () => void drain().then(settle, () => settle(true))).then((u) => {
       if (disposed) u();
       else unlisten = u;
     });

@@ -143,6 +143,9 @@ impl RenderOptionsParam {
 pub struct OpenParams {
     /// Mermaid のテキスト (flowchart か erDiagram)。
     pub source: String,
+    /// GUI の図の一覧に付ける名前 (例: 「注文テーブルの ER 図」)。省略すると「AI の図 HH:MM:SS」。
+    #[serde(default)]
+    pub title: Option<String>,
 }
 
 /// data_contract `McpServer.tools.open_in_editor.output`。
@@ -200,6 +203,7 @@ impl LoreleiServer {
         name = "open_in_editor",
         description = "Mermaid を Lorelei の GUI エディタで開き、人が手直しできるようにする。\
                        対応は flowchart と erDiagram だけ。GUI が起動していなければ起動し、起動中ならその窓で開く。\
+                       図は GUI の図の一覧に新しい 1 件として足され、開いている図は上書きしない。title でその名前を付けられる。\
                        エディタで表現できない要素 (subgraph・classDef・style など) は dropped に件数が返る。"
     )]
     async fn open_in_editor(
@@ -209,7 +213,8 @@ impl LoreleiServer {
         let launcher = self.launcher.clone();
         let inbox = lorelei_core::paths::inbox_dir();
         let result =
-            blocking(move || open_in_editor(&p.source, &launcher, inbox.as_deref())).await?;
+            blocking(move || open_in_editor(&p.source, p.title, &launcher, inbox.as_deref()))
+                .await?;
         Ok(match result {
             Ok(r) => CallToolResult::structured(to_value(&r)?),
             Err(e) => core_error(&e),
@@ -286,6 +291,7 @@ fn render_tool(p: RenderParams) -> Result<CallToolResult, ErrorData> {
 /// open_in_editor の本体。GUI の起動と inbox の場所を引数で受けるのはテストのため。
 pub fn open_in_editor(
     source: &str,
+    title: Option<String>,
     launcher: &GuiLauncher,
     inbox: Option<&Path>,
 ) -> Result<OpenResult, CoreError> {
@@ -319,8 +325,18 @@ pub fn open_in_editor(
     let Some(inbox) = inbox else {
         return Ok(not_opened("アプリのデータフォルダを決められません".into()));
     };
-    let file = inbox.join(format!("{}.mmd", uuid::Uuid::new_v4()));
-    if let Err(e) = std::fs::create_dir_all(inbox).and_then(|_| std::fs::write(&file, source)) {
+    // { source, title } の JSON (spec 02 D8)。GUI は同じ型 (InboxItem) で読む
+    let file = inbox.join(format!(
+        "{}.{}",
+        uuid::Uuid::new_v4(),
+        lorelei_core::paths::INBOX_EXTENSION
+    ));
+    let item = lorelei_core::paths::InboxItem {
+        source: source.to_string(),
+        title: title.map(|t| t.trim().to_string()).filter(|t| !t.is_empty()),
+    };
+    let body = serde_json::to_vec(&item).expect("InboxItem は常に JSON にできる");
+    if let Err(e) = std::fs::create_dir_all(inbox).and_then(|_| std::fs::write(&file, body)) {
         return Ok(not_opened(format!(
             "inbox に書けません ({}): {e}",
             inbox.display()
@@ -416,6 +432,7 @@ mod tests {
         };
         let r = open_in_editor(
             "flowchart TD\n  subgraph S\n    A --> B\n  end\n",
+            Some("注文フロー".into()),
             &launcher,
             Some(&inbox),
         )
@@ -425,11 +442,13 @@ mod tests {
         assert_eq!(r.dropped[0].construct, "subgraph");
         let files: Vec<_> = std::fs::read_dir(&inbox).unwrap().flatten().collect();
         assert_eq!(files.len(), 1);
-        assert!(
-            std::fs::read_to_string(files[0].path())
-                .unwrap()
-                .contains("subgraph S")
-        );
+        // inbox は { source, title } の JSON (spec 02 D8)
+        let path = files[0].path();
+        assert_eq!(path.extension().unwrap(), "json");
+        let item: lorelei_core::paths::InboxItem =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(item.source.contains("subgraph S"));
+        assert_eq!(item.title.as_deref(), Some("注文フロー"));
         std::fs::remove_dir_all(inbox).unwrap();
     }
 
@@ -439,7 +458,7 @@ mod tests {
         let launcher = GuiLauncher {
             exe: Some(inbox.join("no-such-gui.exe")),
         };
-        let r = open_in_editor("erDiagram\n  A ||--o{ B : has\n", &launcher, Some(&inbox)).unwrap();
+        let r = open_in_editor("erDiagram\n  A ||--o{ B : has\n", None, &launcher, Some(&inbox)).unwrap();
         assert!(!r.opened);
         assert_eq!(r.editor, Some("erDiagram"));
         assert!(r.reason.unwrap().contains("起動できません"));

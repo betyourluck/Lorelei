@@ -18,3 +18,15 @@ pub fn app_data_dir() -> Option<PathBuf> {
 pub fn inbox_dir() -> Option<PathBuf> {
     app_data_dir().map(|d| d.join("inbox"))
 }
+
+/// inbox のファイルの拡張子 (data_contract `EditorInbox`)。spec 01 の `.mmd` (本文だけ) から spec 02 P4 で替えた
+pub const INBOX_EXTENSION: &str = "json";
+
+/// inbox の 1 件 `{uuid}.json`。MCP が書き、GUI が読む。両側で同じ型を使って形の食い違いを防ぐ
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct InboxItem {
+    /// Mermaid の原文
+    pub source: String,
+    /// 図の一覧での名前 (MCP の open_in_editor の title)。無ければ GUI が「AI の図 HH:MM:SS」にする
+    pub title: Option<String>,
+}

@@ -21,7 +21,7 @@ import {
 } from "./documents";
 import type { EditorKind, OpenRequest } from "./open-requests";
 import { routeOf } from "./open-requests";
-import { firstDrain, queueOpen, setDocsBridge } from "./use-desktop-open";
+import { firstDrain, hasPendingOpens, queueOpen, setDocsBridge } from "./use-desktop-open";
 
 const AUTOSAVE_DELAY_MS = 1000;
 const FIRST_DRAIN_TIMEOUT_MS = 1500;
@@ -90,6 +90,8 @@ export function useDocSession(): DocSession {
   const expectedRef = useRef<string[] | null>(null);
   const layoutRef = useRef<Layout>({});
   const awaitMountRef = useRef(false);
+  /** 図を開くたびに進む番号。開く途中で別の図 (届いた図) に切り替わったことを見分ける */
+  const navSeq = useRef(0);
   const pathKindRef = useRef(kindOf(pathname));
   pathKindRef.current = kindOf(pathname);
   const listRef = useRef(list);
@@ -146,11 +148,17 @@ export function useDocSession(): DocSession {
 
   const open = useCallback(
     async (id: string) => {
-      if (!(await leave())) return;
+      // 開く途中 (await の間) に届いた図へ切り替わったら、この開き方はやめる。続けると題名は届いた図、
+      // キャンバスはこの図、という食い違いになる (2026-09-25 配布ビルドで観測)
+      const seq = ++navSeq.current;
+      const superseded = () => navSeq.current !== seq;
+      if (!(await leave()) || superseded()) return;
       const doc = await loadDocument(id);
+      if (superseded()) return;
       let request: OpenRequest | null = null;
       if (doc.source) {
         request = await convertSource(doc.source);
+        if (superseded()) return;
         if (!request.payload) {
           notice({
             status: "error",
@@ -301,6 +309,7 @@ export function useDocSession(): DocSession {
       beforeImport: (request) => {
         const doc = request.document;
         if (!doc || !request.payload) return;
+        navSeq.current += 1; // 開いている途中の open() があれば止める
         leaveNow();
         becomeCurrent(doc);
         setUnopenable(false);
@@ -326,10 +335,11 @@ export function useDocSession(): DocSession {
       // エディタが居ない時に止まらないよう上限を付ける
       await Promise.race([firstDrain, new Promise((r) => setTimeout(r, FIRST_DRAIN_TIMEOUT_MS))]);
       const docs = await refreshList();
-      if (currentRef.current) return;
+      // 届いた図がもう開いている、または別のページへ回っていてこれから開く (上限で待ち切った時)
+      if (currentRef.current || hasPendingOpens()) return;
       const last = await lastOpened();
       const target = docs.find((d) => d.id === last) ?? docs[0];
-      if (currentRef.current) return;
+      if (currentRef.current || hasPendingOpens()) return;
       if (target) await open(target.id);
       else await create("flowchart");
     })().catch((e) =>

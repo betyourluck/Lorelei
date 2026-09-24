@@ -26,13 +26,16 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 - **`src-tauri/`**: GUI。workspace の外に置く（AppPromoVideo / Kataribe と同じ流儀）。1 つの exe が GUI と
   `--mcp` を兼ねる。保存ダイアログと About は rfd（JS に権限を足さない）。CSP は style-src の自動ハッシュ追記を止めている
 - **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは spec 01 の 4 ファイル・8 行 + spec 02 の 5 ファイル・12 行（`app/layout.tsx` の外枠、エディタ 2 つの高さ、パネル 2 つの `useDesktopActions`。重なりを除いて計 7 ファイル）
-- **フロント（`app/` `features/` `components/`）**: フォーク元のまま。変更は下の掟に従う
+- **フロント（`app/` `features/` `components/`）**: フォーク元のコード。直してよい（下の掟の「フォーク元は必要なら直してよい」）
 
 ## 掟（Mandate）
 
-- **フォーク元を崩さない**: 書き換えるのは**デザイン調整と MCP / Tauri 接続の不整合修正だけ**。
-  新しいコードは `crates/` `src-tauri/` `lib/desktop/` に置き、既存ファイルへの変更は最小にする。
-  GitHub Pages 向けの Web ビルドを壊さない（Tauri 専用の UI は実行時に出し分ける）
+- **フォーク元は必要なら直してよい**（2026-09-25 利用者裁定で改訂。旧: デザイン調整と接続修正だけ）:
+  フォーク元は 11 か月更新が止まっていて（2026-09 時点の利用者の言）、中途半端な所も多い。新しくできるものは取り入れる。ただし
+  - **Web 版（GitHub Pages）はなるべく壊さない**。Tauri 専用の UI は実行時に出し分ける（`lib/desktop/`）。壊す必要がある時は理由を spec に書く
+  - **上流へ返せる修正**（バグ修正・デスクトップに依らない改善）は、デスクトップ専用の変更とコミットを分け、PR で返せる形にしておく
+    （フォークした側の礼儀。返すかどうかは利用者が決める）
+  - デスクトップ専用の新しいコードは、これまでどおり `crates/` `src-tauri/` `lib/desktop/` に置く
 - **データ・ファースト**: コードの前に [data_contract.yaml](data_contract.yaml) の名詞を凍結する
 - **PoC 必須**: バグ修正・新機能は Red→Green をテストで実証してから完了
 - **リサーチ先行**: 実装前に三点測量（コード grep / 仕様・ライブラリのソース / 記憶）
@@ -54,8 +57,8 @@ Claude Code 等 ──stdio(MCP)──▶ lorelei --mcp ─┬─ lorelei_core�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
-- 2026-09-25: [spec 02](specs/02_desktop-shell.md) rev4（デスクトップの外枠 = 自作タイトルバー・ツールバー・図の一覧・「保存」）。P0〜P3 着地、次は P4
-  （inbox の JSON 化と MCP の `title`、配布ビルドでの確認）。読み戻しは spec 03 へ繰り下げ。図の一覧は `{app_data_dir}/documents/` を Rust だけが読み書きする
+- 2026-09-25: [spec 02](specs/02_desktop-shell.md) rev4（デスクトップの外枠 = 自作タイトルバー・ツールバー・図の一覧・「保存」）。P0〜P4 着地。
+  残りは受け入れ条件 1（配布ビルドのタイトルバー）と 3（VRT）の確認。読み戻しは spec 03 へ繰り下げ。図の一覧は `{app_data_dir}/documents/` を Rust だけが読み書きする
 - 開発コマンド: フロントの依存は `corepack pnpm@9 install --ignore-scripts`（pnpm が無い環境でも corepack で足りる。
   lefthook の hooks は入れていない）。GUI は `corepack pnpm@9 exec tauri dev` / `... tauri build --no-bundle`。
   Rust は `cargo test --workspace`（core / mcp）と `cd src-tauri && cargo test`（GUI の殻、独立 project）
