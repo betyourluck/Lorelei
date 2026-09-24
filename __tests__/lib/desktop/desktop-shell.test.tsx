@@ -6,6 +6,7 @@ const win = { minimize: vi.fn(), toggleMaximize: vi.fn(), close: vi.fn() };
 const invoke = vi.fn();
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => win }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => "/" }));
 
 const setTauri = (on: boolean) => {
   if (on) (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};

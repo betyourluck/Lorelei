@@ -6,6 +6,7 @@ import { PlusIcon, CodeIcon, UploadIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import { VStack, HStack, Text, Button, useDisclosure } from "@yamada-ui/react";
 import { NavigationMenu } from "@/components/ui";
+import { useDesktopActions } from "@/lib/desktop";
 import type { ParsedMermaidData } from "../../hooks/mermaid";
 import { ImportModal } from "../mermaid";
 import { DownloadModal } from "../mermaid/download-modal";
@@ -45,6 +46,8 @@ export const PanelContent: FC<PanelContentProps> = ({
 }) => {
   const { open: openImport, onOpen: onOpenImport, onClose: onCloseImport } = useDisclosure();
   const { open: openDownload, onOpen: onOpenDownload, onClose: onCloseDownload } = useDisclosure();
+  // Lorelei: デスクトップ版のツールバーから呼べるようにする (Web 版では何もしない)
+  useDesktopActions({ add: { label: "ノード追加", run: onAddNode }, code: onOpenDownload });
 
   return (
     <VStack gap={4} p={4} bg="white" borderRadius="md" boxShadow="md">

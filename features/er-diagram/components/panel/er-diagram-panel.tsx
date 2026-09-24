@@ -4,6 +4,7 @@ import { PlusIcon, DownloadIcon, UploadIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import { VStack, HStack, Text, Button, useBoolean } from "@yamada-ui/react";
 import { NavigationMenu } from "@/components/ui";
+import { useDesktopActions } from "@/lib/desktop";
 import type { ParsedMermaidERData } from "../../utils/import-mermaid-to-er";
 import { ImportModal } from "../mermaid/import-modal";
 import type { ERTableNodeProps } from "../node/er-table-node";
@@ -27,6 +28,8 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
   const [open, setOpen] = useBoolean(false);
   const [openImport, setOpenImport] = useBoolean(false);
   const code = generateCode(nodes, edges);
+  // Lorelei: デスクトップ版のツールバーから呼べるようにする (Web 版では何もしない)
+  useDesktopActions({ add: { label: "テーブル追加", run: onAddTable }, code: setOpen.on });
 
   const handleDownload = () => {
     const blob = new Blob([code], { type: "text/plain" });

@@ -27,6 +27,12 @@ export const exportDiagram = (
 /** About (rfd のダイアログ) を出す。入口はタイトルバーの「?」(spec 02 D5) */
 export const showAbout = (): Promise<void> => invoke("show_about");
 
+/**
+ * ツールバーのインポート (spec 02 D10)。Rust が lorelei_core で変換し、AI から届いた図と同じ経路
+ * (OPEN_EVENT → useDesktopOpen) でエディタへ載る。失敗の通知もそちら。
+ */
+export const importSource = (source: string): Promise<void> => invoke("import_source", { source });
+
 export type WindowAction = "minimize" | "toggleMaximize" | "close";
 
 /** 自作タイトルバーのウィンドウ操作。@tauri-apps/api/window はクリック時に読む (静的書き出しで壊れない) */

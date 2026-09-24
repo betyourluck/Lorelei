@@ -311,6 +311,18 @@ P0-1・4・5・6 はブラウザ（`next dev` + `?poc=1` で外枠を強制的�
 - **実機（`tauri dev`）で利用者が確認**: ドラッグで移動・ダブルクリックで最大化・最小化 / 最大化 / 閉じる・端でのリサイズと影・「?」の About。
   P0-2 の残りはこれで確認済み。**配布ビルドでの確認（受け入れ条件 1）は P4 でまとめて行う**
 
+## P2 結果（2026-09-24）
+
+- 着地: `lib/desktop/toolbar.tsx`（`[フローチャート|ER図]` / 追加 / コード生成 / インポート）、`desktop-actions.tsx`（パネルが操作を登録する口, D3）、
+  `import-dialog.tsx`（D10）、外枠の `<style>` でパネルを隠す（D2）。Rust は `request_from_source` を切り出し、`import_source` コマンドで
+  AI から届いた図と同じ経路（PendingOpens → OPEN_EVENT → `useDesktopOpen`）に載せる
+- **暫定の 2 つ**（P3・P4 で差し替える）: 種類の切り替えはページを移るだけ（D11 は図の一覧が要る）/ インポートは今のエディタへ取り込む（新しい 1 件にするのは一覧が要る）
+- フォーク元への差し込み: パネル 2 ファイルに各 3 行（import・注記・`useDesktopActions`）
+- テスト: `toolbar.test.tsx` 6 件、Rust `request_from_source_*` 2 件を Red → Green。フォーク元の vitest は 492 件中 2 件が時間切れ
+  （ArrowTypeSelector 5,2xx ms、PanelContent「インポートできる」5,219ms）。PanelContent は触ったファイルなので、変更の前後で単独 2 回ずつ走らせ、どちらも緑で遅いテストの閾値にも届かないことを確かめた（failures #3 と同じ型）
+- Web 版: ER 図のページで外枠は出ず、パネルと GitHub メニューは表示され、「テーブル追加」もパネルにある
+- **実機（`tauri dev`）で利用者が確認**: パネルが見えない / 追加・コード生成 / ER 図への切り替えとラベル / インポート（subgraph と LR を省いた警告）/ ER 図のページから flowchart を取り込むとページが移る
+
 ## 受け入れ条件
 
 1. 配布ビルドで、自作のタイトルバーでウィンドウを移動・最小化・最大化・閉じることができる。ダブルクリックで最大化する

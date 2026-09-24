@@ -76,6 +76,7 @@ pub fn run_gui() {
         })
         .invoke_handler(tauri::generate_handler![
             take_pending_open,
+            import_source,
             desktop::export_diagram,
             desktop::show_about
         ])
@@ -89,6 +90,20 @@ fn take_pending_open(state: tauri::State<'_, PendingOpens>) -> Vec<OpenRequest> 
     std::mem::take(&mut *state.0.lock().expect("pending opens"))
 }
 
+/// ツールバーのインポート (spec 02 P2)。原文を変換して「開く図」として溜め、AI から届いた図と同じ経路で開く —
+/// 失敗や省いた要素の通知もそちらに揃う。P4 で「新しい 1 件として一覧へ足す」(import_document) に替える。
+#[tauri::command]
+fn import_source(app: AppHandle, source: String) {
+    push_open(&app, request_from_source(source));
+}
+
+fn push_open(app: &AppHandle, request: OpenRequest) {
+    if let Some(state) = app.try_state::<PendingOpens>() {
+        state.0.lock().expect("pending opens").push(request);
+    }
+    let _ = app.emit(OPEN_EVENT, ());
+}
+
 /// argv の `--open <path>` を拾って溜め、フロントへ知らせる。
 fn accept_argv(app: &AppHandle, argv: impl Iterator<Item = String>) {
     let Some(path) = open_arg(argv) else { return };
@@ -99,10 +114,7 @@ fn accept_argv(app: &AppHandle, argv: impl Iterator<Item = String>) {
             "アプリのデータフォルダを決められません".into(),
         ),
     };
-    if let Some(state) = app.try_state::<PendingOpens>() {
-        state.0.lock().expect("pending opens").push(request);
-    }
-    let _ = app.emit(OPEN_EVENT, ());
+    push_open(app, request);
 }
 
 fn open_arg(mut argv: impl Iterator<Item = String>) -> Option<PathBuf> {
@@ -132,6 +144,12 @@ pub fn open_request(path: &Path, inbox: &Path) -> OpenRequest {
         Err(e) => return OpenRequest::failed(String::new(), e),
     };
     let _ = std::fs::remove_file(path);
+    request_from_source(source)
+}
+
+/// Mermaid の原文をエディタのデータ形へ変換する。AI から届いた図もツールバーのインポートもここを通る
+/// (フォーク元のパーサーは通さない, spec 01 D5' / spec 02 D10)。
+pub fn request_from_source(source: String) -> OpenRequest {
     match lorelei_core::to_editor(&source) {
         Ok(Some(payload)) => OpenRequest {
             dropped: payload.dropped().to_vec(),
@@ -282,6 +300,28 @@ mod tests {
         );
         assert!(err.is_err());
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    // ツールバーのインポート (spec 02 P2) は AI から届いた図と同じ変換を通る
+    #[test]
+    fn request_from_source_converts_with_lorelei_core() {
+        let r = request_from_source("flowchart LR\n  注文 --> 発送\n".into());
+        assert!(r.error.is_none(), "{:?}", r.error);
+        assert!(matches!(r.payload, Some(EditorPayload::Flowchart { .. })));
+        // LR は エディタで表現できないので dropped に載る (フォーク元のパーサーなら黙って捨てる)
+        assert!(r.dropped.iter().any(|d| d.construct.starts_with("direction")));
+    }
+
+    #[test]
+    fn request_from_source_keeps_source_when_it_cannot_open() {
+        let r = request_from_source("sequenceDiagram\n  A->>B: hi\n".into());
+        assert!(r.payload.is_none());
+        assert!(r.error.as_deref().unwrap().contains("開けません"));
+        assert!(r.source.starts_with("sequenceDiagram"));
+
+        let broken = request_from_source("flowchart TD\n  A[a --> B\n".into());
+        assert!(broken.payload.is_none());
+        assert!(broken.error.is_some());
     }
 
     #[test]
