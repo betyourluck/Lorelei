@@ -166,10 +166,53 @@ GuiCommands:
   description: GUI (Tauri) の custom command とイベント。フロント側は lib/desktop/ だけがこれを呼ぶ
   take_pending_open: "溜まっている OpenRequest の配列を返して空にする。フロントは準備でき次第と OPEN_EVENT のたびに呼ぶ"
   open_event: "lorelei://open-pending (本体を持たない合図)"
-  open_request: "{ source, payload: EditorPayload | null, dropped, error: string | null }"
+  open_request: "{ source, payload: EditorPayload | null, dropped, error: string | null, document: DocumentSummary | null }。document は AI / インポートで届いた図のために作った新しい 1 件 (spec 02 D8・D10)。変換に失敗した時は作らず null"
+  import_source: "(source) → ()。ツールバーのインポート。Document (origin: import) を作り、OpenRequest を溜めて OPEN_EVENT を出す"
+  convert_source: "(source) → OpenRequest (document は null)。保存した図を開く時の変換。溜めない・イベントも出さない"
+  list_documents: "() → DocumentSummary[] (saved_at 、無ければ created_at の新しい順。見る・自動保存・改名では動かない, spec 02 D12)"
+  create_document: "(editor, title?) → Document。origin: new、source は空 (エディタの初期図で始まり、最初の自動保存で埋まる)"
+  load_document: "(id) → Document"
+  save_document: "(id, source, layout) → DocumentSummary。自動保存 (D7)。title / editor / origin / original_source / saved_at は書き換えさせない。中身が同じなら書かない。source が空だった図の最初の書き込みは updated_at を進めない"
+  mark_document_saved: "(id) → DocumentSummary。利用者の「保存」(Ctrl+S, D12)。saved_at を今にする = 一覧の先頭へ動き、unsaved が消える"
+  rename_document: "(id, title) → ()。並びも unsaved も動かさない"
+  trash_document: "(id) → ()。documents/ から trash/ へ移す。物理削除しない"
+  last_opened: "() → id | null。起動時に開く図 (DocumentState.last_opened)"
+  set_last_opened: "(id) → ()"
   export_diagram: "(source, format: svg|png|pdf, fileStem) → 保存したパス | null (取り消し)。保存ダイアログは rfd。上書きの確認は OS のダイアログが行う"
   show_about: "() → ()。About (rfd の MessageDialog) を出す。入口はタイトルバーの「?」(spec 02 D5。ネイティブのメニューは持たない)。フォーク元への謝辞とライセンス一覧を載せ、全文は bundle.resources で licenses/ に同梱"
   window: "自作タイトルバーのウィンドウ操作は @tauri-apps/api/window (minimize / toggleMaximize / close / data-tauri-drag-region)。権限は capabilities/default.json の core:window:*"
+
+Document:
+  description: 図の一覧の 1 件 = 1 枚の図 (spec 02 D6)。デスクトップ版だけのもの
+  path: "{app_data_dir}/documents/{id}.json"   # 1 件 1 ファイル。一覧は documents/ 直下の *.json だけを読む (再帰しない)
+  writer: rust                                # JS からは読み書きしない (plugin-fs を入れない)。書き込みは一時ファイル → rename
+  fields:
+    id: { type: string, format: uuid }        # uuid の形だけ受け付ける (パスを外へ出さない)
+    title: string                             # 同名は許す (区別は id)
+    editor: { enum: [flowchart, erDiagram] }
+    source: string                            # 今の図の Mermaid (フォーク元の生成器の出力)。origin: new の作成直後は空
+    layout: { type: "map<string, { x: float, y: float }>" }  # キー = Mermaid 上のノード ID (flowchart は getSafeVariableName した変数名、ER はエンティティ名)。無いノードは自動配置
+    origin: { enum: [new, ai, import] }
+    original_source: { type: string, nullable: true }  # ai / import で届いた原文。以後書き換えない。new は null
+    created_at: { type: string, format: "RFC 3339" }
+    updated_at: { type: string, format: "RFC 3339" }   # 中身が最後に変わった時刻。自動保存で進む
+    saved_at: { type: string, format: "RFC 3339", nullable: true }   # 利用者が「保存」を押した時刻 (D12)。一覧の並びの鍵 (null なら created_at)
+  json_keys: camelCase   # ファイルと GUI の受け渡しはどちらも camelCase (originalSource / createdAt ...)
+  default_titles:
+    new: { flowchart: 無題のフローチャート, erDiagram: 無題の ER 図 }
+    ai: "AI の図 HH:MM:SS"          # P4 で MCP の title が来たらそれを使う
+    import: "インポート HH:MM:SS"
+  trash: "{app_data_dir}/trash/{id}.json"   # 削除は移動だけ。documents/ の外なので一覧に出ない。空にする操作は無い
+
+DocumentSummary:
+  description: 一覧用。source / layout / original_source を持たない
+  fields: [id, title, editor, origin, created_at, updated_at, saved_at, unsaved]
+  unsaved: "updated_at > (saved_at ?? created_at)。一覧とタイトルの ●"
+
+DocumentState:
+  path: "{app_data_dir}/state.json"
+  fields:
+    last_opened: { type: string, format: uuid, nullable: true }   # 起動時に開く図。無い・消えている時は updated_at が一番新しい図、1 件も無ければフローチャートを 1 件作る (D9)
 
 EditorInbox:
   description: open_in_editor が GUI へ渡すファイルの置き場

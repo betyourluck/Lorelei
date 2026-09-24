@@ -4,6 +4,7 @@
 //! - `lorelei [--open <inbox のファイル>]`: GUI。2 つ目の起動は single-instance が argv を 1 つ目へ渡して終わる
 
 mod desktop;
+mod documents;
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -51,10 +52,39 @@ pub struct OpenRequest {
     pub payload: Option<EditorPayload>,
     pub dropped: Vec<DroppedItem>,
     pub error: Option<String>,
+    /// AI / インポートで届いた図のために作った新しい 1 件 (spec 02 D8・D10)。変換に失敗した時は作らない
+    pub document: Option<documents::DocumentSummary>,
 }
 
 #[derive(Default)]
 struct PendingOpens(Mutex<Vec<OpenRequest>>);
+
+fn editor_of(payload: &EditorPayload) -> documents::Editor {
+    match payload {
+        EditorPayload::Flowchart { .. } => documents::Editor::Flowchart,
+        EditorPayload::ErDiagram { .. } => documents::Editor::ErDiagram,
+    }
+}
+
+/// 届いた図を変換し、開ける時だけ一覧に新しい 1 件を作る。今開いている図は上書きしない (spec 02 P3 の設計の補足 1)
+fn incoming(store: &documents::Store, source: String, origin: documents::Origin) -> OpenRequest {
+    let mut request = request_from_source(source);
+    let Some(payload) = &request.payload else {
+        return request;
+    };
+    match store.create(editor_of(payload), None, origin, Some(request.source.clone())) {
+        Ok(doc) => request.document = Some((&doc).into()),
+        Err(e) => {
+            request.payload = None;
+            request.error = Some(format!("図の一覧に足せませんでした: {e}"));
+        }
+    }
+    request
+}
+
+fn store() -> Result<documents::Store, String> {
+    documents::Store::open_default().ok_or_else(|| "アプリのデータフォルダを決められません".into())
+}
 
 pub fn run_gui() {
     tauri::Builder::default()
@@ -77,6 +107,16 @@ pub fn run_gui() {
         .invoke_handler(tauri::generate_handler![
             take_pending_open,
             import_source,
+            convert_source,
+            list_documents,
+            create_document,
+            load_document,
+            save_document,
+            mark_document_saved,
+            rename_document,
+            trash_document,
+            last_opened,
+            set_last_opened,
             desktop::export_diagram,
             desktop::show_about
         ])
@@ -90,11 +130,72 @@ fn take_pending_open(state: tauri::State<'_, PendingOpens>) -> Vec<OpenRequest> 
     std::mem::take(&mut *state.0.lock().expect("pending opens"))
 }
 
-/// ツールバーのインポート (spec 02 P2)。原文を変換して「開く図」として溜め、AI から届いた図と同じ経路で開く —
-/// 失敗や省いた要素の通知もそちらに揃う。P4 で「新しい 1 件として一覧へ足す」(import_document) に替える。
+/// ツールバーのインポート (spec 02 D10)。新しい 1 件を作って「開く図」として溜め、AI から届いた図と同じ経路で開く —
+/// 失敗や省いた要素の通知もそちらに揃う。
 #[tauri::command]
-fn import_source(app: AppHandle, source: String) {
-    push_open(&app, request_from_source(source));
+fn import_source(app: AppHandle, source: String) -> Result<(), String> {
+    push_open(&app, incoming(&store()?, source, documents::Origin::Import));
+    Ok(())
+}
+
+/// 保存した図を開く時の変換。溜めない・イベントも出さない (作り直す前の古いエディタに拾わせないため)
+#[tauri::command]
+fn convert_source(source: String) -> OpenRequest {
+    request_from_source(source)
+}
+
+#[tauri::command]
+fn list_documents() -> Result<Vec<documents::DocumentSummary>, String> {
+    store()?.list()
+}
+
+#[tauri::command]
+fn create_document(
+    editor: documents::Editor,
+    title: Option<String>,
+) -> Result<documents::Document, String> {
+    store()?.create(editor, title, documents::Origin::New, None)
+}
+
+#[tauri::command]
+fn load_document(id: String) -> Result<documents::Document, String> {
+    store()?.load(&id)
+}
+
+/// 自動保存 (D7)。並びは動かさない
+#[tauri::command]
+fn save_document(
+    id: String,
+    source: String,
+    layout: documents::Layout,
+) -> Result<documents::DocumentSummary, String> {
+    store()?.save(&id, source, layout)
+}
+
+/// 利用者の「保存」(D12)。一覧の先頭へ動く
+#[tauri::command]
+fn mark_document_saved(id: String) -> Result<documents::DocumentSummary, String> {
+    store()?.mark_saved(&id)
+}
+
+#[tauri::command]
+fn rename_document(id: String, title: String) -> Result<(), String> {
+    store()?.rename(&id, title)
+}
+
+#[tauri::command]
+fn trash_document(id: String) -> Result<(), String> {
+    store()?.trash(&id)
+}
+
+#[tauri::command]
+fn last_opened() -> Result<Option<String>, String> {
+    Ok(store()?.last_opened())
+}
+
+#[tauri::command]
+fn set_last_opened(id: String) -> Result<(), String> {
+    store()?.set_last_opened(&id)
 }
 
 fn push_open(app: &AppHandle, request: OpenRequest) {
@@ -107,9 +208,12 @@ fn push_open(app: &AppHandle, request: OpenRequest) {
 /// argv の `--open <path>` を拾って溜め、フロントへ知らせる。
 fn accept_argv(app: &AppHandle, argv: impl Iterator<Item = String>) {
     let Some(path) = open_arg(argv) else { return };
-    let request = match lorelei_core::paths::inbox_dir() {
-        Some(inbox) => open_request(&path, &inbox),
-        None => OpenRequest::failed(
+    let request = match (lorelei_core::paths::inbox_dir(), store()) {
+        (Some(inbox), Ok(store)) => match read_inbox(&path, &inbox) {
+            Ok(source) => incoming(&store, source, documents::Origin::Ai),
+            Err(e) => OpenRequest::failed(String::new(), e),
+        },
+        _ => OpenRequest::failed(
             String::new(),
             "アプリのデータフォルダを決められません".into(),
         ),
@@ -133,18 +237,24 @@ impl OpenRequest {
             payload: None,
             dropped: Vec::new(),
             error: Some(error),
+            document: None,
         }
     }
 }
 
-/// inbox のファイルを読み、エディタのデータ形へ変換し、ファイルを消す (spec 01 D8)。
-pub fn open_request(path: &Path, inbox: &Path) -> OpenRequest {
-    let source = match read_inbox_file(path, inbox) {
-        Ok(s) => s,
-        Err(e) => return OpenRequest::failed(String::new(), e),
-    };
+/// inbox のファイルを読んで消す (spec 01 D8)。
+fn read_inbox(path: &Path, inbox: &Path) -> Result<String, String> {
+    let source = read_inbox_file(path, inbox)?;
     let _ = std::fs::remove_file(path);
-    request_from_source(source)
+    Ok(source)
+}
+
+/// inbox のファイルを読み、エディタのデータ形へ変換し、ファイルを消す (spec 01 D8)。一覧には足さない
+pub fn open_request(path: &Path, inbox: &Path) -> OpenRequest {
+    match read_inbox(path, inbox) {
+        Ok(source) => request_from_source(source),
+        Err(e) => OpenRequest::failed(String::new(), e),
+    }
 }
 
 /// Mermaid の原文をエディタのデータ形へ変換する。AI から届いた図もツールバーのインポートもここを通る
@@ -156,6 +266,7 @@ pub fn request_from_source(source: String) -> OpenRequest {
             payload: Some(payload),
             source,
             error: None,
+            document: None,
         },
         Ok(None) => OpenRequest::failed(source, "この図の種類は GUI エディタで開けません".into()),
         Err(e) => OpenRequest::failed(source, e.to_string()),
@@ -300,6 +411,31 @@ mod tests {
         );
         assert!(err.is_err());
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    // 届いた図は新しい 1 件になる (spec 02 D8・D10、P3 の設計の補足 1)
+    #[test]
+    fn incoming_source_becomes_a_new_document() {
+        let store = documents::Store::new(scratch());
+        let src = "erDiagram\n  会員 ||--o{ 注文 : places\n";
+        let r = incoming(&store, src.into(), documents::Origin::Import);
+        let summary = r.document.clone().expect("document");
+        let doc = store.load(&summary.id).unwrap();
+        assert_eq!(doc.editor, documents::Editor::ErDiagram);
+        assert_eq!(doc.origin, documents::Origin::Import);
+        assert_eq!(doc.original_source.as_deref(), Some(src));
+        // source はエディタに載ってから自動保存で埋まる (生成器の出力)
+        assert_eq!(doc.source, "");
+        assert!(r.payload.is_some());
+    }
+
+    #[test]
+    fn incoming_source_that_cannot_open_creates_nothing() {
+        let store = documents::Store::new(scratch());
+        let r = incoming(&store, "sequenceDiagram\n  A->>B: hi\n".into(), documents::Origin::Ai);
+        assert!(r.document.is_none());
+        assert!(r.error.is_some());
+        assert!(store.list().unwrap().is_empty());
     }
 
     // ツールバーのインポート (spec 02 P2) は AI から届いた図と同じ変換を通る

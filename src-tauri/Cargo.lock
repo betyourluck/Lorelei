@@ -2381,6 +2381,7 @@ dependencies = [
 name = "lorelei"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "lorelei_core",
  "lorelei_mcp",
  "rfd",
@@ -2390,6 +2391,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-single-instance",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

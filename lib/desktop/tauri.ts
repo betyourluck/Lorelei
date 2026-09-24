@@ -8,7 +8,7 @@ export const OPEN_EVENT = "lorelei://open-pending";
 export const isTauri = (): boolean =>
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-const invoke = async <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
+export const invoke = async <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<T>(cmd, args);
 };
@@ -33,7 +33,19 @@ export const showAbout = (): Promise<void> => invoke("show_about");
  */
 export const importSource = (source: string): Promise<void> => invoke("import_source", { source });
 
-export type WindowAction = "minimize" | "toggleMaximize" | "close";
+export type WindowAction = "minimize" | "toggleMaximize" | "close" | "destroy";
+
+/**
+ * 閉じる前に保存する (spec 02 D7)。handler が false を返したら閉じない。
+ * @tauri-apps/api はハンドラを await してから preventDefault を見て destroy する (現況 7)。
+ * 登録すると close() はイベントを出すだけになり、destroy に core:window:allow-destroy が要る (現況 6 の罠)。
+ */
+export const onCloseRequested = async (handler: () => Promise<boolean>): Promise<() => void> => {
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  return getCurrentWindow().onCloseRequested(async (event) => {
+    if (!(await handler())) event.preventDefault();
+  });
+};
 
 /** 自作タイトルバーのウィンドウ操作。@tauri-apps/api/window はクリック時に読む (静的書き出しで壊れない) */
 export const windowAction = async (action: WindowAction): Promise<void> => {

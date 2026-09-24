@@ -1,14 +1,12 @@
 "use client";
 
-import { CodeIcon, FileInputIcon, PlusIcon } from "@yamada-ui/lucide";
+import { CodeIcon, FileInputIcon, PlusIcon, SaveIcon } from "@yamada-ui/lucide";
 import { Box, Button, ButtonGroup, HStack } from "@yamada-ui/react";
-import { usePathname, useRouter } from "next/navigation";
 import type { FC } from "react";
 import { useState } from "react";
 import type { RegisteredActions } from "./desktop-actions";
 import { ImportDialog } from "./import-dialog";
 import type { EditorKind } from "./open-requests";
-import { routeOf } from "./open-requests";
 
 export const TOOLBAR_HEIGHT = "40px";
 
@@ -17,16 +15,18 @@ const KINDS: { kind: EditorKind; label: string }[] = [
   { kind: "erDiagram", label: "ER図" },
 ];
 
-const kindOf = (pathname: string | null): EditorKind =>
-  pathname?.includes("er-diagram") ? "erDiagram" : "flowchart";
+interface Props {
+  actions: RegisteredActions | null;
+  /** 開いている図の種類 */
+  current: EditorKind | null;
+  /** 別の種類を押した時。その種類で最後に更新した図を開く (無ければ作る, D11) */
+  onSwitchKind: (kind: EditorKind) => void;
+  /** 「保存」(D12)。一覧の並びはこれを押した時刻で決まる */
+  onSave: () => void;
+}
 
-/**
- * タイトルバーの下のツールバー (spec 02 D3)。
- * 種類の切り替えは P2 の暫定でページを移るだけ。「その種類で最後に更新した図を開く」(D11) は図の一覧 (P3) で入れる。
- */
-export const Toolbar: FC<{ actions: RegisteredActions | null }> = ({ actions }) => {
-  const router = useRouter();
-  const current = kindOf(usePathname());
+/** タイトルバーの下のツールバー (spec 02 D3) */
+export const Toolbar: FC<Props> = ({ actions, current, onSwitchKind, onSave }) => {
   const [importing, setImporting] = useState(false);
 
   return (
@@ -46,7 +46,7 @@ export const Toolbar: FC<{ actions: RegisteredActions | null }> = ({ actions }) 
             aria-pressed={kind === current}
             colorScheme={kind === current ? "blue" : "gray"}
             variant={kind === current ? "solid" : "outline"}
-            onClick={() => kind !== current && router.push(routeOf(kind))}
+            onClick={() => kind !== current && onSwitchKind(kind)}
           >
             {label}
           </Button>
@@ -75,6 +75,17 @@ export const Toolbar: FC<{ actions: RegisteredActions | null }> = ({ actions }) 
         インポート
       </Button>
       <ImportDialog open={importing} onClose={() => setImporting(false)} />
+      <Box flex="1" />
+      <Button
+        size="sm"
+        variant="outline"
+        startIcon={<SaveIcon />}
+        title="保存 (Ctrl+S)"
+        disabled={!current}
+        onClick={onSave}
+      >
+        保存
+      </Button>
     </HStack>
   );
 };

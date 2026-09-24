@@ -1,11 +1,29 @@
+import { ReactFlowProvider } from "@xyflow/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@/__tests__/test-utils";
-import { DesktopShell } from "@/lib/desktop/desktop-shell";
+import { DesktopShell as Shell } from "@/lib/desktop/desktop-shell";
+import { fakeBackend } from "./fake-backend";
 
-const win = { minimize: vi.fn(), toggleMaximize: vi.fn(), close: vi.fn() };
-const invoke = vi.fn();
+const DesktopShell = ({ children }: { children: ReactNode }) => (
+  <ReactFlowProvider>
+    <Shell>{children}</Shell>
+  </ReactFlowProvider>
+);
+
+const win = {
+  minimize: vi.fn(),
+  toggleMaximize: vi.fn(),
+  close: vi.fn(),
+  onCloseRequested: vi.fn(async () => () => {}),
+};
+const backend = fakeBackend();
+const invoke = backend.invoke;
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => win }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (...a: [string, Record<string, unknown>]) => invoke(...a),
+}));
+vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => "/" }));
 
 const setTauri = (on: boolean) => {
@@ -14,7 +32,7 @@ const setTauri = (on: boolean) => {
 };
 
 describe("DesktopShell", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => invoke.mockClear());
   afterEach(() => setTauri(false));
 
   it("Web 版では children をそのまま返し、外枠を出さない (spec 02 D1)", () => {

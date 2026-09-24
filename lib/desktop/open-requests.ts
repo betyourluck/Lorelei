@@ -1,6 +1,8 @@
 // MCP の open_in_editor → GUI へ届く「開く図」(src-tauri の OpenRequest, spec 01 D5' / D8)。
 // 振り分けと表示用の文言は純粋関数に分け、vitest で固定する。
 
+import type { DocumentSummary } from "./documents";
+
 export type EditorKind = "flowchart" | "erDiagram";
 
 export interface DroppedItem {
@@ -13,6 +15,8 @@ export interface OpenRequest {
   payload: { editor: EditorKind; data: unknown; dropped: DroppedItem[] } | null;
   dropped: DroppedItem[];
   error: string | null;
+  /** AI / インポートで届いた図のために Rust が作った新しい 1 件 (spec 02 D8・D10)。保存した図を開く時は null */
+  document?: DocumentSummary | null;
 }
 
 /** エディタの種類 → ページ。next.config の trailingSlash: true に合わせる */

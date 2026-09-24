@@ -1,14 +1,29 @@
+import { ReactFlowProvider } from "@xyflow/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, renderHook, screen, waitFor } from "@/__tests__/test-utils";
-import { DesktopShell } from "@/lib/desktop/desktop-shell";
+import { DesktopShell as Shell } from "@/lib/desktop/desktop-shell";
 import type { DesktopActions } from "@/lib/desktop/desktop-actions";
 import { useDesktopActions } from "@/lib/desktop/desktop-actions";
+import { fakeBackend } from "./fake-backend";
 
-const invoke = vi.fn();
+const DesktopShell = ({ children }: { children: ReactNode }) => (
+  <ReactFlowProvider>
+    <Shell>{children}</Shell>
+  </ReactFlowProvider>
+);
+
+const backend = fakeBackend();
+const invoke = backend.invoke;
 const push = vi.fn();
 let pathname = "/";
-vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({}) }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({ onCloseRequested: async () => () => {} }),
+}));
+vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (...a: [string, Record<string, unknown>]) => invoke(...a),
+}));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
   usePathname: () => pathname,
@@ -27,7 +42,8 @@ const Panel = (actions: DesktopActions) => {
 
 describe("ツールバー (spec 02 P2)", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    invoke.mockClear();
+    push.mockClear();
     pathname = "/";
     setTauri(true);
   });
@@ -64,16 +80,6 @@ describe("ツールバー (spec 02 P2)", () => {
     expect(getComputedStyle(screen.getByText("panel")).display).toBe("none");
     expect(getComputedStyle(screen.getByText("github")).display).toBe("none");
     expect(getComputedStyle(screen.getByText("controls")).display).not.toBe("none");
-  });
-
-  it("種類の切り替えは今の種類を押された状態で出し、別の種類でそのページへ移る (P2 の暫定。D11 は P3)", async () => {
-    pathname = "/er-diagram/";
-    const { user } = render(<DesktopShell>x</DesktopShell>);
-    expect(await screen.findByRole("button", { name: "ER図" })).toHaveAttribute("aria-pressed", "true");
-    await user.click(screen.getByRole("button", { name: "ER図" }));
-    expect(push).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "フローチャート" }));
-    expect(push).toHaveBeenCalledWith("/");
   });
 
   it("インポートは外枠のダイアログで受け、原文を Rust の変換へ渡す (D10。フォーク元のパーサーは通さない)", async () => {
