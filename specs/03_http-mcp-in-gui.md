@@ -2,7 +2,7 @@
 
 **ID**: 03
 **Date**: 2026-09-25
-**Status**: In Progress（rev1 承認 2026-09-25。P0 から）
+**Status**: **Done**（2026-09-25。rev1 → P0〜P4 着地。受け入れ条件 1〜8 はすべて通過。4 は P0、5・6 は自動テストでの確認 — 「受け入れ条件の結果」節）
 **Branch**: なし（Phase 単位で main へ直接コミット）
 
 ## Goal
@@ -198,6 +198,39 @@ axum 0.8 で `127.0.0.1:39642/mcp` に立てた。トークンは固定値（`Au
 - 残した inbox のファイル: 誰も読まない（利用者裁定 2026-09-25: 放置でよい）
 - 受け入れ条件 8: 撤去した名前で grep すると、残るのは「撤去した」という経緯の注記と無関係な識別子（入力欄の id、テストの一時フォルダ名）だけ。spec の本文（当時の記録）は除く
 - Rust はワークスペース・src-tauri（29 件）とも緑、clippy 警告 0。実機（`tauri dev`）: 起動すると 39642 で待ち受け、トークン付きの `validate` が `ok: true`
+
+## P4 結果（2026-09-25）
+
+- 配布ビルド（`tauri build --no-bundle`、6 分 03 秒）。このセッションとほかの Claude Code を開いたままでも、exe を掴まれずに通った
+- 利用者が設定画面の「登録コマンドをコピー」で `lorelei` を local スコープで登録し、`lorelei-poc` を外した。このセッションから新しい `lorelei` の 3 本を呼んだ:
+
+| 呼んだもの | 結果 |
+|---|---|
+| `validate`（subgraph 入りの flowchart） | `ok: true`、`editor.dropped` に subgraph ×1 |
+| `validate`（`A -->` で終わる書きかけ） | `ok: false`、2 行目「unexpected end of input」 |
+| `render`（日本語の erDiagram → PNG、書き出し先は絶対パス） | 書き出しとプレビューの画像が返った。日本語は同梱フォントで描けている |
+| `open_in_editor`（`title`「P4 注文テーブルの ER 図」） | `opened: true`・`editor: erDiagram`・`dropped` に fk ×2。`documents/` に名前・原文・位置つきで保存された |
+| `open_in_editor`（sequenceDiagram） | `opened: false`、理由つきで断られた（口へ届かない） |
+
+- **利用者が確認**: 一覧の先頭に「P4 注文テーブルの ER 図」が入り、キャンバスは ER 図（3 テーブル・関係 2 本）、「FK ×2 を省きました」の通知が出た
+- **受け入れ条件と照らして足したテスト**: 5b の後半（作り直すと古いトークンが弾かれる）と 5 の後半（ポートを変えると待ち受けられる）を確かめるテストが無かった。
+  `regenerating_changes_and_persists_the_token` に「古いトークン → 401・新しいトークン → 200」を足し、`changing_the_port_recovers_from_a_port_in_use` を新しく足した。
+  挙動は元から正しく、最初から緑だった。`set_port` / `regenerate_token` の中の `apply` を消すと、2 件とも落ちる（古いトークンが 200 で通る・`failed` のまま）ことを確かめてから戻した。
+  src-tauri の Rust は 30 件緑、clippy の警告 0
+
+### 受け入れ条件の結果（2026-09-25）
+
+| # | 結果 | 根拠 |
+|---|---|---|
+| 1 | **通過** | P4: 配布ビルドの GUI に Claude Code から 3 本を呼べた |
+| 2 | **通過** | 自動テスト `crates/lorelei_mcp/tests/http.rs`（401 / 403 / 127.0.0.1 だけで待ち受け）。P0 で curl でも確認 |
+| 3 | **通過** | P4: 一覧に新しい 1 件として入り、窓が前に出た（利用者が確認） |
+| 4 | **通過（P0 で確認）** | P0: GUI を落として起動し直すと、`/mcp` で手でつなぎ直さなくても呼べた。配布ビルドでは確かめ直していない |
+| 5 | **通過（自動テスト）** | `a_port_in_use_is_reported_not_fatal`・`changing_the_port_recovers_from_a_port_in_use`。実機で別のプロセスにポートを握らせては試していない |
+| 5b | **通過** | 切ると止まる: P2 で利用者が確認と `disabling_stops_listening`。作り直し: `regenerating_changes_and_persists_the_token`（古いトークン → 401） |
+| 6 | **通過（自動テスト）** | `a_broken_file_blocks_listening_and_saving_without_leaking_it` |
+| 7 | **通過** | P4: Claude Code を開いたまま配布ビルドが通った |
+| 8 | **通過** | P3 の grep |
 
 ## 受け入れ条件
 

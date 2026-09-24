@@ -258,6 +258,30 @@ mod tests {
         McpHost::new(ConfigStore::load(dir), Arc::new(NoEditor))
     }
 
+    /// `/mcp` へ initialize を送り、応答の状態コードだけ読む。待ち受けと同じランタイムを塞がないよう別スレッドで送る
+    async fn status_code(port: u16, token: &str) -> u16 {
+        let token = token.to_string();
+        tokio::task::spawn_blocking(move || {
+            use std::io::{Read, Write};
+            let body = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}"#;
+            let mut s = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+            s.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
+            write!(
+                s,
+                "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAuthorization: Bearer {token}\r\n\
+                 Content-Type: application/json\r\nAccept: application/json, text/event-stream\r\n\
+                 Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
+            let mut head = [0u8; 12];
+            s.read_exact(&mut head).unwrap();
+            std::str::from_utf8(&head[9..12]).unwrap().parse().unwrap()
+        })
+        .await
+        .unwrap()
+    }
+
     #[test]
     fn defaults_when_the_file_is_missing() {
         let store = ConfigStore::load(&dir());
@@ -318,18 +342,41 @@ mod tests {
         assert!(!ConfigStore::load(&d).config().enabled);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn regenerating_changes_and_persists_the_token() {
         let d = dir();
-        write_config(&d, &format!(r#"{{"enabled":true,"port":{}}}"#, free_port()));
+        let port = free_port();
+        write_config(&d, &format!(r#"{{"enabled":true,"port":{port}}}"#));
         let mut h = host(&d);
         h.apply().await;
         let before = h.status().token.unwrap();
+        assert_eq!(status_code(port, &before).await, 200);
         let s = h.regenerate_token().await.unwrap();
         let after = s.token.clone().unwrap();
         assert_ne!(before, after);
         assert_eq!(s.state, "listening");
-        assert_eq!(ConfigStore::load(&d).config().token, Some(after));
+        assert_eq!(ConfigStore::load(&d).config().token, Some(after.clone()));
+        // 受け入れ条件 5b: 古いトークンは弾かれ、新しいトークンは通る
+        assert_eq!(status_code(port, &before).await, 401);
+        assert_eq!(status_code(port, &after).await, 200);
+        h.shutdown().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn changing_the_port_recovers_from_a_port_in_use() {
+        let d = dir();
+        let busy = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        write_config(&d, &format!(r#"{{"enabled":true,"port":{}}}"#, busy.local_addr().unwrap().port()));
+        let mut h = host(&d);
+        h.apply().await;
+        assert_eq!(h.status().state, "failed");
+        // 受け入れ条件 5: 設定画面でポートを変えると待ち受けられる
+        let port = free_port();
+        let s = h.set_port(port).await.unwrap();
+        assert_eq!(s.state, "listening", "{s:?}");
+        assert_eq!(s.port, port);
+        assert_eq!(ConfigStore::load(&d).config().port, port);
+        assert_eq!(status_code(port, &s.token.unwrap()).await, 200);
         h.shutdown().await;
     }
 
