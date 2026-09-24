@@ -6,6 +6,8 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { RegisteredActions } from "./desktop-actions";
 import { DesktopActionsProvider } from "./desktop-actions";
 import { DocumentList } from "./document-list";
+import { useMcpStatus } from "./mcp";
+import { SettingsDialog } from "./settings-dialog";
 import { isTauri, onCloseRequested, windowAction } from "./tauri";
 import { TitleBar } from "./title-bar";
 import { Toolbar } from "./toolbar";
@@ -36,6 +38,8 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
   const [actions, setActions] = useState<RegisteredActions | null>(null);
   const [listOpen, setListOpen] = useState(true);
   const [closeError, setCloseError] = useState<string | null>(null);
+  const [mcp, setMcp] = useMcpStatus();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { editorMounted, flushForClose } = session;
   const register = useCallback(
@@ -96,6 +100,14 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
         closeError={closeError}
         onToggleList={() => setListOpen((o) => !o)}
         onForceClose={() => void windowAction("destroy")}
+        mcp={mcp}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        status={mcp}
+        onStatus={setMcp}
       />
       <Toolbar
         actions={actions}

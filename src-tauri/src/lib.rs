@@ -5,6 +5,7 @@
 
 mod desktop;
 mod documents;
+mod mcp_host;
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -110,6 +111,17 @@ pub fn run_gui() {
                 sweep_inbox(&inbox, INBOX_MAX_AGE);
             }
             accept_argv(app.handle(), std::env::args());
+            // MCP の待ち受け (spec 03 D2: 既定で ON)。失敗しても GUI は起動する (状態として見せる)
+            let editor = std::sync::Arc::new(GuiEditor(app.handle().clone()));
+            let host = mcp_host::McpHost::new(mcp_host::ConfigStore::load_default(), editor);
+            app.manage(McpState(tokio::sync::Mutex::new(host)));
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let state = handle.state::<McpState>();
+                let mut host = state.0.lock().await;
+                host.apply().await;
+                emit_status(&handle, &host.status());
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -125,6 +137,10 @@ pub fn run_gui() {
             trash_document,
             last_opened,
             set_last_opened,
+            mcp_status,
+            set_mcp_enabled,
+            set_mcp_port,
+            regenerate_mcp_token,
             desktop::export_diagram,
             desktop::show_about
         ])
@@ -206,11 +222,88 @@ fn set_last_opened(id: String) -> Result<(), String> {
     store()?.set_last_opened(&id)
 }
 
-fn push_open(app: &AppHandle, request: OpenRequest) {
+fn push_open<R: tauri::Runtime>(app: &AppHandle<R>, request: OpenRequest) {
     if let Some(state) = app.try_state::<PendingOpens>() {
         state.0.lock().expect("pending opens").push(request);
     }
     let _ = app.emit(OPEN_EVENT, ());
+}
+
+/// HTTP の MCP の open_in_editor の行き先 (spec 03 D1)。一覧に新しい 1 件を足し、フロントへの預かりに積む。
+/// 足せなかった時は理由を返す (MCP の `opened: false` の reason になる)
+fn deliver<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    store: &documents::Store,
+    source: String,
+    title: Option<String>,
+) -> Result<(), String> {
+    let request = incoming(store, source, documents::Origin::Ai, title);
+    if request.document.is_none() {
+        return Err(request
+            .error
+            .unwrap_or_else(|| "図の一覧に足せませんでした".into()));
+    }
+    push_open(app, request);
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+    Ok(())
+}
+
+/// GUI の中の HTTP の MCP が図を届ける口
+struct GuiEditor(AppHandle);
+
+impl lorelei_mcp::EditorPort for GuiEditor {
+    fn open(&self, source: String, title: Option<String>) -> Result<(), String> {
+        deliver(&self.0, &store()?, source, title)
+    }
+}
+
+/// MCP の待ち受けの状態が変わった合図 (本体は McpStatus)
+const MCP_STATUS_EVENT: &str = "lorelei://mcp-status";
+
+struct McpState(tokio::sync::Mutex<mcp_host::McpHost>);
+
+fn emit_status(app: &AppHandle, status: &mcp_host::McpStatus) {
+    let _ = app.emit(MCP_STATUS_EVENT, status);
+}
+
+#[tauri::command]
+async fn mcp_status(state: tauri::State<'_, McpState>) -> Result<mcp_host::McpStatus, String> {
+    Ok(state.0.lock().await.status())
+}
+
+#[tauri::command]
+async fn set_mcp_enabled(
+    app: AppHandle,
+    state: tauri::State<'_, McpState>,
+    enabled: bool,
+) -> Result<mcp_host::McpStatus, String> {
+    let status = state.0.lock().await.set_enabled(enabled).await?;
+    emit_status(&app, &status);
+    Ok(status)
+}
+
+#[tauri::command]
+async fn set_mcp_port(
+    app: AppHandle,
+    state: tauri::State<'_, McpState>,
+    port: u16,
+) -> Result<mcp_host::McpStatus, String> {
+    let status = state.0.lock().await.set_port(port).await?;
+    emit_status(&app, &status);
+    Ok(status)
+}
+
+#[tauri::command]
+async fn regenerate_mcp_token(
+    app: AppHandle,
+    state: tauri::State<'_, McpState>,
+) -> Result<mcp_host::McpStatus, String> {
+    let status = state.0.lock().await.regenerate_token().await?;
+    emit_status(&app, &status);
+    Ok(status)
 }
 
 /// argv の `--open <path>` を拾って溜め、フロントへ知らせる。
@@ -343,6 +436,28 @@ mod tests {
     fn japanese_node_ids_are_accepted_in_the_gui_build() {
         let v = lorelei_core::validate("flowchart TD\n  開始 --> 終了\n").unwrap();
         assert!(v.ok, "{v:?}");
+    }
+
+    // HTTP の MCP の open_in_editor は GUI の中でじかに届く (spec 03 D1): 一覧に 1 件足し、フロントへの預かりに積む
+    #[test]
+    fn http_open_in_editor_adds_a_document_and_queues_it() {
+        let app = tauri::test::mock_builder()
+            .manage(PendingOpens::default())
+            .build(tauri::generate_context!())
+            .expect("mock app");
+        let store = documents::Store::new(scratch());
+        deliver(app.handle(), &store, "flowchart TD\n  A --> B\n".into(), Some("注文".into())).unwrap();
+        let pending = app.state::<PendingOpens>();
+        let pending = pending.0.lock().unwrap();
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].document.as_ref().unwrap().title, "注文");
+        assert_eq!(store.list().unwrap().len(), 1);
+        drop(pending);
+
+        // 変換できない図は一覧に足さず、理由を返す (MCP の opened: false の reason になる)
+        let err = deliver(app.handle(), &store, "flowchart TD\n  A[a --> B\n".into(), None);
+        assert!(err.is_err());
+        assert_eq!(store.list().unwrap().len(), 1);
     }
 
     /// MCP モードは Tauri を使わずに inbox の場所を組み立てる。Tauri の app_data_dir() と一致すること (D8)。

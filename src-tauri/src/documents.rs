@@ -242,7 +242,7 @@ fn read_doc(path: &Path) -> Result<Document, String> {
 }
 
 /// 同じフォルダの一時ファイルへ書いてから rename する (途中で切れた壊れファイルを残さない。OutputPathPolicy と同じ)
-fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let dir = path.parent().ok_or("保存先のフォルダがありません")?;
     std::fs::create_dir_all(dir).map_err(|e| format!("フォルダを作れません: {e}"))?;
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("doc");

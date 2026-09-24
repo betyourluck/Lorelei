@@ -22,11 +22,15 @@ use crate::{EditorPort, LoreleiServer};
 /// 待ち受けのパス (data_contract `McpServer.http.path`)
 pub const MCP_PATH: &str = "/mcp";
 
-/// 待ち受けている HTTP の MCP。`stop` で閉じる (セッションも一緒に畳まれる)
+/// 開いたままのセッション (SSE) が居座って閉じ終わらない時に、待つのをやめる上限
+const SHUTDOWN_GRACE: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// 待ち受けている HTTP の MCP。`stop` / `shutdown` で閉じる (セッションも一緒に畳まれる)
 #[derive(Debug)]
 pub struct RunningHttp {
     addr: SocketAddr,
     cancel: CancellationToken,
+    task: tokio::task::JoinHandle<()>,
 }
 
 impl RunningHttp {
@@ -35,8 +39,19 @@ impl RunningHttp {
         self.addr
     }
 
+    /// 閉じる合図だけを出す (ポートが空くのは少し後)
     pub fn stop(&self) {
         self.cancel.cancel();
+    }
+
+    /// 閉じて、ポートが空くまで待つ。すぐ同じポートで待ち受け直す時はこちら
+    /// (トークンの作り直し・ポートの変更。合図だけだとまだ離していないポートに bind して失敗する)
+    pub async fn shutdown(self) {
+        self.cancel.cancel();
+        let abort = self.task.abort_handle();
+        if tokio::time::timeout(SHUTDOWN_GRACE, self.task).await.is_err() {
+            abort.abort();
+        }
     }
 }
 
@@ -74,7 +89,7 @@ pub async fn start_http(
         ));
 
     let shutdown = cancel.clone();
-    tokio::spawn(async move {
+    let task = tokio::spawn(async move {
         if let Err(e) = axum::serve(listener, app)
             .with_graceful_shutdown(async move { shutdown.cancelled().await })
             .await
@@ -82,7 +97,7 @@ pub async fn start_http(
             eprintln!("lorelei mcp: 待ち受けが終わりました ({e})");
         }
     });
-    Ok(RunningHttp { addr, cancel })
+    Ok(RunningHttp { addr, cancel, task })
 }
 
 /// 鍵が無いのか違うのかは教えない (どちらも 401)

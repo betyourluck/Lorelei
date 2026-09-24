@@ -53,8 +53,29 @@ export function fakeBackend() {
     return d;
   };
 
+  // GUI の中の MCP の待ち受け (spec 03 P2)。src-tauri/src/mcp_host.rs の McpStatus と同じ形
+  const mcp = {
+    enabled: true,
+    port: 39642,
+    token: "0123456789abcdef0123456789abcdef" as string | null,
+    state: "listening" as "listening" | "stopped" | "failed" | "blocked",
+    detail: null as string | null,
+  };
+
   const invoke = vi.fn(async (cmd: string, args: Record<string, unknown> = {}) => {
     switch (cmd) {
+      case "mcp_status":
+        return { ...mcp };
+      case "set_mcp_enabled":
+        mcp.enabled = args.enabled as boolean;
+        mcp.state = mcp.enabled ? "listening" : "stopped";
+        return { ...mcp };
+      case "set_mcp_port":
+        mcp.port = args.port as number;
+        return { ...mcp };
+      case "regenerate_mcp_token":
+        mcp.token = "fedcba9876543210fedcba9876543210";
+        return { ...mcp };
       case "list_documents":
         return Array.from(docs.values())
           .sort((a, b) => orderKey(b).localeCompare(orderKey(a)))
@@ -101,6 +122,7 @@ export function fakeBackend() {
 
   return {
     invoke,
+    mcp,
     docs,
     trashed,
     add,

@@ -4,12 +4,15 @@ import {
   CircleHelpIcon,
   MinusIcon,
   PanelLeftIcon,
+  SettingsIcon,
   SquareIcon,
   TriangleAlertIcon,
   XIcon,
 } from "@yamada-ui/lucide";
 import { Box, Button, HStack, IconButton, Text } from "@yamada-ui/react";
 import type { FC, ReactElement } from "react";
+import type { McpStatus } from "./mcp";
+import { stateLabel } from "./mcp";
 import type { WindowAction } from "./tauri";
 import { showAbout, windowAction } from "./tauri";
 
@@ -24,13 +27,34 @@ interface Props {
   closeError?: string | null;
   onToggleList?: () => void;
   onForceClose?: () => void;
+  /** MCP の待ち受けの状態 (spec 03 D6)。押すと設定が開く */
+  mcp?: McpStatus | null;
+  onOpenSettings?: () => void;
 }
+
+const MCP_COLOR: Record<McpStatus["state"], string> = {
+  listening: "green.500",
+  stopped: "gray.400",
+  failed: "red.500",
+  blocked: "red.500",
+};
+
+const mcpLabel = (s: McpStatus): string =>
+  s.state === "listening" ? `MCP: 待ち受け中 127.0.0.1:${s.port}` : `MCP: ${stateLabel(s)}`;
 
 /**
  * 自作のタイトルバー (spec 02 D1)。decorations: false の代わり。
  * 移動は data-tauri-drag-region (ダブルクリックの最大化もこれで付く)。ボタンには付けない — 付けると押せなくなる。
  */
-export const TitleBar: FC<Props> = ({ title, warning, closeError, onToggleList, onForceClose }) => (
+export const TitleBar: FC<Props> = ({
+  title,
+  warning,
+  closeError,
+  onToggleList,
+  onForceClose,
+  mcp,
+  onOpenSettings,
+}) => (
   <HStack
     as="header"
     role="banner"
@@ -71,6 +95,24 @@ export const TitleBar: FC<Props> = ({ title, warning, closeError, onToggleList, 
         </Button>
       </HStack>
     )}
+    {mcp && onOpenSettings && (
+      <Button
+        aria-label={mcpLabel(mcp)}
+        title={mcp.detail ?? mcpLabel(mcp)}
+        size="xs"
+        variant="ghost"
+        h={TITLE_BAR_HEIGHT}
+        rounded="0"
+        fontSize="xs"
+        color="gray.600"
+        gap="xs"
+        onClick={onOpenSettings}
+      >
+        <Box as="span" w="2" h="2" rounded="full" bg={MCP_COLOR[mcp.state]} aria-hidden />
+        MCP
+      </Button>
+    )}
+    {onOpenSettings && <BarButton label="設定" icon={<SettingsIcon />} onClick={onOpenSettings} />}
     <BarButton label="Lorelei について" icon={<CircleHelpIcon />} onClick={() => void showAbout()} />
     <Box w="1px" h="4" bg="gray.200" mx="xs" />
     <WindowButton label="最小化" action="minimize" icon={<MinusIcon />} />

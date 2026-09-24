@@ -179,6 +179,20 @@ async fn editor_refusal_and_unsupported_diagrams_are_reported_not_delivered() {
 }
 
 #[tokio::test]
+async fn shutdown_frees_the_port_for_an_immediate_restart() {
+    // トークンの作り直し・ポートの変更は「止めて、すぐ同じポートで待ち受け直す」。
+    // stop が合図を出すだけだと、まだ離していないポートに bind して失敗した (spec 03 P2 のテストで発覚)
+    let (running, url) = start(Arc::new(Recorder::default())).await;
+    let sid = session(&url).await; // セッションを開いたまま止める
+    let _ = sid;
+    let port = running.addr().port();
+    running.shutdown().await;
+    let again = start_http(port, TOKEN.into(), Arc::new(Recorder::default())).await;
+    assert!(again.is_ok(), "{:?}", again.err());
+    again.unwrap().shutdown().await;
+}
+
+#[tokio::test]
 async fn stop_closes_the_port() {
     let (running, url) = start(Arc::new(Recorder::default())).await;
     running.stop();

@@ -165,6 +165,25 @@ axum 0.8 で `127.0.0.1:39642/mcp` に立てた。トークンは固定値（`Au
   口が断った時と開けない種類は `opened: false`（開けない種類は口へ届かない）/ `stop` で閉じる。ほかに定数時間比較の単体 1 件
 - Rust はワークスペース・src-tauri とも全件緑、clippy 警告 0
 
+## P2 結果（2026-09-25）
+
+- 着地: `src-tauri/src/mcp_host.rs`（`ConfigStore`（`mcp_server.json`、読めなければ待ち受けず書き込みも拒む・エラーに中身を載せない）/
+  `McpHost`（`apply` / `set_enabled` / `set_port` / `regenerate_token` / `status`））、GUI の `EditorPort`（`GuiEditor` → `deliver`: 一覧に 1 件足して預かりに積み、窓を前に出す）、
+  command 4 本（`mcp_status` / `set_mcp_enabled` / `set_mcp_port` / `regenerate_mcp_token`）とイベント `lorelei://mcp-status`、起動時の待ち受け（`setup` で `apply`）。
+  フロントは `lib/desktop/mcp.ts`（`useMcpStatus`・登録コマンド）、`settings-dialog.tsx`（D4 の 5 項目）、タイトルバーの「● MCP」と歯車（D6）
+- data_contract を先に凍結（`McpServerConfig` / `McpStatus` / `GuiCommands.mcp_*`）
+- **テストで見つけて直したもの**: トークンの作り直し・ポートの変更は「止めて、すぐ同じポートで待ち受け直す」が、`stop` は合図を出すだけでポートが空くのを待たず、
+  待ち受け直しが「使われている」で失敗した（`regenerating_changes_and_persists_the_token` が `failed` で Red）。
+  `lorelei_mcp::RunningHttp::shutdown`（合図 → 待ち受けのタスクの終わりを待つ。開いたままのセッションで終わらなければ 3 秒で打ち切る）を足し、`McpHost::apply` はそれを待つ
+- テスト（Red → Green）: Rust `mcp_host` 7 件（既定値 / トークンは 1 回だけ作って残る / ポートが使われていても落ちない / 切ると止まる / 作り直しが残る / ポートの範囲 / 壊れたファイル）、
+  `deliver` 1 件（一覧に足して預かりに積む・変換できない図は足さない）、`lorelei_mcp` の `shutdown` 1 件、フロント `mcp-settings.test.tsx` 7 件
+  （印を押すと開く / トークンの本文を画面に出さない / 登録コマンドのコピー / 切る / 作り直しの確認 / ポートの適用 / 失敗の理由）
+- 全体: Rust は GUI 32 件・ワークスペースとも緑、clippy 警告 0。フロントは 524 件中 1 件（ArrowTypeSelector の時間切れ、failures #3 の顔ぶれ）
+- 実機（`tauri dev`）: 起動すると 39642 で待ち受け、`mcp_server.json` に 32 桁のトークンが作られた。curl でトークンなし 401、`open_in_editor` → `opened: true` →
+  一覧に入り中身と位置が保存された（inbox は 0 件）。生成器の出す空のエンティティ（`窓口 {\n  }`）も `validate` で `ok: true`（開き直せる）。
+  **利用者が確認**: 「● MCP」と歯車のどちらからも設定画面が開く / 登録コマンドのコピー / 切ると止まる
+- 途中で `next dev` が 3001 で立ち上がり画面が読み込まれないことが 1 回あった。前に止めた dev 版の Next の残りが 3000 を握っていた（コードの問題ではない）
+
 ## 受け入れ条件
 
 1. GUI を起動すると `127.0.0.1:39642/mcp` で待ち受け、Claude Code から `validate` / `render` / `open_in_editor` が使える

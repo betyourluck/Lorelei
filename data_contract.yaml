@@ -192,6 +192,30 @@ GuiCommands:
   export_diagram: "(source, format: svg|png|pdf, fileStem) → 保存したパス | null (取り消し)。保存ダイアログは rfd。上書きの確認は OS のダイアログが行う"
   show_about: "() → ()。About (rfd の MessageDialog) を出す。入口はタイトルバーの「?」(spec 02 D5。ネイティブのメニューは持たない)。フォーク元への謝辞とライセンス一覧を載せ、全文は bundle.resources で licenses/ に同梱"
   window: "自作タイトルバーのウィンドウ操作は @tauri-apps/api/window (minimize / toggleMaximize / close / data-tauri-drag-region)。権限は capabilities/default.json の core:window:*"
+  mcp_status: "() → McpStatus。設定画面とタイトルバーの印が読む (spec 03 D4・D6)"
+  set_mcp_enabled: "(enabled) → McpStatus。切ると待ち受けを止め、入れると待ち受ける (初めてならトークンを作る)"
+  set_mcp_port: "(port) → McpStatus。1024〜65535。待ち受け中なら待ち受け直す"
+  regenerate_mcp_token: "() → McpStatus。今のトークンで開いている接続は次の要求から弾かれる。待ち受け中なら待ち受け直す"
+  mcp_status_event: "lorelei://mcp-status (本体は McpStatus)。状態が変わるたびに出す"
+
+McpServerConfig:
+  description: GUI の中の MCP の待ち受けの設定 (spec 03 D2)
+  path: "{app_data_dir}/mcp_server.json"
+  writer: rust                    # JS からは読み書きしない
+  fields:
+    enabled: { type: bool, default: true }        # 利用者裁定 2026-09-25: 既定で ON
+    port: { type: int, default: 39642, range: [1024, 65535] }
+    token: { type: string, nullable: true }       # 初めて待ち受ける時に 1 回だけ作る (Uuid v4 の 32 桁の 16 進)。毎回作り直すとクライアントの設定が毎回無効になる
+  json_keys: camelCase
+  on_read_error: "待ち受けず、設定の保存も拒む (既定値で書き戻すと手で直した鍵を消す。Fuseforks failures #70)。エラーにファイルの中身を載せない (トークンが入っている)"
+
+McpStatus:
+  fields:
+    enabled: bool
+    port: int
+    token: { type: string, nullable: true }   # 設定画面のコピーと登録コマンドに使う (同じ利用者の画面にだけ出す)
+    state: { enum: [listening, stopped, failed, blocked] }   # blocked = mcp_server.json が読めない
+    detail: { type: string, nullable: true }  # failed / blocked の理由 (ポートが使われている等)
 
 Document:
   description: 図の一覧の 1 件 = 1 枚の図 (spec 02 D6)。デスクトップ版だけのもの

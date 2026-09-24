@@ -23,7 +23,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-single-instance = "2"
 lorelei_core = { path = "../crates/lorelei_core" }
 lorelei_mcp = { path = "../crates/lorelei_mcp" }
-tokio = { version = "1", features = ["rt-multi-thread"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time", "net"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # 図の一覧 (spec 02 P3)。どちらも既に Cargo.lock に入っている (新しい crate は増えない)
