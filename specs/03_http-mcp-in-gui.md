@@ -102,7 +102,7 @@ GUI の実装は、今の `incoming` → `push_open` をそのまま呼ぶ（届
 | ポート | 数値。変えたら待ち受けをやり直す。注記「待ち受けは 127.0.0.1 のみ（他の端末からは接続できません）」 |
 | トークン | 伏せ字で表示・コピー・作り直し（確認つき「今の値を設定したクライアントはつながらなくなります」） |
 | 待ち受けの状態 | 「待ち受け中: 127.0.0.1:{port}」/「止めています」/「待ち受けられません: {理由}」 |
-| クライアント側の設定 | 登録コマンドをコピーできる形で出す: `claude mcp add --transport http lorelei http://127.0.0.1:{port}/mcp --header "Authorization: Bearer <トークン>"`（local スコープ = `~/.claude.json`。リポジトリに入らない）。注記「トークンを作り直したら、登録し直してください」 |
+| クライアント側の設定 | 登録コマンドをコピーできる形で出す: `claude mcp add --transport http lorelei http://127.0.0.1:{port}/mcp --header "Authorization: Bearer <トークン>"`（local スコープ = `~/.claude.json`。リポジトリに入らない）。注記「トークンを作り直したら、登録し直してください」「Lorelei を使うプロジェクトのフォルダで実行してください（登録はフォルダごと。どこからでも使うなら `--scope user`）」（P0 で判明） |
 
 - 設定画面は `lib/desktop/` の Tauri 専用 UI（Web 版には出ない）。今後の設定もここへ足す
 - 設定の読み書きは Rust（`mcp_server.json`）。JS からはファイルに触らない（spec 01 D8 の方針）
@@ -131,6 +131,28 @@ single-instance の argv の引き渡し（`accept_argv` / `open_arg`）は要�
 - **P3**: 撤去（D1・D5）— `--mcp`・stdio・`GuiLauncher`・inbox・`--open`・`.mcp.json`・`lorelei-mcp` の stdio。名前で全台帳を grep（data_contract の `McpServer` / `EditorInbox`、LORELEI.md、CLAUDE.md、spec 01・02）
 - **P4**: 実機 — 配布ビルドを起動 → 設定の登録コマンドで Claude Code に登録 → 3 本のツールと `title` 付きの `open_in_editor`
 
+## P0 結果（2026-09-25。使い捨ての `src-tauri/src/poc_http.rs` で確認し、コードは戻した）
+
+`tauri dev` の GUI の `setup` で、今の `LoreleiServer`（stdio 用のツール実装そのまま）を `StreamableHttpService` に載せ、
+axum 0.8 で `127.0.0.1:39642/mcp` に立てた。トークンは固定値（`Authorization: Bearer` をミドルウェアで比較）、Origin は loopback の 2 つだけ。
+依存は `rmcp`（features `server` / `transport-streamable-http-server`）・`axum`（`http1` / `tokio`、default-features なし）・`tokio` の `net`。
+
+| # | 結果 | 観測 |
+|---|---|---|
+| 1 | **通過** | curl: トークンなし → **401**、`Origin: http://evil.example` → **403**、initialize → `mcp-session-id` が返る、tools/list で 3 本。Claude Code: `claude mcp add --transport http … --header` の後、`/mcp` で `✔ connected · 3 tools`、このセッションから `render` / `validate` を呼べた |
+| 2 | **通過** | GUI を落として（利用者がタスクキル）、自動の再接続の窓（約 30 秒）を過ぎてから起動し直した。`/mcp` で手でつなぎ直さずに `validate` を呼ぶと成功した（呼んだ直後に「切断 → 再接続中」の通知が出たので、Claude Code がセッションを張り直している） |
+| 3 | **通過** | `render`（svg）の応答に text（9,976 字）と image（`image/png`、base64 5,544 字）の 2 つが入り、このセッションに画像として届いて見えた |
+
+- **予定外に確かめられたこと**: Fuseforks の村の個体（ザリ）が別のクライアントとして同じ待ち受けにつながり、`title` 付きで `open_in_editor` を呼べた。
+  結果が `opened: false`（「GUI の実行ファイルが見つかりません」）だったのは PoC の作り（`GuiLauncher` を空で渡した）のためで、D1 の `EditorPort` で解決する
+- **stdio の登録は、Claude Code を開いたフォルダで壊れる**: 利用者が `src-tauri` で開いたセッションでは、リポジトリ直下の `.mcp.json`（`./src-tauri/target/release/lorelei.exe --mcp`）が
+  相対パスで解決できず `✘ failed` だった（表示上は `src-tauri\.mcp.json` と出るが、そのファイルは無い）。HTTP にすると URL なので起きない
+- **Claude Code の MCP の登録はプロジェクト（開いたフォルダ）ごと**: local スコープの登録は `~/.claude.json` のそのフォルダの欄に入る。
+  `src-tauri` で登録したものは `D:\Github\Lorelei` のセッションからは見えなかった（登録し直して見えた）。**D4 の登録コマンドの注記に「使うプロジェクトのフォルダで実行する」と足す**。
+  どのフォルダからも使いたいなら `--scope user` を案内する
+- curl の `-d` に日本語を書くと Git Bash で化けて「invalid unicode code point」になった。サーバーの問題ではない（UTF-8 のファイルを `--data-binary @` で送ると通った）
+- 使った登録（`lorelei-poc`、固定トークン）は、利用者が `claude mcp remove lorelei-poc` で外す
+
 ## 受け入れ条件
 
 1. GUI を起動すると `127.0.0.1:39642/mcp` で待ち受け、Claude Code から `validate` / `render` / `open_in_editor` が使える
@@ -152,5 +174,5 @@ single-instance の argv の引き渡し（`accept_argv` / `open_arg`）は要�
 
 ## 未検証のまま置いているもの
 
-- P0 の 3 項目
-- Claude Code が HTTP のツール結果の画像（`render` の preview）を受け取れるか（P0-3）
+- （P0 の 3 項目は通過。「P0 結果」節）
+- 同じ待ち受けに複数のクライアント（Claude Code と Fuseforks）が同時につないだ時の振る舞い（P0 では順につないだだけ）
