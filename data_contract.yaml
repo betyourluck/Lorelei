@@ -133,10 +133,19 @@ FontBundle:
   system_fonts: false   # システムフォントは読まない (端末ごとに出力が変わるのを防ぐ)
 
 McpServer:
-  transport: stdio        # ネットワークに口を開けない。トークン・ポート・Origin 検査は不要
-  entry: "lorelei --mcp"  # tauri::Builder より前に分岐。配布ビルド (GUI サブシステム) でスモークテスト緑 = 単一 exe で確定 (spec 01 P3)
-  stdout: json_rpc_only   # ログは全部 stderr
-  dev_binary: "lorelei-mcp (crates/lorelei_mcp)。開発・スモークテスト・D1 の退路用。GUI の場所は環境変数 LORELEI_GUI_EXE"
+  transport: streamable_http   # spec 03 で stdio から移す。GUI のプロセスの中で待ち受ける (GUI を閉じていると使えない)
+  http:
+    bind: "127.0.0.1:{port}"      # 固定。0.0.0.0 にしない (LAN へ出さない)
+    path: /mcp
+    default_port: 39642           # Fuseforks (39641) と並べて使えるように
+    auth: "Authorization: Bearer <McpServerConfig.token>。定数時間で比べる。無い・違う → 401 (理由を分けない)"
+    host_check: "rmcp の既定 allowed_hosts (loopback 3 種)。DNS rebinding 対策"
+    origin_check: "http://127.0.0.1:{port} と http://localhost:{port} だけ。Origin ヘッダの無い要求 (CLI のクライアント) は通す"
+    editor_port: "open_in_editor が GUI へ図を届ける口 (lorelei_mcp::EditorPort)。lorelei_mcp は Tauri に依存しない"
+  stdio_legacy:                # spec 03 P3 で撤去する (撤去までは残す)
+    entry: "lorelei --mcp"     # tauri::Builder より前に分岐 (spec 01 P3)
+    stdout: json_rpc_only      # ログは全部 stderr
+    dev_binary: "lorelei-mcp (crates/lorelei_mcp)。開発・スモークテスト用。GUI の場所は環境変数 LORELEI_GUI_EXE"
   tool_errors: >-
     入力や規則の問題 (文法エラー・書き出し規則違反・png/pdf で output_path なし) は、プロトコルのエラーではなく
     ツール結果のエラー (isError: true, structuredContent: { error, line? }) で返す。呼ぶ側の AI が読んで直せるように

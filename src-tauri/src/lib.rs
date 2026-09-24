@@ -26,6 +26,7 @@ const INBOX_MAX_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 pub fn run_mcp() -> i32 {
     let launcher = lorelei_mcp::GuiLauncher {
         exe: std::env::current_exe().ok(),
+        inbox: lorelei_core::paths::inbox_dir(),
     };
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(rt) => rt,

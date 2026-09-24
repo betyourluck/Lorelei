@@ -153,6 +153,18 @@ axum 0.8 で `127.0.0.1:39642/mcp` に立てた。トークンは固定値（`Au
 - curl の `-d` に日本語を書くと Git Bash で化けて「invalid unicode code point」になった。サーバーの問題ではない（UTF-8 のファイルを `--data-binary @` で送ると通った）
 - 使った登録（`lorelei-poc`、固定トークン）は、利用者が `claude mcp remove lorelei-poc` で外す
 
+## P1 結果（2026-09-25）
+
+- 着地: `crates/lorelei_mcp/src/http.rs`（`start_http(port, token, editor) -> RunningHttp`、`addr()` / `stop()`）、`EditorPort`（`open(source, title) -> Result<(), String>`）。
+  `LoreleiServer` は `Arc<dyn EditorPort>` を持ち、`open_in_editor` は図の種類を確かめてから口へ渡す（GUI で開けない種類は届ける前に断る）。
+  stdio の `GuiLauncher` も `EditorPort` の実装の 1 つにして残した（P3 で撤去するまで `lorelei --mcp` を動かしておくため。`inbox` の場所を持つ形にした）
+- 依存: `rmcp` に `transport-streamable-http-server`、`axum 0.8`（`http1` / `tokio`）、`tokio-util`（`CancellationToken`）、`tokio` の `net`。テストだけ `reqwest 0.12`
+- data_contract の `McpServer` を先に凍結（`transport: streamable_http`・`http:`（bind / path / default_port / auth / host_check / origin_check / editor_port）・`stdio_legacy:`）
+- テスト（Red → Green）: `crates/lorelei_mcp/tests/http.rs` 6 件 — 127.0.0.1 だけで待ち受ける / トークンなし・違うトークンは 401 /
+  外の Origin・外の Host は 403、Origin 無しと loopback の Origin は通る / tools/list で 3 本・validate・`title` 付きの open_in_editor が口へ届く /
+  口が断った時と開けない種類は `opened: false`（開けない種類は口へ届かない）/ `stop` で閉じる。ほかに定数時間比較の単体 1 件
+- Rust はワークスペース・src-tauri とも全件緑、clippy 警告 0
+
 ## 受け入れ条件
 
 1. GUI を起動すると `127.0.0.1:39642/mcp` で待ち受け、Claude Code から `validate` / `render` / `open_in_editor` が使える

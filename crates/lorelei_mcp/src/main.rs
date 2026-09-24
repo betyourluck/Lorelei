@@ -7,6 +7,7 @@
 async fn main() {
     let launcher = lorelei_mcp::GuiLauncher {
         exe: std::env::var_os("LORELEI_GUI_EXE").map(Into::into),
+        inbox: lorelei_core::paths::inbox_dir(),
     };
     if let Err(e) = lorelei_mcp::run_stdio(launcher).await {
         // stdout は JSON-RPC 専用。失敗は stderr へ

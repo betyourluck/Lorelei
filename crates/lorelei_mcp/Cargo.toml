@@ -1,7 +1,7 @@
 [package]
 name = "lorelei_mcp"
 version = "0.1.0"
-description = "Lorelei の MCP サーバー (stdio)。GUI の exe が `--mcp` で呼ぶライブラリと、開発・退路用の単体 bin"
+description = "Lorelei の MCP サーバー。GUI の中で待ち受ける Streamable HTTP (spec 03) と、撤去予定の stdio (lorelei --mcp) のライブラリ"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
@@ -12,8 +12,10 @@ path = "src/main.rs"
 
 [dependencies]
 lorelei_core = { path = "../lorelei_core" }
-rmcp.workspace = true
-tokio.workspace = true
+rmcp = { workspace = true, features = ["transport-streamable-http-server"] }
+tokio = { workspace = true, features = ["net"] }
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
+tokio-util = "0.7"
 serde.workspace = true
 serde_json.workspace = true
 base64.workspace = true
@@ -21,3 +23,4 @@ uuid.workspace = true
 
 [dev-dependencies]
 uuid.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["json"] }

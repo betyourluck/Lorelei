@@ -1,9 +1,12 @@
-//! Lorelei の MCP サーバー (stdio)。spec 01 D1 / D2、ツールの入出力の正は data_contract `McpServer.tools`。
+//! Lorelei の MCP サーバー。ツールの入出力の正は data_contract `McpServer.tools`。
 //!
-//! **stdout は JSON-RPC 専用** (D1)。このクレートは stdout へ何も書かない — ログが要るなら stderr。
-//! GUI を起動する時も子プロセスに stdin / stdout / stderr を引き継がせない。
+//! - **HTTP** (`start_http`, spec 03): GUI のプロセスの中で `127.0.0.1:{port}/mcp` に待ち受ける。
+//!   `open_in_editor` は `EditorPort` で GUI へじかに届ける
+//! - **stdio** (`run_stdio`, spec 01): `lorelei --mcp`。spec 03 P3 で撤去する。
+//!   **stdout は JSON-RPC 専用** — このクレートは stdout へ何も書かない。GUI を起動する時も子プロセスに stdio を引き継がせない
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::process::{Command, Stdio};
 
 use base64::Engine as _;
@@ -22,16 +25,28 @@ use serde_json::{Value, json};
 /// preview の長辺 (px)。Claude の画像入力の推奨上限に合わせた値 (spec 01 D2)。
 pub const PREVIEW_MAX_SIDE: u32 = 1568;
 
-/// open_in_editor が GUI をどう起動するか。
+mod http;
+pub use http::{RunningHttp, start_http};
+
+/// open_in_editor が GUI へ図を届ける口 (spec 03 D1、data_contract `McpServer.http.editor_port`)。
+/// このクレートを Tauri に依存させないための境目。GUI の中の HTTP では GUI 自身が実装する
+pub trait EditorPort: Send + Sync + 'static {
+    /// 図を GUI の一覧に新しい 1 件として足し、開く。届けられなかった理由は Err で返す (opened: false の reason になる)
+    fn open(&self, source: String, title: Option<String>) -> Result<(), String>;
+}
+
+/// stdio の MCP で、GUI を別プロセスとして起動する口 (spec 01 D8)。spec 03 P3 で撤去する。
 #[derive(Debug, Clone, Default)]
 pub struct GuiLauncher {
     /// GUI の実行ファイル。単一 exe 構成 (D1) では `current_exe()`。None なら GUI では開けない。
     pub exe: Option<PathBuf>,
+    /// inbox の場所 (`lorelei_core::paths::inbox_dir()`)。None なら開けない
+    pub inbox: Option<PathBuf>,
 }
 
-/// stdin / stdout で MCP を喋る。クライアントが切断するまで戻らない。
+/// stdin / stdout で MCP を喋る。クライアントが切断するまで戻らない。spec 03 P3 で撤去する。
 pub async fn run_stdio(launcher: GuiLauncher) -> Result<(), Box<dyn std::error::Error>> {
-    let service = LoreleiServer::new(launcher)
+    let service = LoreleiServer::new(Arc::new(launcher))
         .serve(rmcp::transport::stdio())
         .await?;
     service.waiting().await?;
@@ -40,7 +55,7 @@ pub async fn run_stdio(launcher: GuiLauncher) -> Result<(), Box<dyn std::error::
 
 #[derive(Clone)]
 pub struct LoreleiServer {
-    launcher: GuiLauncher,
+    editor: Arc<dyn EditorPort>,
     tool_router: ToolRouter<Self>,
 }
 
@@ -159,9 +174,9 @@ pub struct OpenResult {
 
 #[tool_router]
 impl LoreleiServer {
-    pub fn new(launcher: GuiLauncher) -> Self {
+    pub fn new(editor: Arc<dyn EditorPort>) -> Self {
         Self {
-            launcher,
+            editor,
             tool_router: Self::tool_router(),
         }
     }
@@ -210,11 +225,8 @@ impl LoreleiServer {
         &self,
         Parameters(p): Parameters<OpenParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let launcher = self.launcher.clone();
-        let inbox = lorelei_core::paths::inbox_dir();
-        let result =
-            blocking(move || open_in_editor(&p.source, p.title, &launcher, inbox.as_deref()))
-                .await?;
+        let editor = Arc::clone(&self.editor);
+        let result = blocking(move || open_in_editor(&p.source, p.title, editor.as_ref())).await?;
         Ok(match result {
             Ok(r) => CallToolResult::structured(to_value(&r)?),
             Err(e) => core_error(&e),
@@ -288,12 +300,12 @@ fn render_tool(p: RenderParams) -> Result<CallToolResult, ErrorData> {
     Ok(out)
 }
 
-/// open_in_editor の本体。GUI の起動と inbox の場所を引数で受けるのはテストのため。
+/// open_in_editor の本体。図の種類を確かめてから、GUI へ届ける口 (EditorPort) に渡す。
+/// GUI で開けない種類は届ける前に断る。
 pub fn open_in_editor(
     source: &str,
     title: Option<String>,
-    launcher: &GuiLauncher,
-    inbox: Option<&Path>,
+    port: &dyn EditorPort,
 ) -> Result<OpenResult, CoreError> {
     let payload = to_editor(source)?;
     let Some(payload) = payload else {
@@ -312,49 +324,48 @@ pub fn open_in_editor(
         EditorPayload::ErDiagram { .. } => "erDiagram",
     };
     let dropped = payload.dropped().to_vec();
-    let not_opened = |reason: String| OpenResult {
-        opened: false,
-        editor: Some(editor),
-        dropped: dropped.clone(),
-        reason: Some(reason),
-    };
-
-    let Some(exe) = &launcher.exe else {
-        return Ok(not_opened("GUI の実行ファイルが見つかりません".into()));
-    };
-    let Some(inbox) = inbox else {
-        return Ok(not_opened("アプリのデータフォルダを決められません".into()));
-    };
-    // { source, title } の JSON (spec 02 D8)。GUI は同じ型 (InboxItem) で読む
-    let file = inbox.join(format!(
-        "{}.{}",
-        uuid::Uuid::new_v4(),
-        lorelei_core::paths::INBOX_EXTENSION
-    ));
-    let item = lorelei_core::paths::InboxItem {
-        source: source.to_string(),
-        title: title.map(|t| t.trim().to_string()).filter(|t| !t.is_empty()),
-    };
-    let body = serde_json::to_vec(&item).expect("InboxItem は常に JSON にできる");
-    if let Err(e) = std::fs::create_dir_all(inbox).and_then(|_| std::fs::write(&file, body)) {
-        return Ok(not_opened(format!(
-            "inbox に書けません ({}): {e}",
-            inbox.display()
-        )));
-    }
-    if let Err(e) = spawn_gui(exe, &file) {
-        let _ = std::fs::remove_file(&file);
-        return Ok(not_opened(format!(
-            "GUI を起動できません ({}): {e}",
-            exe.display()
-        )));
-    }
-    Ok(OpenResult {
-        opened: true,
-        editor: Some(editor),
-        dropped,
-        reason: None,
+    let title = title.map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
+    Ok(match port.open(source.to_string(), title) {
+        Ok(()) => OpenResult {
+            opened: true,
+            editor: Some(editor),
+            dropped,
+            reason: None,
+        },
+        Err(reason) => OpenResult {
+            opened: false,
+            editor: Some(editor),
+            dropped,
+            reason: Some(reason),
+        },
     })
+}
+
+/// stdio の MCP (`lorelei --mcp`) が GUI へ届ける口: inbox に書いて GUI を `--open` で起動する。
+/// spec 03 P3 で stdio ごと撤去する
+impl EditorPort for GuiLauncher {
+    fn open(&self, source: String, title: Option<String>) -> Result<(), String> {
+        let exe = self.exe.as_ref().ok_or("GUI の実行ファイルが見つかりません")?;
+        let inbox = self
+            .inbox
+            .as_ref()
+            .ok_or("アプリのデータフォルダを決められません")?;
+        // { source, title } の JSON (spec 02 D8)。GUI は同じ型 (InboxItem) で読む
+        let file = inbox.join(format!(
+            "{}.{}",
+            uuid::Uuid::new_v4(),
+            lorelei_core::paths::INBOX_EXTENSION
+        ));
+        let item = lorelei_core::paths::InboxItem { source, title };
+        let body = serde_json::to_vec(&item).expect("InboxItem は常に JSON にできる");
+        std::fs::create_dir_all(inbox)
+            .and_then(|_| std::fs::write(&file, body))
+            .map_err(|e| format!("inbox に書けません ({}): {e}", inbox.display()))?;
+        spawn_gui(exe, &file).map_err(|e| {
+            let _ = std::fs::remove_file(&file);
+            format!("GUI を起動できません ({}): {e}", exe.display())
+        })
+    }
 }
 
 /// GUI を切り離して起動する。終了は待たない (D8)。
@@ -429,12 +440,12 @@ mod tests {
         let inbox = scratch();
         let launcher = GuiLauncher {
             exe: Some(std::env::current_exe().unwrap()),
+            inbox: Some(inbox.clone()),
         };
         let r = open_in_editor(
             "flowchart TD\n  subgraph S\n    A --> B\n  end\n",
             Some("注文フロー".into()),
             &launcher,
-            Some(&inbox),
         )
         .unwrap();
         assert!(r.opened, "{r:?}");
@@ -457,8 +468,9 @@ mod tests {
         let inbox = scratch();
         let launcher = GuiLauncher {
             exe: Some(inbox.join("no-such-gui.exe")),
+            inbox: Some(inbox.clone()),
         };
-        let r = open_in_editor("erDiagram\n  A ||--o{ B : has\n", None, &launcher, Some(&inbox)).unwrap();
+        let r = open_in_editor("erDiagram\n  A ||--o{ B : has\n", None, &launcher).unwrap();
         assert!(!r.opened);
         assert_eq!(r.editor, Some("erDiagram"));
         assert!(r.reason.unwrap().contains("起動できません"));
