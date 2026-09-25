@@ -235,7 +235,13 @@ mod tests {
 
     struct NoEditor;
     impl lorelei_mcp::EditorPort for NoEditor {
-        fn open(&self, _: String, _: Option<String>) -> Result<(), String> {
+        fn open(&self, _: String, _: Option<String>) -> Result<String, String> {
+            Err("test".into())
+        }
+        fn list(&self) -> Result<Vec<lorelei_mcp::DiagramSummary>, String> {
+            Err("test".into())
+        }
+        fn read(&self, _: Option<String>) -> Result<lorelei_mcp::Diagram, String> {
             Err("test".into())
         }
     }

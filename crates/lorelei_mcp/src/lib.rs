@@ -2,6 +2,7 @@
 //!
 //! GUI のプロセスの中で `127.0.0.1:{port}/mcp` に Streamable HTTP で待ち受ける (`start_http`, spec 03)。
 //! `open_in_editor` は `EditorPort` で GUI へじかに届ける。stdio の `lorelei --mcp` は spec 03 P3 で撤去した。
+//! `list_diagrams` / `read_diagram` は同じ口で GUI の図の一覧を読む (spec 04。人が直した図の読み戻し)。
 
 use std::path::Path;
 use std::sync::Arc;
@@ -25,11 +26,44 @@ pub const PREVIEW_MAX_SIDE: u32 = 1568;
 mod http;
 pub use http::{RunningHttp, start_http};
 
-/// open_in_editor が GUI へ図を届ける口 (spec 03 D1、data_contract `McpServer.http.editor_port`)。
+/// GUI の図の一覧への口 (spec 03 D1・spec 04 D3、data_contract `McpServer.http.editor_port`)。
 /// このクレートを Tauri に依存させないための境目。GUI の中の HTTP では GUI 自身が実装する
 pub trait EditorPort: Send + Sync + 'static {
-    /// 図を GUI の一覧に新しい 1 件として足し、開く。届けられなかった理由は Err で返す (opened: false の reason になる)
-    fn open(&self, source: String, title: Option<String>) -> Result<(), String>;
+    /// 図を GUI の一覧に新しい 1 件として足し、開く。Ok は作った図の id (document_id)。
+    /// 届けられなかった理由は Err で返す (opened: false の reason になる)
+    fn open(&self, source: String, title: Option<String>) -> Result<String, String>;
+    /// 図の一覧 (GUI の一覧と同じ並び)
+    fn list(&self) -> Result<Vec<DiagramSummary>, String>;
+    /// 1 枚の図。id を省くと今 GUI で開いている図。original_source は常に詰める (省くのはツールの層)。
+    /// Err の文字列はそのまま AI に見せる (ファイルのパスを載せない)
+    fn read(&self, id: Option<String>) -> Result<Diagram, String>;
+}
+
+/// data_contract `DiagramSummary` (spec 04 D2)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DiagramSummary {
+    pub id: String,
+    pub title: String,
+    /// flowchart | erDiagram
+    pub editor: String,
+    /// new | ai | import
+    pub origin: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub saved_at: Option<String>,
+    /// 最後の「保存」(Ctrl+S) の後に中身が変わったか (ファイルの時刻の比較)
+    pub unsaved: bool,
+    /// 今 GUI で開いている図
+    pub open: bool,
+}
+
+/// data_contract `Diagram` (spec 04 D2)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Diagram {
+    #[serde(flatten)]
+    pub summary: DiagramSummary,
+    pub source: String,
+    pub original_source: Option<String>,
 }
 
 #[derive(Clone)]
@@ -149,6 +183,18 @@ pub struct OpenResult {
     pub editor: Option<&'static str>,
     pub dropped: Vec<DroppedItem>,
     pub reason: Option<String>,
+    /// 作った図の id。read_diagram の id にそのまま渡せる。opened=false なら null
+    pub document_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ReadParams {
+    /// 読む図の id (list_diagrams の id、または open_in_editor の document_id)。省くと今 GUI で開いている図。
+    #[serde(default)]
+    pub id: Option<String>,
+    /// true なら、AI やインポートで届いた時の原文 (original_source) も返す。新規作成の図は null。
+    #[serde(default)]
+    pub include_original: bool,
 }
 
 #[tool_router]
@@ -211,6 +257,42 @@ impl LoreleiServer {
             Err(e) => core_error(&e),
         })
     }
+
+    #[tool(
+        name = "list_diagrams",
+        description = "Lorelei の GUI の図の一覧を返す (並びは GUI の一覧と同じ)。open=true が今 GUI で開いている図。                       unsaved は最後の「保存」(Ctrl+S) の後に変更があるか。中身は read_diagram で読む。"
+    )]
+    async fn list_diagrams(&self) -> Result<CallToolResult, ErrorData> {
+        let editor = Arc::clone(&self.editor);
+        Ok(match blocking(move || editor.list()).await? {
+            Ok(diagrams) => CallToolResult::structured(json!({ "diagrams": to_value(&diagrams)? })),
+            Err(e) => tool_error(json!({ "error": e })),
+        })
+    }
+
+    #[tool(
+        name = "read_diagram",
+        description = "人が Lorelei の GUI で直した今の図を Mermaid で読む。id を省くと今 GUI で開いている図。                       source はエディタが出した Mermaid で、向き (LR など)・FK の印・subgraph・style などは落ちている。                       渡した原文が要る時は include_original=true (original_source)。                       GUI での編集は約 1 秒後に保存されるので、直後の編集は含まれないことがある。                       source が空文字なら、新規作成の図はまだ何も保存されておらず、AI やインポートで届いた図はまだエディタに載っていない。                       source はそのまま validate / render に渡せる。"
+    )]
+    async fn read_diagram(
+        &self,
+        Parameters(p): Parameters<ReadParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let editor = Arc::clone(&self.editor);
+        Ok(match blocking(move || editor.read(p.id)).await? {
+            Ok(d) => CallToolResult::structured(diagram_value(&d, p.include_original)?),
+            Err(e) => tool_error(json!({ "error": e })),
+        })
+    }
+}
+
+/// include_original=false ならキーごと出さない。true なら文字列か null (data_contract `Diagram.original_source`)
+fn diagram_value(d: &Diagram, include_original: bool) -> Result<Value, ErrorData> {
+    let mut v = to_value(d)?;
+    if !include_original && let Some(obj) = v.as_object_mut() {
+        obj.remove("original_source");
+    }
+    Ok(v)
 }
 
 #[tool_handler(router = self.tool_router)]
@@ -293,6 +375,7 @@ pub fn open_in_editor(
             opened: false,
             editor: None,
             dropped: Vec::new(),
+            document_id: None,
             reason: Some(format!(
                 "この図の種類 ({family}) は GUI エディタで開けません。対応は flowchart と erDiagram だけです (render で描画はできます)"
             )),
@@ -305,17 +388,19 @@ pub fn open_in_editor(
     let dropped = payload.dropped().to_vec();
     let title = title.map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
     Ok(match port.open(source.to_string(), title) {
-        Ok(()) => OpenResult {
+        Ok(id) => OpenResult {
             opened: true,
             editor: Some(editor),
             dropped,
             reason: None,
+            document_id: Some(id),
         },
         Err(reason) => OpenResult {
             opened: false,
             editor: Some(editor),
             dropped,
             reason: Some(reason),
+            document_id: None,
         },
     })
 }

@@ -141,11 +141,13 @@ McpServer:
     auth: "Authorization: Bearer <McpServerConfig.token>。定数時間で比べる。無い・違う → 401 (理由を分けない)"
     host_check: "rmcp の既定 allowed_hosts (loopback 3 種)。DNS rebinding 対策"
     origin_check: "http://127.0.0.1:{port} と http://localhost:{port} だけ。Origin ヘッダの無い要求 (CLI のクライアント) は通す"
-    editor_port: "open_in_editor が GUI へ図を届ける口 (lorelei_mcp::EditorPort)。lorelei_mcp は Tauri に依存しない"
+    editor_port: >-
+      GUI の図の一覧への口 (lorelei_mcp::EditorPort)。lorelei_mcp は Tauri に依存しない。3 つ (spec 04 D3):
+      open(source, title?) → Ok(作った図の id) | Err(理由) / list() → DiagramSummary[] / read(id?) → Diagram (original_source は常に詰める。include_original で省くのはツールの層)
   tool_errors: >-
     入力や規則の問題 (文法エラー・書き出し規則違反・png/pdf で output_path なし) は、プロトコルのエラーではなく
     ツール結果のエラー (isError: true, structuredContent: { error, line? }) で返す。呼ぶ側の AI が読んで直せるように
-  result_shape: "成功時は structuredContent に JSON (validate は ValidationResult、render は RenderResult、open_in_editor は下の output)。render は preview (既定 true) の時 content に image/png を足す"
+  result_shape: "成功時は structuredContent に JSON (validate は ValidationResult、render は RenderResult、open_in_editor / list_diagrams / read_diagram は下の output)。render は preview (既定 true) の時 content に image/png を足す"
   tools:
     validate:
       input: { source: string }
@@ -168,6 +170,38 @@ McpServer:
         editor: { enum: [flowchart, erDiagram], nullable: true }
         dropped: "EditorCompat.dropped"
         reason: { type: string, nullable: true }   # opened=false の理由
+        document_id: { type: string, format: uuid, nullable: true }   # 作った図の id (= Document.id = read_diagram の id)。opened=false なら null (spec 04 D2)
+    list_diagrams:   # spec 04 D2。GUI の図の一覧を読む (Rust のファイルを読む。画面には問い合わせない, D1)
+      input: {}
+      output:
+        diagrams: DiagramSummary[]   # 並びは GUI の一覧と同じ (saved_at ?? created_at の新しい順)
+    read_diagram:    # spec 04 D2。人が GUI で直した今の図を読む。GUI での編集は約 1 秒後にファイルへ書かれる (直後の編集は含まれないことがある)
+      input:
+        id: { type: string, format: uuid, nullable: true }   # 省くと今 GUI で開いている図 (DocumentState.last_opened)
+        include_original: { type: bool, default: false }
+      output: Diagram
+      errors:   # ツール結果のエラー { error }。ファイルのパスは載せない
+        not_found: "id が uuid の形でない・その図が無い・ごみ箱に移した → 「図が見つかりません（id: …）」"
+        no_open: "id を省いたのに last_opened が無い・指している図が無い → 「今開いている図がありません。id を指定するか、GUI で図を開いてください」"
+
+DiagramSummary:   # MCP の出力の形 (snake_case)。GUI の Document / DocumentSummary から詰める (spec 04 D2・D3)
+  fields:
+    id: { type: string, format: uuid }
+    title: string
+    editor: { enum: [flowchart, erDiagram] }
+    origin: { enum: [new, ai, import] }
+    created_at: { type: string, format: "RFC 3339" }
+    updated_at: { type: string, format: "RFC 3339" }
+    saved_at: { type: string, format: "RFC 3339", nullable: true }
+    unsaved: "bool。最後の「保存」(Ctrl+S) の後に中身が変わったか (DocumentSummary.unsaved と同じ。ファイルの時刻の比較で、画面上の書き込み前の編集ではない)"
+    open: "bool。今 GUI で開いている図 (DocumentState.last_opened と一致)。一致する図が無ければ全件 false"
+
+Diagram:
+  fields: "DiagramSummary の全項目 + source + original_source"
+  source: >-
+    string。今の図の Mermaid (エディタの生成器の出力。向き・FK の印・subgraph などは落ちている)。
+    空文字は「new の図: まだ一度も保存されていない」「ai / import の図: まだエディタに載っていない」(エラーにしない。注記の欄は設けない)
+  original_source: "include_original=false ならキーごと出さない。true なら ai / import は届いた原文、new は null"
 
 GuiCommands:
   description: GUI (Tauri) の custom command とイベント。フロント側は lib/desktop/ だけがこれを呼ぶ

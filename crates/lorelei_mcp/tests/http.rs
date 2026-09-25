@@ -3,26 +3,74 @@
 
 use std::sync::{Arc, Mutex};
 
-use lorelei_mcp::{EditorPort, start_http};
+use lorelei_mcp::{Diagram, DiagramSummary, EditorPort, start_http};
 use serde_json::{Value, json};
 
 const TOKEN: &str = "test-token-0123456789abcdef";
+const AI_ID: &str = "00000000-0000-4000-8000-000000000001";
+const NEW_ID: &str = "00000000-0000-4000-8000-000000000002";
 
-/// open_in_editor が届けた図を覚える偽のエディタ
+fn summary(id: &str, origin: &str, open: bool) -> DiagramSummary {
+    DiagramSummary {
+        id: id.into(),
+        title: format!("図 {origin}"),
+        editor: "flowchart".into(),
+        origin: origin.into(),
+        created_at: "2026-09-25T10:00:00+09:00".into(),
+        updated_at: "2026-09-25T10:05:00+09:00".into(),
+        saved_at: None,
+        unsaved: true,
+        open,
+    }
+}
+
+/// 図の一覧を持つ偽のエディタ。open_in_editor が届けた図と、read に渡された id を覚える
 #[derive(Default)]
-struct Recorder(Mutex<Vec<(String, Option<String>)>>);
+struct Recorder {
+    opened: Mutex<Vec<(String, Option<String>)>>,
+    reads: Mutex<Vec<Option<String>>>,
+}
 
 impl EditorPort for Recorder {
-    fn open(&self, source: String, title: Option<String>) -> Result<(), String> {
-        self.0.lock().unwrap().push((source, title));
-        Ok(())
+    fn open(&self, source: String, title: Option<String>) -> Result<String, String> {
+        self.opened.lock().unwrap().push((source, title));
+        Ok(AI_ID.into())
+    }
+    fn list(&self) -> Result<Vec<DiagramSummary>, String> {
+        Ok(vec![summary(AI_ID, "ai", true), summary(NEW_ID, "new", false)])
+    }
+    fn read(&self, id: Option<String>) -> Result<Diagram, String> {
+        self.reads.lock().unwrap().push(id.clone());
+        match id.as_deref().unwrap_or(AI_ID) {
+            AI_ID => Ok(Diagram {
+                summary: summary(AI_ID, "ai", true),
+                source: "flowchart TD
+    受付[受付]
+".into(),
+                original_source: Some("flowchart LR
+  受付 --> 完了
+".into()),
+            }),
+            NEW_ID => Ok(Diagram {
+                summary: summary(NEW_ID, "new", false),
+                source: String::new(),
+                original_source: None,
+            }),
+            other => Err(format!("図が見つかりません（id: {other}）")),
+        }
     }
 }
 
 struct Refuser;
 impl EditorPort for Refuser {
-    fn open(&self, _: String, _: Option<String>) -> Result<(), String> {
+    fn open(&self, _: String, _: Option<String>) -> Result<String, String> {
         Err("図の一覧に足せませんでした".into())
+    }
+    fn list(&self) -> Result<Vec<DiagramSummary>, String> {
+        Ok(Vec::new())
+    }
+    fn read(&self, _: Option<String>) -> Result<Diagram, String> {
+        Err("今開いている図がありません。id を指定するか、GUI で図を開いてください".into())
     }
 }
 
@@ -135,7 +183,7 @@ async fn tools_are_listed_and_called_over_http() {
         .map(|t| t["name"].as_str().unwrap().to_owned())
         .collect();
     names.sort();
-    assert_eq!(names, ["open_in_editor", "render", "validate"]);
+    assert_eq!(names, ["list_diagrams", "open_in_editor", "read_diagram", "render", "validate"]);
 
     let v = call(&url, &sid, 3, "tools/call", json!({"name":"validate","arguments":{"source":"flowchart TD\n  開始 --> 終了"}})).await;
     assert_eq!(v["result"]["structuredContent"]["ok"], true);
@@ -152,7 +200,9 @@ async fn tools_are_listed_and_called_over_http() {
     let out = &o["result"]["structuredContent"];
     assert_eq!(out["opened"], true, "{o}");
     assert_eq!(out["editor"], "erDiagram");
-    let got = recorder.0.lock().unwrap().clone();
+    // 作った図の id が返り、そのまま read_diagram に渡せる (spec 04 D2)
+    assert_eq!(out["document_id"], AI_ID);
+    let got = recorder.opened.lock().unwrap().clone();
     assert_eq!(got.len(), 1);
     assert!(got[0].0.starts_with("erDiagram"));
     assert_eq!(got[0].1.as_deref(), Some("会員と注文"));
@@ -166,6 +216,7 @@ async fn editor_refusal_and_unsupported_diagrams_are_reported_not_delivered() {
     let refused = call(&url, &sid, 2, "tools/call", json!({"name":"open_in_editor","arguments":{"source":"flowchart TD\n  A --> B"}})).await;
     assert_eq!(refused["result"]["structuredContent"]["opened"], false);
     assert!(refused["result"]["structuredContent"]["reason"].as_str().unwrap().contains("足せません"));
+    assert_eq!(refused["result"]["structuredContent"]["document_id"], Value::Null);
     running.stop();
 
     // GUI で開けない種類は、エディタへ届ける前に断る
@@ -174,7 +225,69 @@ async fn editor_refusal_and_unsupported_diagrams_are_reported_not_delivered() {
     let sid = session(&url).await;
     let seq = call(&url, &sid, 2, "tools/call", json!({"name":"open_in_editor","arguments":{"source":"sequenceDiagram\n  A->>B: hi"}})).await;
     assert_eq!(seq["result"]["structuredContent"]["opened"], false);
-    assert!(recorder.0.lock().unwrap().is_empty());
+    assert!(recorder.opened.lock().unwrap().is_empty());
+    assert_eq!(seq["result"]["structuredContent"]["document_id"], Value::Null);
+    running.stop();
+}
+
+// spec 04 D2: 人が GUI で直した今の図を読み戻す
+#[tokio::test]
+async fn diagrams_are_listed_and_read_back_over_http() {
+    let recorder = Arc::new(Recorder::default());
+    let (running, url) = start(recorder.clone()).await;
+    let sid = session(&url).await;
+
+    let list = call(&url, &sid, 2, "tools/call", json!({"name":"list_diagrams","arguments":{}})).await;
+    let diagrams = list["result"]["structuredContent"]["diagrams"].as_array().unwrap().clone();
+    assert_eq!(diagrams.len(), 2, "{list}");
+    assert_eq!(diagrams[0]["id"], AI_ID);
+    assert_eq!(diagrams[0]["open"], true);
+    assert_eq!(diagrams[0]["saved_at"], Value::Null);
+    assert_eq!(diagrams[1]["unsaved"], true);
+
+    // id を省くと今開いている図。include_original を付けなければ original_source のキーごと出さない
+    let r = call(&url, &sid, 3, "tools/call", json!({"name":"read_diagram","arguments":{}})).await;
+    let d = &r["result"]["structuredContent"];
+    assert_eq!(d["id"], AI_ID, "{r}");
+    assert_eq!(d["source"], "flowchart TD
+    受付[受付]
+");
+    assert_eq!(d["editor"], "flowchart");
+    assert!(d.get("original_source").is_none(), "{d}");
+
+    // include_original: ai は原文、new は null
+    let r = call(&url, &sid, 4, "tools/call", json!({"name":"read_diagram","arguments":{"id":AI_ID,"include_original":true}})).await;
+    assert_eq!(r["result"]["structuredContent"]["original_source"], "flowchart LR
+  受付 --> 完了
+");
+    let r = call(&url, &sid, 5, "tools/call", json!({"name":"read_diagram","arguments":{"id":NEW_ID,"include_original":true}})).await;
+    let d = &r["result"]["structuredContent"];
+    assert_eq!(d["original_source"], Value::Null);
+    assert!(d.get("original_source").is_some(), "true なら null でもキーは出す: {d}");
+    assert_eq!(d["source"], "", "空の図はエラーにしない");
+
+    // 口へは id をそのまま渡す (省いたら None)
+    assert_eq!(
+        *recorder.reads.lock().unwrap(),
+        vec![None, Some(AI_ID.to_string()), Some(NEW_ID.to_string())]
+    );
+    running.stop();
+}
+
+#[tokio::test]
+async fn read_errors_are_tool_errors() {
+    let (running, url) = start(Arc::new(Recorder::default())).await;
+    let sid = session(&url).await;
+    let r = call(&url, &sid, 2, "tools/call", json!({"name":"read_diagram","arguments":{"id":"../state"}})).await;
+    assert_eq!(r["result"]["isError"], true, "{r}");
+    assert!(r["result"]["structuredContent"]["error"].as_str().unwrap().contains("見つかりません"));
+    running.stop();
+
+    let (running, url) = start(Arc::new(Refuser)).await;
+    let sid = session(&url).await;
+    let r = call(&url, &sid, 2, "tools/call", json!({"name":"read_diagram","arguments":{}})).await;
+    assert_eq!(r["result"]["isError"], true, "{r}");
+    assert!(r["result"]["structuredContent"]["error"].as_str().unwrap().contains("今開いている図がありません"));
     running.stop();
 }
 

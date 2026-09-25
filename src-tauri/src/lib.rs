@@ -196,33 +196,40 @@ fn push_open<R: tauri::Runtime>(app: &AppHandle<R>, request: OpenRequest) {
 }
 
 /// HTTP の MCP の open_in_editor の行き先 (spec 03 D1)。一覧に新しい 1 件を足し、フロントへの預かりに積む。
-/// 足せなかった時は理由を返す (MCP の `opened: false` の reason になる)
+/// 足せたら作った図の id (MCP の `document_id`)、足せなかった時は理由を返す (MCP の `opened: false` の reason になる)
 fn deliver<R: tauri::Runtime>(
     app: &AppHandle<R>,
     store: &documents::Store,
     source: String,
     title: Option<String>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let request = incoming(store, source, documents::Origin::Ai, title);
-    if request.document.is_none() {
+    let Some(id) = request.document.as_ref().map(|d| d.id.clone()) else {
         return Err(request
             .error
             .unwrap_or_else(|| "図の一覧に足せませんでした".into()));
-    }
+    };
     push_open(app, request);
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.set_focus();
     }
-    Ok(())
+    Ok(id)
 }
 
 /// GUI の中の HTTP の MCP が図を届ける口
 struct GuiEditor(AppHandle);
 
 impl lorelei_mcp::EditorPort for GuiEditor {
-    fn open(&self, source: String, title: Option<String>) -> Result<(), String> {
+    fn open(&self, source: String, title: Option<String>) -> Result<String, String> {
         deliver(&self.0, &store()?, source, title)
+    }
+    // 読み戻し (spec 04) の GUI 側は P2 で実装する
+    fn list(&self) -> Result<Vec<lorelei_mcp::DiagramSummary>, String> {
+        Err("図の一覧の読み戻しはまだ使えません (spec 04 P2)".into())
+    }
+    fn read(&self, _id: Option<String>) -> Result<lorelei_mcp::Diagram, String> {
+        Err("図の読み戻しはまだ使えません (spec 04 P2)".into())
     }
 }
 
@@ -325,11 +332,14 @@ mod tests {
             .build(tauri::generate_context!())
             .expect("mock app");
         let store = documents::Store::new(scratch());
-        deliver(app.handle(), &store, "flowchart TD\n  A --> B\n".into(), Some("注文".into())).unwrap();
+        let id = deliver(app.handle(), &store, "flowchart TD\n  A --> B\n".into(), Some("注文".into())).unwrap();
         let pending = app.state::<PendingOpens>();
         let pending = pending.0.lock().unwrap();
         assert_eq!(pending.len(), 1);
         assert_eq!(pending[0].document.as_ref().unwrap().title, "注文");
+        // 作った図の id を返す (MCP の document_id, spec 04 D2)
+        assert_eq!(pending[0].document.as_ref().unwrap().id, id);
+        assert_eq!(store.load(&id).unwrap().title, "注文");
         assert_eq!(store.list().unwrap().len(), 1);
         drop(pending);
 

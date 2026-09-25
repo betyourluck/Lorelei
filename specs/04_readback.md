@@ -2,7 +2,7 @@
 
 **ID**: 04
 **Date**: 2026-09-25
-**Status**: In Progress（rev1 承認 2026-09-25。rev0 に査読 2 件を反映。P0 着地、次は P1）
+**Status**: In Progress（rev1 承認 2026-09-25。rev0 に査読 2 件を反映。P0・P1 着地、次は P2）
 **Branch**: なし（Phase 単位で main へ直接コミット）
 
 ## Goal
@@ -164,6 +164,18 @@ pub trait EditorPort: Send + Sync + 'static {
   利用者が交互に素早く押しても中身は崩れず、ファイルも原文どおり（`updatedAt` は作った時刻のまま = 余計な書き込みなし）。**利用者が確認**
 - 潰れている 2 件（「P4 確認 — 商品と在庫の ER 図」「spec 03 P2 の確認」）は、直した後も中身は初期図のまま（`source` が空ではないので原文からは開かない）。戻すかは利用者が決める
 - **残した課題（利用者 FB 2026-09-25）**: 図を開くと、エディタの初期図が一瞬見えてから届いた図に変わる。見せ方の工夫が要る（読み込み中は覆いを掛ける等）。spec 04 では扱わない
+
+## P1 結果（2026-09-25）
+
+- data_contract を先に凍結: `McpServer.tools` に `list_diagrams` / `read_diagram`（入出力とエラー 2 種）、`open_in_editor.output.document_id`、
+  `McpServer.http.editor_port` の 3 つの口、型 `DiagramSummary` / `Diagram`（`original_source` の出し方と空の `source` の意味）
+- `lorelei_mcp`: `EditorPort` を `open → Result<String, String>`（id）・`list`・`read(id?)` に広げ、ツール 2 本を足した。`include_original=false` の時に
+  `original_source` のキーを消すのはツールの層（`diagram_value`）。口の `Err` はツール結果のエラー `{ error }` にそのまま載せる
+- テスト（Red → Green）: `tests/http.rs` に 2 件 — 一覧・`id` 省略・`include_original`（ai は原文、new は `null` でキーあり、false ならキー無し）・空の `source` はエラーにしない・
+  口へ `id` をそのまま渡す / 口のエラー 2 種（見つからない・開いている図が無い）が `isError: true`。既存の 2 件に `document_id`（作った id・断った時は null）を足した。
+  src-tauri は `deliver` が作った図の id を返すことを足した
+- src-tauri の `GuiEditor` は、`open` が id を返すところまで。`list` / `read` は P2 まで「まだ使えません」のエラーを返す
+- Rust は `lorelei_mcp` 10 件・src-tauri 31 件とも緑、clippy 警告 0（両 project）。CLAUDE.md のツールの本数を 5 本に直した
 
 ## 受け入れ条件
 
