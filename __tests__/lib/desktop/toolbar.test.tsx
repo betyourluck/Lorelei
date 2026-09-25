@@ -40,7 +40,8 @@ const Panel = (actions: DesktopActions) => {
   return <div className="react-flow__panel top left">panel</div>;
 };
 
-describe("ツールバー (spec 02 P2)", () => {
+// 起動直後は最初の図が開き終えるまでツールバーを押せない (spec 05 D4)。それを待つテストがあり、全件を並列に回すと 5 秒を超える
+describe("ツールバー (spec 02 P2)", { timeout: 15000 }, () => {
   beforeEach(() => {
     invoke.mockClear();
     push.mockClear();

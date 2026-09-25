@@ -2,7 +2,7 @@
 
 **ID**: 06
 **Date**: 2026-09-26
-**Status**: In Progress（rev1 承認 2026-09-26。rev0 に査読 2 件を反映。P1 から）
+**Status**: In Progress（rev1 承認 2026-09-26。rev0 に査読 2 件を反映。P1 着地、次は P2）
 **Branch**: なし（Phase 単位で main へ直接コミット）
 
 ## Goal
@@ -80,6 +80,23 @@ Yamada UI の `Dialog` で 1 つ作り、両方で使う（`components/` に置�
 - **コミットの分け方**（上流へ PR で返せる形, 査読 1-6）: main へ直接、フォーク元の改善だけのコミットを 3 つ — (a) D3 の確認の部品と `useConfirmDelete` /
   (b) D1 の ER 図のテーブル削除 / (c) D2・D4 のフローのノードの確認と Backspace。`lib/desktop/` や spec・台帳の変更は別のコミットにする
 - **P2**: 実機 — dev でテーブル・ノードの削除（ボタン・Backspace）、確認の「やめる」、消した後の自動保存と「コード生成」。Web 版（`next dev` のブラウザ）でも同じく動くか
+
+## P1 結果（2026-09-26）
+
+フォーク元の改善のコミットを 3 つに分けた（上流へ PR で返す時に切り出せる。`lib/desktop/` には触れていない）:
+
+| コミット | 中身 | テスト（Red → Green） |
+|---|---|---|
+| `4a296a9` (a) | `components/ui/confirm-delete.tsx`: `deleteTitle`・`needsDeleteConfirm`・`useConfirmDelete`（`onBeforeDelete` を Promise で確認のダイアログにつなぐ）| `__tests__/components/ui/confirm-delete.test.tsx` 5 件（見出し・要否・「削除」「やめる」・Esc・線だけは通す） |
+| `5c107f4` (b) | ER 図: 見出しの削除ボタン（`onDelete` は任意、伝播を止める）、エディタが `deleteElements` を渡し `onBeforeDelete` とダイアログをつなぐ | `er-table-content.test.tsx` 3 件（ボタン・名前が空・`onDelete` 無しなら出さない）、`er-diagram-editor-delete.test.tsx` 3 件（「削除」で消える・「やめる」で消えない・入力欄の Backspace で確認が出ない） |
+| `5feee7a` (c) | フロー: メニューの「削除」を `deleteElements` に置き換え、`onBeforeDelete` とダイアログをつなぐ | `flow-editor-delete.test.tsx` 2 件（「削除」で消える・「やめる」で消えない） |
+
+- テストで分かったこと: jsdom ではノードの大きさが測れず、xyflow がノードを `visibility: hidden` にする。`getByRole` は隠れた要素の名前を空として扱う（dom-accessibility-api）ので、
+  ノードの中のボタンは `getByLabelText`（`aria-label`）で探す
+- エディタ全体を描くテストは重く、全件を並列に回すと既定の 5 秒を超えた（failures #3 の型）→ 上限 15 秒。spec 05 P2 で「押せるまで待つ」にしたツールバーのテストも同じ理由で 15 秒にした（デスクトップ側、別のコミット）
+- 全体: vitest 563 件中、落ちるのは ArrowTypeSelector の時間切れ 1 件（failures #3 の顔ぶれ、変更前と同じ）。型検査通過、lint は変更したファイルで通過
+  （`er-table-content.test.tsx` の既存の警告 1 件はフォーク元のまま）
+- 未確認: 線だけを Backspace で消す時に確認が出ないこと、つながるリレーションが一緒に消えることは、エディタのテストでは確かめていない（判定は純粋関数のテスト、線を一緒に消すのは xyflow の `getElementsToRemove`）。P2 の実機で見る
 
 ## 受け入れ条件
 
