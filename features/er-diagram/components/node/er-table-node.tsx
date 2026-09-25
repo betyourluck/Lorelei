@@ -8,6 +8,8 @@ export type ERTableNodeProps = {
   columns: ERColumn[];
   onNameChange: (name: string) => void;
   onColumnsChange: (columns: ERColumn[]) => void;
+  /** テーブルを消す (エディタが deleteElements を渡す。確認は onBeforeDelete) */
+  onDelete?: () => void;
 };
 
 // React Flowノード用: props.dataにERTableNodePropsが入る

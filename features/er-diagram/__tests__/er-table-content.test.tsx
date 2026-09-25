@@ -165,3 +165,35 @@ describe("ERTableContent", () => {
     await waitFor(() => expect(screen.getByRole("checkbox", { name: "PK" })).not.toBeDisabled());
   });
 });
+
+// spec 06 D1: テーブルの見出しの削除ボタン (確認はエディタの onBeforeDelete で出す)
+describe("ERTableContent のテーブル削除", () => {
+  test("見出しの削除ボタンで onDelete を呼ぶ", () => {
+    let deleted = 0;
+    render(
+      <ERTableContent
+        name="会員"
+        columns={defaultColumns}
+        onNameChange={() => {}}
+        onColumnsChange={() => {}}
+        onDelete={() => {
+          deleted += 1;
+        }}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "テーブル『会員』を削除" }));
+    expect(deleted).toBe(1);
+  });
+
+  test("名前が空なら「このテーブルを削除」", () => {
+    render(
+      <ERTableContent name="" columns={defaultColumns} onNameChange={() => {}} onColumnsChange={() => {}} onDelete={() => {}} />
+    );
+    expect(screen.getByRole("button", { name: "このテーブルを削除" })).toBeInTheDocument();
+  });
+
+  test("onDelete が無ければボタンを出さない", () => {
+    render(<ERTableContent name="会員" columns={defaultColumns} onNameChange={() => {}} onColumnsChange={() => {}} />);
+    expect(screen.queryByRole("button", { name: "テーブル『会員』を削除" })).toBeNull();
+  });
+});

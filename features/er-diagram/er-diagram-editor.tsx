@@ -13,6 +13,7 @@ import type { FC } from "@yamada-ui/react";
 import { Box, useToken } from "@yamada-ui/react";
 import { useCallback, useState, useRef } from "react";
 import { FlowLayout } from "@/components/layout/";
+import { useConfirmDelete } from "@/components/ui/confirm-delete";
 import { useDesktopOpen } from "@/lib/desktop";
 import { ErEdge } from "./components/edge/er-edge";
 import type { ERColumn } from "./components/node/er-table-content";
@@ -69,7 +70,9 @@ export const initialERNodes: Node<ERTableNodeProps>[] = [
 
 export const ERDiagramEditor: FC = () => {
   const connectingNodeId = useRef<string | null>(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, deleteElements } = useReactFlow();
+  // 削除は見出しのボタンも Backspace も deleteElements → onBeforeDelete の確認を通す (つながるリレーションも一緒に消える)
+  const confirmDelete = useConfirmDelete<Node<ERTableNodeProps>>("table", (n) => n.data.name ?? "");
   // ノード幅はテーマtokenから取得
   const sizeToken = useToken("sizes", "5xl") ?? "320";
   const nodeWidth = sizeToken.endsWith("rem")
@@ -282,6 +285,9 @@ export const ERDiagramEditor: FC = () => {
             nds.map((n) => (n.id === node.id ? { ...n, data: { ...n.data, columns } } : n))
           );
         },
+        onDelete: () => {
+          void deleteElements({ nodes: [{ id: node.id }] });
+        },
       },
     };
   });
@@ -312,6 +318,7 @@ export const ERDiagramEditor: FC = () => {
         onConnectEnd={onConnectEnd}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        onBeforeDelete={confirmDelete.onBeforeDelete}
         fitView
       >
         <FlowLayout>
@@ -324,6 +331,7 @@ export const ERDiagramEditor: FC = () => {
           />
         </FlowLayout>
       </ReactFlow>
+      {confirmDelete.dialog}
     </Box>
   );
 };

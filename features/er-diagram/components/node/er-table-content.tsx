@@ -1,6 +1,6 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { useReactTable, getCoreRowModel, flexRender } from "@tanstack/react-table";
-import { XIcon } from "@yamada-ui/lucide";
+import { TrashIcon, XIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import {
   ui,
@@ -35,6 +35,8 @@ export type ERTableContentProps = {
   columns: ERColumn[];
   onNameChange: (name: string) => void;
   onColumnsChange: (columns: ERColumn[]) => void;
+  /** テーブルを消す。確認は呼び手 (エディタの onBeforeDelete) が出す。無ければボタンを出さない */
+  onDelete?: () => void;
 };
 
 export const ERTableContent: FC<ERTableContentProps> = ({
@@ -42,6 +44,7 @@ export const ERTableContent: FC<ERTableContentProps> = ({
   columns,
   onNameChange,
   onColumnsChange,
+  onDelete,
 }) => {
   const handleChange = (rowIdx: number, key: keyof ERColumn, value: string | boolean) => {
     onColumnsChange(columns.map((col, i) => (i === rowIdx ? { ...col, [key]: value } : col)));
@@ -167,9 +170,27 @@ export const ERTableContent: FC<ERTableContentProps> = ({
                   fontSize="md"
                 />
               </HStack>
-              <Button size="md" colorScheme="blue" onClick={handleAdd}>
-                カラム追加
-              </Button>
+              <HStack gap="sm">
+                <Button size="md" colorScheme="blue" onClick={handleAdd}>
+                  カラム追加
+                </Button>
+                {onDelete && (
+                  <IconButton
+                    size="md"
+                    variant="ghost"
+                    colorScheme="danger"
+                    icon={<TrashIcon />}
+                    aria-label={name.trim() ? `テーブル『${name.trim()}』を削除` : "このテーブルを削除"}
+                    title="テーブルを削除"
+                    // ノードの選択・ドラッグと干渉させない
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete();
+                    }}
+                  />
+                )}
+              </HStack>
             </HStack>
           </TableCaption>
           <Thead>
