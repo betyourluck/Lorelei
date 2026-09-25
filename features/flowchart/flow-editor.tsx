@@ -5,6 +5,7 @@ import { ReactFlow, addEdge, useNodesState, useEdgesState, useReactFlow } from "
 import { Box, useToken } from "@yamada-ui/react";
 import { useCallback, useState, useRef, useEffect } from "react";
 import { FlowLayout } from "@/components/layout/";
+import { useConfirmDelete } from "@/components/ui/confirm-delete";
 import { useDesktopOpen } from "@/lib/desktop";
 import { edgeTypes } from "./components/edge/edge-types";
 import { nodeTypes } from "./components/node/node-types";
@@ -51,7 +52,9 @@ export function FlowEditor() {
   const [nodeId, setNodeId] = useState(2);
   // DownloadModalの状態管理はFlowPanelに移動
   const connectingNodeId = useRef<string | null>(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, deleteElements } = useReactFlow();
+  // 削除はメニューも Backspace も deleteElements → onBeforeDelete の確認を通す (つながる線も一緒に消える)
+  const confirmDelete = useConfirmDelete("node", (n) => String((n.data as { label?: unknown }).label ?? ""));
 
   // ノードサイズをトークンから取得（フォールバック値あり）
   const nodeWidthToken = useToken("sizes", "xs");
@@ -105,13 +108,12 @@ export function FlowEditor() {
     [setNodes]
   );
 
-  // ノード削除のハンドラー
+  // ノード削除のハンドラー。確認は onBeforeDelete が出し、つながる線は xyflow が一緒に消す
   const handleNodeDelete = useCallback(
     (nodeId: string) => {
-      setNodes((nds) => nds.filter((node) => node.id !== nodeId));
-      setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
+      void deleteElements({ nodes: [{ id: nodeId }] });
     },
-    [setNodes, setEdges]
+    [deleteElements]
   );
 
   // エッジラベル変更のハンドラー
@@ -456,6 +458,7 @@ export function FlowEditor() {
         onConnectEnd={onConnectEnd}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        onBeforeDelete={confirmDelete.onBeforeDelete}
         fitView
       >
         <FlowLayout>
@@ -467,6 +470,7 @@ export function FlowEditor() {
           />
         </FlowLayout>
       </ReactFlow>
+      {confirmDelete.dialog}
     </Box>
   );
 }
