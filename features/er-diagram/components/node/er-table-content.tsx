@@ -1,6 +1,6 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { useReactTable, getCoreRowModel, flexRender } from "@tanstack/react-table";
-import { TrashIcon, XIcon } from "@yamada-ui/lucide";
+import { XIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import {
   ui,
@@ -22,6 +22,7 @@ import {
   Text,
 } from "@yamada-ui/react";
 import { useState, useEffect } from "react";
+import { TableMenu } from "./table-menu";
 
 export type ERColumn = {
   name: string;
@@ -35,7 +36,7 @@ export type ERTableContentProps = {
   columns: ERColumn[];
   onNameChange: (name: string) => void;
   onColumnsChange: (columns: ERColumn[]) => void;
-  /** テーブルを消す。確認は呼び手 (エディタの onBeforeDelete) が出す。無ければボタンを出さない */
+  /** テーブルを消す (見出しの「⋮⋮」メニュー)。確認は呼び手 (エディタの onBeforeDelete) が出す。無ければメニューを出さない */
   onDelete?: () => void;
 };
 
@@ -174,22 +175,7 @@ export const ERTableContent: FC<ERTableContentProps> = ({
                 <Button size="md" colorScheme="blue" onClick={handleAdd}>
                   カラム追加
                 </Button>
-                {onDelete && (
-                  <IconButton
-                    size="md"
-                    variant="ghost"
-                    colorScheme="danger"
-                    icon={<TrashIcon />}
-                    aria-label={name.trim() ? `テーブル『${name.trim()}』を削除` : "このテーブルを削除"}
-                    title="テーブルを削除"
-                    // ノードの選択・ドラッグと干渉させない
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete();
-                    }}
-                  />
-                )}
+                {onDelete && <TableMenu name={name} onDelete={onDelete} />}
               </HStack>
             </HStack>
           </TableCaption>

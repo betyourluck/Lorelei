@@ -12,14 +12,15 @@ const editor = () =>
     </ReactFlowProvider>
   );
 
-// spec 06 D0・D1: 見出しのボタン → 確認 (onBeforeDelete) → 削除でテーブルが消える。
+// spec 06 D0・D1: 見出しの「⋮⋮」メニューの「削除」→ 確認 (onBeforeDelete) → 削除でテーブルが消える。
 // jsdom ではノードの大きさが測れず、xyflow がノードを visibility: hidden にするので、ノードの中のボタンは aria-label で探す (getByRole は隠れた要素の名前を空として扱う)
 // エディタ全体を描くので重い。全件を並列に回すと既定の 5 秒を超える (failures #3 と同じ型)
 describe("ER 図のテーブル削除", { timeout: 15000 }, () => {
   test("「削除」でテーブルが消える", async () => {
     const { user } = editor();
     expect(await screen.findByDisplayValue("ユーザー")).toBeInTheDocument();
-    await user.click(screen.getByLabelText("テーブル『ユーザー』を削除"));
+    await user.click(screen.getByLabelText("テーブル『ユーザー』の操作メニューを開く"));
+    await user.click(await screen.findByRole("menuitem", { name: "削除" }));
     expect(await screen.findByText("『ユーザー』を削除しますか？")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "削除" }));
     await waitFor(() => expect(screen.queryByDisplayValue("ユーザー")).toBeNull());
@@ -28,7 +29,8 @@ describe("ER 図のテーブル削除", { timeout: 15000 }, () => {
   test("「やめる」では消えない", async () => {
     const { user } = editor();
     await screen.findByDisplayValue("ユーザー");
-    await user.click(screen.getByLabelText("テーブル『ユーザー』を削除"));
+    await user.click(screen.getByLabelText("テーブル『ユーザー』の操作メニューを開く"));
+    await user.click(await screen.findByRole("menuitem", { name: "削除" }));
     await screen.findByText("『ユーザー』を削除しますか？");
     await user.click(screen.getByRole("button", { name: "やめる" }));
     await waitFor(() => expect(screen.queryByText("『ユーザー』を削除しますか？")).toBeNull());

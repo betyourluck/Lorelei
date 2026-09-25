@@ -166,9 +166,9 @@ describe("ERTableContent", () => {
   });
 });
 
-// spec 06 D1: テーブルの見出しの削除ボタン (確認はエディタの onBeforeDelete で出す)
+// spec 06 D1: テーブルの見出しの「⋮⋮」メニュー (フローのノードと同じ形) の「削除」。確認はエディタの onBeforeDelete で出す
 describe("ERTableContent のテーブル削除", () => {
-  test("見出しの削除ボタンで onDelete を呼ぶ", () => {
+  test("見出しのメニューの「削除」で onDelete を呼ぶ", async () => {
     let deleted = 0;
     render(
       <ERTableContent
@@ -181,19 +181,20 @@ describe("ERTableContent のテーブル削除", () => {
         }}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: "テーブル『会員』を削除" }));
+    fireEvent.click(screen.getByRole("button", { name: "テーブル『会員』の操作メニューを開く" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "削除" }));
     expect(deleted).toBe(1);
   });
 
-  test("名前が空なら「このテーブルを削除」", () => {
+  test("名前が空なら「このテーブルの操作メニューを開く」", () => {
     render(
       <ERTableContent name="" columns={defaultColumns} onNameChange={() => {}} onColumnsChange={() => {}} onDelete={() => {}} />
     );
-    expect(screen.getByRole("button", { name: "このテーブルを削除" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "このテーブルの操作メニューを開く" })).toBeInTheDocument();
   });
 
-  test("onDelete が無ければボタンを出さない", () => {
+  test("onDelete が無ければメニューを出さない", () => {
     render(<ERTableContent name="会員" columns={defaultColumns} onNameChange={() => {}} onColumnsChange={() => {}} />);
-    expect(screen.queryByRole("button", { name: "テーブル『会員』を削除" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "テーブル『会員』の操作メニューを開く" })).toBeNull();
   });
 });
