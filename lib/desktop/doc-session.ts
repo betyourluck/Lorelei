@@ -63,11 +63,14 @@ export const layoutReady = ({
  * ストアのノードが変わった時にすること。準備前は位置を当てる合図 (layoutReady) を待ち、準備済みになったら保存する。
  * 位置を当てる時は、当てた後のノードの変化で保存されるので、ここでは保存しない。
  * 位置を持たない図 (AI から届いた図) は変化が起きないので、準備済みになった時点で保存する (2026-09-24 実機で観測した取りこぼし)。
+ * ストアのノードは、今載っているページのエディタのもの。今の図と種類が違えば、それは今の図のノードではない
+ * (遅れて効いたページ移動で、ER 図のノードがフローの図として保存された。spec 04 P0)。
  */
 export const onNodesChanged = ({
   ready,
   imported,
   expected,
+  page,
   editor,
   nodes,
   layout,
@@ -75,16 +78,23 @@ export const onNodesChanged = ({
   ready: boolean;
   imported: boolean;
   expected: string[] | null;
+  /** 今載っているページのエディタの種類 */
+  page: EditorKind;
+  /** 今の図の種類 */
   editor: EditorKind;
   nodes: Node[];
   layout: Layout;
 }): { ready: boolean; applyLayout: boolean; save: boolean } => {
+  if (page !== editor) return { ready: false, applyLayout: false, save: false };
   if (ready) return { ready: true, applyLayout: false, save: true };
   if (!expected || !layoutReady({ imported, expected, editor, nodes }))
     return { ready: false, applyLayout: false, save: false };
   const applyLayout = Object.keys(layout).length > 0;
   return { ready: true, applyLayout, save: !applyLayout };
 };
+
+/** Rust の save_document が初期図での上書きを拒んだ (src-tauri documents::INITIAL_FIGURE_REJECTED, spec 04 D4-2) */
+export const isInitialFigureRejected = (e: unknown): boolean => String(e).startsWith("INITIAL_FIGURE_REJECTED");
 
 /** 今の図の Mermaid (フォーク元の生成器の出力)。これが Document.source になる */
 export const toSource = (editor: EditorKind, nodes: Node[], edges: Edge[]): string =>
@@ -102,7 +112,9 @@ export class Autosaver<T> {
 
   constructor(
     private readonly save: (id: string, payload: T) => Promise<unknown>,
-    private readonly delay: number
+    private readonly delay: number,
+    /** 捨ててよい失敗 (書き直しても通らない)。変更を残さず、flush も失敗させない。知らせるのは save の側 */
+    private readonly discardable: (e: unknown) => boolean = () => false
   ) {}
 
   touch(id: string, produce: () => T): void {
@@ -125,6 +137,7 @@ export class Autosaver<T> {
     try {
       await this.save(job.id, job.produce());
     } catch (e) {
+      if (this.discardable(e)) return;
       if (!this.pending) this.pending = job;
       throw e;
     }

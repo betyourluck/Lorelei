@@ -49,6 +49,24 @@ export type ERDiagramNodeData = {
   }>;
 };
 
+/** 新しいエディタの初期図 (デスクトップ版は Document.initial_sources として凍結している, spec 04 D4-2) */
+export const initialERNodes: Node<ERTableNodeProps>[] = [
+  {
+    id: "1",
+    type: "erTable",
+    position: { x: 100, y: 100 },
+    data: {
+      name: "ユーザー",
+      columns: [
+        { name: "id", type: "int", pk: true, uk: false },
+        { name: "name", type: "varchar(255)", pk: false, uk: true },
+      ],
+      onNameChange: () => {},
+      onColumnsChange: () => {},
+    },
+  },
+];
+
 export const ERDiagramEditor: FC = () => {
   const connectingNodeId = useRef<string | null>(null);
   const { screenToFlowPosition } = useReactFlow();
@@ -61,25 +79,9 @@ export const ERDiagramEditor: FC = () => {
   const rowHeight = 32;
   // ヘッダー部の高さ（px）
   const headerHeight = 48;
-  const initialNodes: Node<ERTableNodeProps>[] = [
-    {
-      id: "1",
-      type: "erTable",
-      position: { x: 100, y: 100 },
-      data: {
-        name: "ユーザー",
-        columns: [
-          { name: "id", type: "int", pk: true, uk: false },
-          { name: "name", type: "varchar(255)", pk: false, uk: true },
-        ],
-        onNameChange: () => {},
-        onColumnsChange: () => {},
-      },
-    },
-  ];
   const initialEdges: Edge[] = [];
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialERNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [nodeId, setNodeId] = useState(2);
 

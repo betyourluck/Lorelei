@@ -137,6 +137,33 @@ describe("図の一覧 (spec 02 P3)", { timeout: 15000 }, () => {
     await waitFor(() => expect(item).toHaveTextContent("●"));
   });
 
+  it("まだエディタに載っていない AI の図 (source が空) は、初期図でなく原文から開く (spec 04 P0)", async () => {
+    // 届いたがエディタが取り込めなかった図 (画面が読み込めなかった等)。source は最初の自動保存まで空のまま残る
+    const original = "flowchart LR\n  受付 --> 確認 --> 完了\n";
+    const a = backend.add("flowchart", "届いた図", { origin: "ai", originalSource: original });
+    backend.setLast(a.id);
+    shell();
+    await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("届いた図"), LONG);
+    // 空の source を「新規作成の直後」と見なすと、原文を変換せず初期図で準備済みになり、初期図が保存される
+    await waitFor(() => expect(backend.calls("convert_source")).toEqual([{ source: original }]));
+  });
+
+  it("遅れて効いたページ移動で、今の図と違う種類のページに居たら、今の図のページへ戻す (spec 04 P0)", async () => {
+    // 実機で観測 (2026-09-25): 題名はフローの図・キャンバスは ER 図のエディタ、のまま止まった
+    backend.add("flowchart", "注文フロー");
+    const view = shell();
+    await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("注文フロー"), LONG);
+    push.mockClear();
+    pathname = "/er-diagram/";
+    view.rerender(
+      <ReactFlowProvider>
+        <DesktopShell>editor</DesktopShell>
+      </ReactFlowProvider>
+    );
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/"));
+    expect(screen.getByRole("banner")).toHaveTextContent("注文フロー");
+  });
+
   it("タイトルバーの ≡ で一覧を開閉する", async () => {
     const { user } = shell();
     await list();

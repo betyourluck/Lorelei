@@ -234,6 +234,10 @@ Document:
     ai: "AI の図 HH:MM:SS"          # P4 で MCP の title が来たらそれを使う
     import: "インポート HH:MM:SS"
   trash: "{app_data_dir}/trash/{id}.json"   # 削除は移動だけ。documents/ の外なので一覧に出ない。空にする操作は無い
+  initial_sources:   # フォーク元のエディタの初期図を生成器にかけた出力 (一字一句。vitest で生成器と突き合わせる, spec 04 D4-2)
+    flowchart: "flowchart TD\n    startNode[Start]\n"
+    erDiagram: "erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }"
+  save_guard: "origin が ai / import の図に initial_sources と同じ source を書こうとしたら save_document が拒む (前の source に依らない)。new の図は対象外。拒んだ時のエラーは INITIAL_FIGURE_REJECTED で始まる"
 
 DocumentSummary:
   description: 一覧用。source / layout / original_source を持たない

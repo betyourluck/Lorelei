@@ -172,6 +172,13 @@ impl Store {
     /// (新規作成の初期図・AI / インポートで届いた図がエディタに載った時) は利用者の変更ではないので updated_at を進めない
     pub fn save(&self, id: &str, source: String, layout: Layout) -> Result<DocumentSummary, String> {
         let mut doc = self.load(id)?;
+        // 保険 (spec 04 D4-2): AI / インポートの図を、エディタの初期図で潰さない。止めるのは門の漏れの 1 つの形
+        // (空への最初の書き込み) だけで、初期図の上で編集された形は止まらない — そちらはフロントの門が受け持つ
+        if doc.origin != Origin::New && source == initial_source(doc.editor) {
+            return Err(format!(
+                "{INITIAL_FIGURE_REJECTED}: AI やインポートで届いた図を、エディタの初期図で上書きしかけたので止めました"
+            ));
+        }
         if doc.source == source && doc.layout == layout {
             return Ok((&doc).into());
         }
@@ -258,6 +265,17 @@ fn now() -> String {
     Local::now().to_rfc3339_opts(SecondsFormat::Micros, false)
 }
 
+/// `save` が初期図での上書きを拒んだ時のエラーの頭 (フロントはこれで見分けて、その書き込みを捨てる)
+pub const INITIAL_FIGURE_REJECTED: &str = "INITIAL_FIGURE_REJECTED";
+
+/// data_contract `Document.initial_sources`。フォーク元のエディタの初期図を生成器にかけた出力 (vitest で突き合わせる)
+pub fn initial_source(editor: Editor) -> &'static str {
+    match editor {
+        Editor::Flowchart => "flowchart TD\n    startNode[Start]\n",
+        Editor::ErDiagram => "erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }",
+    }
+}
+
 /// data_contract `Document.default_titles`
 pub fn default_title(editor: Editor, origin: Origin) -> String {
     let time = Local::now().format("%H:%M:%S");
@@ -277,6 +295,35 @@ mod tests {
     fn store() -> Store {
         let root = std::env::temp_dir().join(format!("lorelei-docs-{}", uuid::Uuid::new_v4()));
         Store::new(root)
+    }
+
+    // spec 04 D4-2: AI の図がエディタの初期図で潰れた (現況 4)。門が漏れても保存の手前で止める保険
+    #[test]
+    fn an_ai_or_imported_diagram_is_not_overwritten_by_the_initial_figure() {
+        let s = store();
+        let flow = "flowchart TD\n    startNode[Start]\n";
+        let er = "erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }";
+        let ai = s
+            .create(Editor::Flowchart, None, Origin::Ai, Some("flowchart LR\n  受付 --> 完了\n".into()))
+            .unwrap();
+        let imported = s
+            .create(Editor::ErDiagram, None, Origin::Import, Some("erDiagram\n  会員 {\n  }\n".into()))
+            .unwrap();
+
+        // 空の source への最初の書き込み (1 件目の形) も、中身のある source の上書きも拒む
+        let err = s.save(&ai.id, flow.into(), BTreeMap::new()).unwrap_err();
+        assert!(err.starts_with("INITIAL_FIGURE_REJECTED"), "{err}");
+        s.save(&ai.id, "flowchart TD\n    受付[受付]\n".into(), BTreeMap::new()).unwrap();
+        assert!(s.save(&ai.id, flow.into(), BTreeMap::new()).is_err());
+        assert_eq!(s.load(&ai.id).unwrap().source, "flowchart TD\n    受付[受付]\n");
+        assert!(s.save(&imported.id, er.into(), BTreeMap::new()).is_err());
+        assert_eq!(s.load(&imported.id).unwrap().source, "");
+
+        // 新規作成の図は初期図で始まるのが正しい
+        let new = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
+        s.save(&new.id, flow.into(), BTreeMap::new()).unwrap();
+        // 種類の違う初期図は対象外 (その種類の初期図だけを拒む)
+        s.save(&ai.id, er.into(), BTreeMap::new()).unwrap();
     }
 
     #[test]

@@ -26,7 +26,8 @@ const LAYOUT_CONSTANTS = {
   VERTICAL_OFFSET: 50, // 上部からの初期オフセット
 } as const;
 
-const initialNodes: Node[] = [
+/** 新しいエディタの初期図 (デスクトップ版は Document.initial_sources として凍結している, spec 04 D4-2) */
+export const initialFlowNodes: Node[] = [
   {
     id: "1",
     type: "editableNode",
@@ -45,7 +46,7 @@ const initialNodes: Node[] = [
 const initialEdges: Edge[] = [];
 
 export function FlowEditor() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialFlowNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [nodeId, setNodeId] = useState(2);
   // DownloadModalの状態管理はFlowPanelに移動

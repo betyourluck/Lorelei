@@ -1,11 +1,14 @@
 import type { Node } from "@xyflow/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { initialERNodes } from "@/features/er-diagram/er-diagram-editor";
+import { initialFlowNodes } from "@/features/flowchart/flow-editor";
 import {
   Autosaver,
   collectLayout,
   expectedKeys,
   layoutReady,
   onNodesChanged,
+  toSource,
   withLayout,
 } from "@/lib/desktop/doc-session";
 
@@ -66,7 +69,7 @@ describe("onNodesChanged — ストアのノードが変わった時にするこ
 
   it("準備前で合図がそろっていなければ何もしない", () => {
     expect(
-      onNodesChanged({ ready: false, imported: false, expected: ["会員"], editor: "erDiagram", nodes, layout: {} })
+      onNodesChanged({ ready: false, imported: false, expected: ["会員"], page: "erDiagram", editor: "erDiagram", nodes, layout: {} })
     ).toEqual({ ready: false, applyLayout: false, save: false });
   });
 
@@ -74,7 +77,7 @@ describe("onNodesChanged — ストアのノードが変わった時にするこ
     // 実機で観測 (2026-09-24): AI の図は layout が空なので setNodes が起きず、次の変化まで保存されなかった。
     // source が空のまま残り、開き直すと「新規作成の直後」と判定されて初期図になる
     expect(
-      onNodesChanged({ ready: false, imported: true, expected: ["会員"], editor: "erDiagram", nodes, layout: {} })
+      onNodesChanged({ ready: false, imported: true, expected: ["会員"], page: "erDiagram", editor: "erDiagram", nodes, layout: {} })
     ).toEqual({ ready: true, applyLayout: false, save: true });
   });
 
@@ -84,6 +87,7 @@ describe("onNodesChanged — ストアのノードが変わった時にするこ
         ready: false,
         imported: true,
         expected: ["会員"],
+        page: "erDiagram",
         editor: "erDiagram",
         nodes,
         layout: { 会員: { x: 1, y: 2 } },
@@ -91,10 +95,34 @@ describe("onNodesChanged — ストアのノードが変わった時にするこ
     ).toEqual({ ready: true, applyLayout: true, save: false });
   });
 
+  it("ページのエディタが今の図の種類と違えば、準備済みでも保存せず、準備前に戻す (spec 04 P0)", () => {
+    // 実機で観測 (2026-09-25): フローの図を開いたまま、遅れて効いたページ移動で ER 図のエディタが載り、
+    // ER 図のノードがフローの図として保存された (flowchart TD / node部署[] ...)
+    expect(
+      onNodesChanged({ ready: true, imported: true, expected: null, page: "flowchart", editor: "erDiagram", nodes, layout: {} })
+    ).toEqual({ ready: false, applyLayout: false, save: false });
+    expect(
+      onNodesChanged({ ready: false, imported: true, expected: ["会員"], page: "flowchart", editor: "erDiagram", nodes, layout: {} })
+    ).toEqual({ ready: false, applyLayout: false, save: false });
+  });
+
   it("準備済みなら変化のたびに保存する", () => {
     expect(
-      onNodesChanged({ ready: true, imported: true, expected: null, editor: "erDiagram", nodes, layout: {} })
+      onNodesChanged({ ready: true, imported: true, expected: null, page: "erDiagram", editor: "erDiagram", nodes, layout: {} })
     ).toEqual({ ready: true, applyLayout: false, save: true });
+  });
+});
+
+describe("エディタの初期図 (data_contract Document.initial_sources, spec 04 D4-2)", () => {
+  // Rust の save はこの文字列と一字一句同じ source を AI / インポートの図に書かせない。
+  // フォーク元の初期図を変えたらここで落ちる — src-tauri/src/documents.rs の initial_source と data_contract も直す
+  it("フローチャートの初期図を生成器にかけると、凍結した文字列になる", () => {
+    expect(toSource("flowchart", initialFlowNodes, [])).toBe("flowchart TD\n    startNode[Start]\n");
+  });
+  it("ER 図の初期図を生成器にかけると、凍結した文字列になる", () => {
+    expect(toSource("erDiagram", initialERNodes, [])).toBe(
+      "erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }"
+    );
   });
 });
 
@@ -135,6 +163,17 @@ describe("Autosaver — 1 秒待って保存、切り替え・終了の前は fl
     await a.flush();
     expect(save).toHaveBeenCalledTimes(2);
     expect(save).toHaveBeenLastCalledWith("doc-1", "v1");
+  });
+
+  it("捨ててよい失敗 (初期図での上書きを Rust が拒んだ) は、変更を捨てて flush を通す (spec 04 D4-2)", async () => {
+    // 残すと「保存できなければ離れない」に掛かり、図を切り替えられなくなる
+    const save = vi.fn().mockRejectedValue("INITIAL_FIGURE_REJECTED: 止めました");
+    const a = new Autosaver(save, 1000, (e) => String(e).startsWith("INITIAL_FIGURE_REJECTED"));
+    a.touch("doc-1", () => "v1");
+    await expect(a.flush()).resolves.toBeUndefined();
+    expect(a.dirty).toBe(false);
+    await a.flush();
+    expect(save).toHaveBeenCalledTimes(1);
   });
 
   it("別の図に切り替えた後に古い図の変更は保存しない (cancel)", async () => {

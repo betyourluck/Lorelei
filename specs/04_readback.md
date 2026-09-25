@@ -2,7 +2,7 @@
 
 **ID**: 04
 **Date**: 2026-09-25
-**Status**: In Progress（rev1 承認 2026-09-25。rev0 に査読 2 件を反映。P0 から）
+**Status**: In Progress（rev1 承認 2026-09-25。rev0 に査読 2 件を反映。P0 着地、次は P1）
 **Branch**: なし（Phase 単位で main へ直接コミット）
 
 ## Goal
@@ -137,6 +137,33 @@ pub trait EditorPort: Send + Sync + 'static {
   MCP のツールの入出力も data_contract にある — 別のファイルは作らない）→ `lorelei_mcp` にツール 2 本と口の拡張。テストは `tests/http.rs` に HTTP で足す
 - **P2**: GUI の実装（`GuiEditor` が `Store` と `state.json` を読む、`open` が id を返す）。LORELEI.md のツール表と頼み方の例
 - **P3**: 実機 — 配布ビルドで「AI が `open_in_editor` → 人がノードを 1 つ足して名前を変える → AI が `read_diagram` で読む → `render` で書き出す」
+
+## P0 結果（2026-09-25）
+
+**現況 4 の真因は 2 つだった**（failures #7・#8）。
+
+1. **エディタに載る前の AI の図を「新規作成の直後」と取り違えた**（#7。2 件の潰れの真因）: AI・インポートの図は最初の自動保存まで `source` が空で、`open()` は空なら原文を見ずに初期図で準備済みにした。
+   2 件とも時刻が合う — 1 件目は `updatedAt` = `createdAt`（空への最初の書き込み）、2 件目は作られた 03:39 が spec 03 P2 で dev の画面が 3001 番に立ち上がり映らなかった時で、04:22 に `lastOpened` として開かれ、初期図の上に「ノード追加」2 回が重なった
+2. **実機で再現を試す中で、別の不具合を見つけた**（#8）: 2 つの図を素早く交互に押すと、遅れて効いたページ移動で ER 図のエディタが載り、そのノードがフローの図として保存された（`node部署[]`）。
+   保存の門が、ノードが今の図の種類のエディタのものかを見ていなかった
+
+直したもの（どれもテストで Red → Green）:
+
+| # | 直したこと | テスト |
+|---|---|---|
+| 1 | `source` が空なら `original_source` から開く（`use-doc-session.ts`） | `document-list.test.tsx`「まだエディタに載っていない AI の図は、原文から開く」 |
+| 2 | 保存の判定にページの種類を足す。今の図と違えば保存も準備済みもしない（`onNodesChanged` の `page`） | `doc-session.test.ts`「ページのエディタが今の図の種類と違えば…」 |
+| 3 | 図を開き直したら、前に預けた「開く要求」を捨てる（`queueOpen` は置き換え） | `use-desktop-open.test.tsx`「図を開き直したら、前に預けた『開く図』は捨てる」 |
+| 4 | 今の図と違うページに居て取り込む図も無ければ、今の図を開き直してそのページへ戻す | `document-list.test.tsx`「遅れて効いたページ移動で…今の図のページへ戻す」 |
+| 5 | D4-2 の保険: Rust の `save` が ai / import の図に初期図と同じ中身を書かせない。拒まれた書き込みはフロントが通知して捨てる（`Autosaver` の捨ててよい失敗） | `documents.rs` `an_ai_or_imported_diagram_is_not_overwritten_by_the_initial_figure`、`doc-session.test.ts` の Autosaver 1 件と初期図の突き合わせ 2 件 |
+
+- 初期図の突き合わせのため、フォーク元の初期図を export した（`flow-editor.tsx` の `initialFlowNodes`、`er-diagram-editor.tsx` の `initialERNodes` — ER 図はコンポーネントの中からモジュールの直下へ移しただけで、振る舞いは同じ）
+- data_contract: `Document.initial_sources` と `Document.save_guard` を足した
+- 全体: vitest 531 件中 530 件緑（落ちた 1 件は ArrowTypeSelector の時間切れ、failures #3 の顔ぶれ）、Rust の src-tauri 31 件緑、clippy 警告 0、型検査・lint（変更したファイル）通過
+- **実機（`tauri dev`）**: `source` が空で原文だけを持つ AI の図を 2 件（フロー・ER）置いて開いた。1 回目は原文から開けたが、交互に素早く押すと #8 が出た。2〜5 を入れた後、
+  利用者が交互に素早く押しても中身は崩れず、ファイルも原文どおり（`updatedAt` は作った時刻のまま = 余計な書き込みなし）。**利用者が確認**
+- 潰れている 2 件（「P4 確認 — 商品と在庫の ER 図」「spec 03 P2 の確認」）は、直した後も中身は初期図のまま（`source` が空ではないので原文からは開かない）。戻すかは利用者が決める
+- **残した課題（利用者 FB 2026-09-25）**: 図を開くと、エディタの初期図が一瞬見えてから届いた図に変わる。見せ方の工夫が要る（読み込み中は覆いを掛ける等）。spec 04 では扱わない
 
 ## 受け入れ条件
 

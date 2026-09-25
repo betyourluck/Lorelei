@@ -8,7 +8,8 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: async (cmd: string) => (cmd === "take_pending_open" ? [] : undefined),
 }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 const request: OpenRequest = {
   source: "flowchart LR\n  受付 --> 発送",
@@ -60,6 +61,22 @@ describe("useDesktopOpen と図の一覧の橋渡し (spec 02 P3)", () => {
     flow.unmount();
     render(<At editor="erDiagram" />);
     expect(await settled()).toBe(true);
+  });
+
+  it("図を開き直したら、前に預けた「開く図」は捨てる (spec 04 P0)", async () => {
+    // 実機で観測 (2026-09-25): ER 図を押してページが移りきる前にフローの図を押すと、残っていた ER 図の要求が
+    // 後から取り込まれ、ページも ER 図へ移り、ER 図のノードがフローの図として保存された
+    push.mockClear();
+    const onImport = vi.fn();
+    const erData = { nodes: [{ name: "部署" }], edges: [] };
+    const flowData = { nodes: [{ variableName: "受付" }], edges: [] };
+    queueOpen({ ...request, document: null, payload: { editor: "erDiagram", data: erData, dropped: [] } });
+    queueOpen({ ...request, document: null, payload: { editor: "flowchart", data: flowData, dropped: [] } });
+    render(<Editor onImport={onImport} />);
+    await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
+    expect(onImport).toHaveBeenCalledWith(flowData);
+    // 捨てた ER 図の要求で、ページを移さない
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("開発モード (StrictMode: effect が 2 回走る) でも、届いた図を取り込む", async () => {

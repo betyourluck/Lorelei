@@ -5,7 +5,15 @@ import { useNotice } from "@yamada-ui/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Layout } from "./doc-session";
-import { Autosaver, collectLayout, expectedKeys, onNodesChanged, toSource, withLayout } from "./doc-session";
+import {
+  Autosaver,
+  collectLayout,
+  expectedKeys,
+  isInitialFigureRejected,
+  onNodesChanged,
+  toSource,
+  withLayout,
+} from "./doc-session";
 import type { DocumentSummary } from "./documents";
 import {
   convertSource,
@@ -77,6 +85,8 @@ export function useDocSession(): DocSession {
   const router = useRouter();
   const pathname = usePathname();
   const notice = useNotice();
+  const noticeRef = useRef(notice);
+  noticeRef.current = notice;
 
   const [list, setList] = useState<DocumentSummary[]>([]);
   const [current, setCurrent] = useState<DocumentSummary | null>(null);
@@ -106,10 +116,21 @@ export function useDocSession(): DocSession {
           // 自動保存では並びを動かさない (D12)。● だけ更新する
           setList((l) => l.map((d) => (d.id === id ? saved : d)));
         } catch (e) {
-          setSaveError(String(e));
+          if (isInitialFigureRejected(e)) {
+            // 門の漏れを Rust が止めた。この書き込みは捨てる (Autosaver が捨てる。図は切り替えられる)
+            noticeRef.current({
+              status: "warning",
+              title: "AI の図をエディタの初期図で上書きしかけたので、保存を止めました",
+              description: "図を開き直してください。届いた原文は残っています",
+              isClosable: true,
+              duration: null,
+            });
+          } else {
+            setSaveError(String(e));
+          }
           throw e;
         }
-      }, AUTOSAVE_DELAY_MS),
+      }, AUTOSAVE_DELAY_MS, isInitialFigureRejected),
     []
   );
 
@@ -155,9 +176,12 @@ export function useDocSession(): DocSession {
       if (!(await leave()) || superseded()) return;
       const doc = await loadDocument(id);
       if (superseded()) return;
+      // AI・インポートで届いた図は、エディタに載って最初の自動保存が済むまで source が空。原文から開く
+      // (空を「新規作成の直後」と見なすと初期図で準備済みになり、初期図で潰れる。spec 04 現況 4)
+      const text = doc.source || doc.originalSource || "";
       let request: OpenRequest | null = null;
-      if (doc.source) {
-        request = await convertSource(doc.source);
+      if (text) {
+        request = await convertSource(text);
         if (superseded()) return;
         if (!request.payload) {
           notice({
@@ -170,11 +194,11 @@ export function useDocSession(): DocSession {
         }
       }
       becomeCurrent(doc);
-      setUnopenable(Boolean(doc.source) && !request?.payload);
+      setUnopenable(Boolean(text) && !request?.payload);
       expectedRef.current = request?.payload ? expectedKeys(doc.editor, request.payload.data) : null;
       layoutRef.current = doc.layout ?? {};
-      // source が空 = 新規作成の直後。エディタの初期図で始まり、作り直した時点で準備済み
-      awaitMountRef.current = !doc.source;
+      // 開く中身が無い = 新規作成の直後。エディタの初期図で始まり、作り直した時点で準備済み
+      awaitMountRef.current = !text;
       if (request?.payload) queueOpen(request);
       if (doc.editor !== pathKindRef.current) router.push(routeOf(doc.editor));
       setGeneration((g) => g + 1);
@@ -273,6 +297,7 @@ export function useDocSession(): DocSession {
       ready: readyRef.current,
       imported: importedRef.current,
       expected: expectedRef.current,
+      page: pathKindRef.current,
       editor: doc.editor,
       nodes,
       layout,
@@ -287,6 +312,17 @@ export function useDocSession(): DocSession {
       layout: collectLayout(doc.editor, n),
     }));
   }, [nodes, edges, rf, autosaver]);
+
+  // 今の図と違う種類のページに居て、これから取り込む図も無い = 遅れて効いたページ移動で迷い込んだ。
+  // 今の図を開き直してそのページへ戻る (spec 04 P0。保存は onNodesChanged の page で止まっている)
+  // ページが変わった時だけ見る (open は描画のたびに作り直されるので、依存に入れると開き直し続ける)
+  const openRef = useRef(open);
+  openRef.current = open;
+  useEffect(() => {
+    const doc = currentRef.current;
+    if (!doc || kindOf(pathname) === doc.editor || hasPendingOpens()) return;
+    void openRef.current(doc.id);
+  }, [pathname]);
 
   // useDesktopOpen (エディタ側) との橋渡し。AI / インポートで届いた図は新しい 1 件として開く (D8・D10)
   const started = useRef(false);
