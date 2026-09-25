@@ -2,7 +2,7 @@
 
 **ID**: 04
 **Date**: 2026-09-25
-**Status**: In Progress（rev1 承認 2026-09-25。rev0 に査読 2 件を反映。P0・P1 着地、次は P2）
+**Status**: In Progress（rev1 承認 2026-09-25。rev0 に査読 2 件を反映。P0〜P2 着地、次は P3）
 **Branch**: なし（Phase 単位で main へ直接コミット）
 
 ## Goal
@@ -176,6 +176,19 @@ pub trait EditorPort: Send + Sync + 'static {
   src-tauri は `deliver` が作った図の id を返すことを足した
 - src-tauri の `GuiEditor` は、`open` が id を返すところまで。`list` / `read` は P2 まで「まだ使えません」のエラーを返す
 - Rust は `lorelei_mcp` 10 件・src-tauri 31 件とも緑、clippy 警告 0（両 project）。CLAUDE.md のツールの本数を 5 本に直した
+
+## P2 結果（2026-09-25）
+
+- 着地: `src-tauri/src/readback.rs`（`list` / `read`。`Store` と `state.json` だけを読む）、`Store::contains`（uuid の形でない id・ごみ箱の図は false）、
+  `GuiEditor` の `list` / `read` は `readback` を呼ぶだけ。LORELEI.md のツール表（5 本）・頼み方の例・「読み戻しの注意」
+- テスト（Red → Green）: `readback` 6 件 — GUI の一覧と同じ並びと `open` / `last_opened` が消えた図を指す時は全件 `open: false` /
+  エディタに載る前は空の `source` と原文、人が直した後は直した `source`・`unsaved`（最初の書き込みでは立たず、人の編集で立ち、「保存」で消える）/
+  new の図は原文が `null` / 存在しない・形の不正な・ごみ箱の id は「図が見つかりません」でパスを載せない / id を省いて開いている図が無い時のエラー
+- src-tauri 37 件緑、clippy 警告 0
+- 実機（`tauri dev`）: HTTP 越しに `list_diagrams` で実物の一覧 10 件（開いている図に `open: true`、● の図に `unsaved: true`）、
+  `read_diagram`（id 省略・`include_original`）で開いている図のエディタの出力と原文、`id: "../mcp_server"` は「図が見つかりません」
+- 起動の時、Next が 3001 番に立ち上がった（P0 の dev の Next が残って 3000 番を握っていた）。止めて起動し直した。コードの問題ではない（spec 03 P2 と同じ）
+- このセッションの Claude Code のツール一覧は、つないだ時の 3 本のまま（新しい 2 本はつなぎ直すと出る）。P3 で登録し直して確かめる
 
 ## 受け入れ条件
 

@@ -163,6 +163,11 @@ impl Store {
         Ok(doc)
     }
 
+    /// その id の図が一覧 (documents/) にある。uuid の形でない id・ごみ箱の図は false
+    pub fn contains(&self, id: &str) -> bool {
+        self.doc_path(id).is_ok_and(|p| p.is_file())
+    }
+
     pub fn load(&self, id: &str) -> Result<Document, String> {
         read_doc(&self.doc_path(id)?)
     }

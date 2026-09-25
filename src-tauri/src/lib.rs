@@ -4,6 +4,7 @@
 mod desktop;
 mod documents;
 mod mcp_host;
+mod readback;
 
 use std::sync::Mutex;
 
@@ -224,12 +225,12 @@ impl lorelei_mcp::EditorPort for GuiEditor {
     fn open(&self, source: String, title: Option<String>) -> Result<String, String> {
         deliver(&self.0, &store()?, source, title)
     }
-    // 読み戻し (spec 04) の GUI 側は P2 で実装する
+    // 読み戻し (spec 04): documents/ と state.json を読む。画面には問い合わせない (D1)
     fn list(&self) -> Result<Vec<lorelei_mcp::DiagramSummary>, String> {
-        Err("図の一覧の読み戻しはまだ使えません (spec 04 P2)".into())
+        readback::list(&store()?)
     }
-    fn read(&self, _id: Option<String>) -> Result<lorelei_mcp::Diagram, String> {
-        Err("図の読み戻しはまだ使えません (spec 04 P2)".into())
+    fn read(&self, id: Option<String>) -> Result<lorelei_mcp::Diagram, String> {
+        readback::read(&store()?, id)
     }
 }
 

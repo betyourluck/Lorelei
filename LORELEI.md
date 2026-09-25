@@ -47,7 +47,9 @@ MCP サーバーは **Lorelei の窓の中**で動きます（`127.0.0.1:39642/m
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `validate`       | 文法を検査する。GUI エディタで開けるか、開くと何が省かれるかも返す                                                        |
 | `render`         | SVG / PNG / PDF に描画する。png / pdf は `output_path`（絶対パス）に書き出す。描画結果の縮小 PNG も毎回画像で返す（不要なら `preview: false`） |
-| `open_in_editor` | 開いている Lorelei のエディタで開く（flowchart と erDiagram）。届いた図は左の図の一覧に新しい 1 件として足され、開いている図は上書きしない。`title` で一覧での名前を付けられる（省略すると「AI の図 HH:MM:SS」） |
+| `open_in_editor` | 開いている Lorelei のエディタで開く（flowchart と erDiagram）。届いた図は左の図の一覧に新しい 1 件として足され、開いている図は上書きしない。`title` で一覧での名前を付けられる（省略すると「AI の図 HH:MM:SS」）。作った図の `document_id` を返す |
+| `list_diagrams`  | 図の一覧を返す（並びは GUI の一覧と同じ）。`open` が今開いている図、`unsaved` が最後の「保存」の後に変更がある図 |
+| `read_diagram`   | 人が GUI で直した今の図を Mermaid で読む。`id`（`list_diagrams` の id か `open_in_editor` の `document_id`）を省くと今開いている図。届いた時の原文は `include_original: true` で読める |
 
 ### GUI の図の一覧
 
@@ -61,6 +63,14 @@ MCP サーバーは **Lorelei の窓の中**で動きます（`127.0.0.1:39642/m
 
 - 「この DB のスキーマから ER 図を Mermaid で書いて、Lorelei で検査してから `D:/out/schema.pdf` に書き出して」
 - 「`src/order.rs` の処理の流れをフローチャートにして、Lorelei のエディタで開いて」
+- 「Lorelei で直した図を読んで、`src/order.rs` の処理をその流れに合わせて」（今開いている図を `read_diagram` で読む）
+
+### 読み戻しの注意
+
+- 読むのは保存されたファイルです。GUI での編集は約 1 秒後に保存されるので、直した直後に頼むと最後の編集が入らないことがあります
+- `read_diagram` の Mermaid はエディタが書き出したものです。エディタで表現できない要素（向き `LR`・FK の印・subgraph・style など）は落ちています。
+  AI が送った原文は `include_original: true` で読めます
+- AI から届いてまだエディタに載っていない図は、`source` が空で返ります（GUI でその図を開くと埋まります）
 
 ## 既知の制約
 
