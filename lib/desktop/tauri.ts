@@ -33,7 +33,7 @@ export const showAbout = (): Promise<void> => invoke("show_about");
  */
 export const importSource = (source: string): Promise<void> => invoke("import_source", { source });
 
-export type WindowAction = "minimize" | "toggleMaximize" | "close" | "destroy";
+export type WindowAction = "minimize" | "toggleMaximize" | "close" | "destroy" | "show";
 
 /**
  * 閉じる前に保存する (spec 02 D7)。handler が false を返したら閉じない。

@@ -40,6 +40,12 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
   const [actions, setActions] = useState<RegisteredActions | null>(null);
   // 図の一覧の幅と開閉。起動をまたいで覚える (spec 05 D1〜D3)
   const pane = usePaneLayout();
+
+  // 窓は隠したまま起動する。外枠が描けたら出す (spec 05 D5: 最初の描画は Web 版なので、それを見せない)。
+  // 描けなかった時は Rust が 3 秒後に出す
+  useEffect(() => {
+    void windowAction("show");
+  }, []);
   const [closeError, setCloseError] = useState<string | null>(null);
   const [mcp, setMcp] = useMcpStatus();
   const [settingsOpen, setSettingsOpen] = useState(false);

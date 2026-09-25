@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Lorelei メインウィンドウの権限。custom command は app 定義ゆえ追加権限不要。ファイル読み書きの plugin は入れない (図の一覧と MCP の設定は Rust が読み書きする)。window:* は自作タイトルバー用 (spec 02 D1)。allow-destroy は閉じる前の保存 (onCloseRequested) のため — 無いと閉じるボタンが黙って効かなくなる (spec 02 現況 6)。",
+  "description": "Lorelei メインウィンドウの権限。custom command は app 定義ゆえ追加権限不要。ファイル読み書きの plugin は入れない (図の一覧と MCP の設定は Rust が読み書きする)。window:* は自作タイトルバー用 (spec 02 D1)。allow-destroy は閉じる前の保存 (onCloseRequested) のため — 無いと閉じるボタンが黙って効かなくなる (spec 02 現況 6)。allow-show は隠したまま起動した窓を外枠が描けてから出すため (spec 05 D5)。",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -10,6 +10,7 @@
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
     "core:window:allow-destroy",
-    "core:window:allow-start-dragging"
+    "core:window:allow-start-dragging",
+    "core:window:allow-show"
   ]
 }

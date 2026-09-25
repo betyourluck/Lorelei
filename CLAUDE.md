@@ -58,7 +58,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
-- 2026-09-26: [spec 05](specs/05_pane-width-and-loading.md) rev1 承認（左ペインの幅を変えるつまみ、図を開く間はエディタを隠して初期図を見せない）。P1 から
+- 2026-09-26: [spec 05](specs/05_pane-width-and-loading.md) **Done** — rev1（左ペインの幅を変えるつまみと幅・開閉の記憶、図を開く間はエディタを隠して初期図を見せない、
+  窓を隠したまま起動して Web 版の画面を見せない）。P1〜P4 着地。隠し方は `opacity`（xyflow がノードに `visibility: visible` を付けるので `visibility` では隠れない, failures #10）
 - 2026-09-25: [spec 04](specs/04_readback.md) **Done** — rev1（人が GUI で直した図を AI が読み戻す: `list_diagrams` / `read_diagram`、`open_in_editor` の `document_id`）。P0〜P3 着地。
   P0 で図が初期図・別のエディタのノードで潰れる不具合を直した（failures #7・#8）。GUI の一覧の ● が 1 件落ちた件は未解明（spec 04「未検証」）
 - 2026-09-25: [spec 03](specs/03_http-mcp-in-gui.md) **Done** — rev1（MCP を GUI の中の HTTP へ移す）。P0〜P4 着地。配布ビルドに設定画面の登録コマンドで

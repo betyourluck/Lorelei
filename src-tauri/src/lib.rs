@@ -71,13 +71,18 @@ pub fn run_gui() {
         // single-instance は最初に登録する (プラグインの要求)
         // 2 つ目の起動は 1 つ目を前に出して終わる。図の受け渡しは MCP (HTTP) がじかに行うので argv は読まない (spec 03 D5)
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.set_focus();
-            }
+            bring_to_front(app);
         }))
         .manage(PendingOpens::default())
         .setup(|app| {
+            // 保険 (spec 05 D5): フロントが窓を出せなかった時も、一定時間で必ず出す (出すのは何度呼んでも同じ)
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(SHOW_WINDOW_FALLBACK).await;
+                if let Some(window) = handle.get_webview_window("main") {
+                    let _ = window.show();
+                }
+            });
             // MCP の待ち受け (spec 03 D2: 既定で ON)。失敗しても GUI は起動する (状態として見せる)
             let editor = std::sync::Arc::new(GuiEditor(app.handle().clone()));
             let host = mcp_host::McpHost::new(mcp_host::ConfigStore::load_default(), editor);
@@ -211,12 +216,22 @@ fn deliver<R: tauri::Runtime>(
             .unwrap_or_else(|| "図の一覧に足せませんでした".into()));
     };
     push_open(app, request);
+    bring_to_front(app);
+    Ok(id)
+}
+
+/// 窓を前に出す。起動の途中 (まだ隠れている窓, spec 05 D5) でも出してから前に出す
+fn bring_to_front<R: tauri::Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
     }
-    Ok(id)
 }
+
+/// 窓は隠したまま起動し、フロントの外枠が描けてから JS が出す (spec 05 D5)。
+/// フロントが読み込めない・外枠が描けない時に、窓が出ないまま動き続けないよう、この時間で必ず出す
+const SHOW_WINDOW_FALLBACK: std::time::Duration = std::time::Duration::from_secs(3);
 
 /// GUI の中の HTTP の MCP が図を届ける口
 struct GuiEditor(AppHandle);
@@ -348,6 +363,26 @@ mod tests {
         let err = deliver(app.handle(), &store, "flowchart TD\n  A[a --> B\n".into(), None);
         assert!(err.is_err());
         assert_eq!(store.list().unwrap().len(), 1);
+    }
+
+    /// spec 05 D5: 窓は隠したまま起動し、外枠が描けてから JS が出す (起動直後に Web 版の画面を見せない)。
+    /// 出すには権限 core:window:allow-show が要る (無いと窓が出ないまま、Rust の保険の 3 秒を待つことになる)
+    #[test]
+    fn the_window_starts_hidden_and_the_page_may_show_it() {
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let main = &conf["app"]["windows"][0];
+        assert_eq!(main["label"], "main");
+        assert_eq!(main["visible"], false, "{main}");
+        let caps: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+        let perms: Vec<&str> = caps["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|p| p.as_str())
+            .collect();
+        assert!(perms.contains(&"core:window:allow-show"), "{perms:?}");
     }
 
     /// 図の一覧と MCP の設定は lorelei_core の app_data_dir() に置く。Tauri の app_data_dir() と一致すること

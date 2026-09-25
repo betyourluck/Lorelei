@@ -15,6 +15,7 @@ const win = {
   minimize: vi.fn(),
   toggleMaximize: vi.fn(),
   close: vi.fn(),
+  show: vi.fn(async () => {}),
   onCloseRequested: vi.fn(async () => () => {}),
 };
 const backend = fakeBackend();
@@ -45,6 +46,28 @@ describe("DesktopShell", () => {
     expect(screen.getByText("editor")).toBeInTheDocument();
     expect(screen.queryByRole("banner")).toBeNull();
     expect(container.querySelector("[data-lorelei-desktop]")).toBeNull();
+  });
+
+  it("外枠が描けたら窓を出す。Web 版では何もしない (spec 05 D5: 窓は隠したまま起動する)", async () => {
+    win.show.mockClear();
+    setTauri(false);
+    const web = render(
+      <DesktopShell>
+        <p>editor</p>
+      </DesktopShell>
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    expect(win.show).not.toHaveBeenCalled();
+    web.unmount();
+
+    setTauri(true);
+    render(
+      <DesktopShell>
+        <p>editor</p>
+      </DesktopShell>
+    );
+    await screen.findByRole("banner");
+    await waitFor(() => expect(win.show).toHaveBeenCalledTimes(1));
   });
 
   it("デスクトップ版ではタイトルバーの下に children を出し、エディタの高さを 100% にする (D1・D4)", async () => {
