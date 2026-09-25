@@ -38,9 +38,11 @@
 - つながる辺は xyflow が一緒に消す。ER 図の側に「辺を一緒に消す」処理を書かなくてよい。フローの `handleNodeDelete`（`setNodes` / `setEdges` で直接消す）はこの経路に置き換える
 - 確認は Promise で返す: `useConfirmDelete()` が `confirm(target) => Promise<boolean>` と、エディタに 1 つだけ置く `<ConfirmDeleteDialog>` を返す。`onBeforeDelete` はそれを await する
 
-### D1. ER 図のテーブルの見出しに削除ボタン（利用者裁定 2026-09-26）
+### D1. ER 図のテーブルの見出しに「⋮⋮」メニュー（利用者裁定 2026-09-26。P2 で「ごみ箱のボタン」から改めた）
 
-- 「カラム追加」の隣にごみ箱のアイコンボタン（`aria-label`「テーブル『{名前}』を削除」、名前が空なら「このテーブルを削除」。`title`「テーブルを削除」）
+- 「カラム追加」の隣に、フローチャートのノードと同じ「⋮⋮」（9 つの点）のメニュー（`aria-label`「テーブル『{名前}』の操作メニューを開く」、名前が空なら「このテーブルの操作メニューを開く」）。
+  中身は今は「削除」（ごみ箱のアイコン、危険の色）だけ。**ER 図の項目は将来増える見込み**（利用者の言, P2）なのでメニューにしておく
+- 当初（rev1）はごみ箱のアイコンボタンだった。P2 の実機で利用者が「フローチャートと合わせたい」と改めた
 - 押すと D0 の経路で確認 →「削除」でテーブルと、**つながっているリレーション（辺）も一緒に**消える
 - `ERTableNodeProps` に `onDelete?: () => void` を**任意で**足す（`createNewERTableNode` などの既存の型・テストを壊さない）。`er-diagram-editor.tsx` がノードごとに渡す（`onNameChange` などと同じ渡し方）
 - ボタンの `onClick` / `onPointerDown` は伝播を止める（ノードの選択・ドラッグと干渉させない）
@@ -97,6 +99,12 @@ Yamada UI の `Dialog` で 1 つ作り、両方で使う（`components/` に置�
 - 全体: vitest 563 件中、落ちるのは ArrowTypeSelector の時間切れ 1 件（failures #3 の顔ぶれ、変更前と同じ）。型検査通過、lint は変更したファイルで通過
   （`er-table-content.test.tsx` の既存の警告 1 件はフォーク元のまま）
 - 未確認: 線だけを Backspace で消す時に確認が出ないこと、つながるリレーションが一緒に消えることは、エディタのテストでは確かめていない（判定は純粋関数のテスト、線を一緒に消すのは xyflow の `getElementsToRemove`）。P2 の実機で見る
+
+## P2 の途中の変更（2026-09-26）
+
+- 利用者が dev で ER 図の 1〜4 を確かめた（やめる / 削除でテーブルと線 2 本が消える / コード生成からも消える / 入力欄の Backspace は文字だけ）。問題なし
+- そのうえで利用者裁定: 削除の操作をフローのノードと同じ「⋮⋮」メニューにする（D1 を改めた）。`features/er-diagram/components/node/table-menu.tsx`（`node-menu.tsx` と同じ形）。
+  テストを先に書き換えて Red → Green（`er-table-content.test.tsx` 3 件・`er-diagram-editor-delete.test.tsx` 2 件）。フォーク元の改善のコミット `e34cf5b` として積んだ
 
 ## 受け入れ条件
 
