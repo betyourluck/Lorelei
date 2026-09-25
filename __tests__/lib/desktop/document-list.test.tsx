@@ -3,7 +3,9 @@ import { fireEvent } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@/__tests__/test-utils";
+import { useDesktopActions } from "@/lib/desktop/desktop-actions";
 import { DesktopShell } from "@/lib/desktop/desktop-shell";
+import { clearPendingOpens } from "@/lib/desktop/use-desktop-open";
 import { fakeBackend } from "./fake-backend";
 
 let backend = fakeBackend();
@@ -15,6 +17,13 @@ vi.mock("@tauri-apps/api/window", () => ({
 }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), usePathname: () => pathname }));
+
+/** フォーク元のパネルの代わり: 作り直されるたびに操作を登録する (= エディタが作り直された合図, spec 02 D9) */
+const Registering = () => {
+  useDesktopActions({ add: { label: "ノード追加", run: () => {} }, code: () => {} });
+  return <div>registering editor</div>;
+};
+const registeredArea = () => screen.getByText("registering editor").closest("[aria-busy]")!;
 
 const shell = () =>
   render(
@@ -34,6 +43,7 @@ describe("図の一覧 (spec 02 P3)", { timeout: 15000 }, () => {
     push.mockClear();
     (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
     localStorage.clear();
+    clearPendingOpens();
   });
   afterEach(() => {
     delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
@@ -217,6 +227,69 @@ describe("図の一覧 (spec 02 P3)", { timeout: 15000 }, () => {
     await waitFor(() =>
       expect(screen.getByRole("navigation", { name: "図の一覧" })).toHaveStyle({ width: "360px" })
     );
+  });
+
+  // spec 05 D4: 図を開く間はエディタを隠し、初期図と位置を当てる前の図を見せない
+  const editorArea = () => screen.getByText("editor").closest("[aria-busy]")!;
+
+  it("開けない図 (変換に失敗) は隠さずに見せる (spec 05 D4)", async () => {
+    // フェイクの convert_source は変換に失敗する。初期図のまま「開けないので保存しません」を出す作りなので隠さない
+    backend.add("flowchart", "開けない図", { source: "flowchart TD\n    a[a]\n" });
+    shell();
+    await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("開けない図"), LONG);
+    await waitFor(() => expect(editorArea()).toHaveAttribute("aria-busy", "false"));
+    expect(screen.queryByText("読み込み中…")).toBeNull();
+  });
+
+  it("準備済みにならない図も、時間切れで見せる。遅い時は「読み込み中…」を出す (spec 05 D4)", async () => {
+    const real = backend.invoke.getMockImplementation()!;
+    backend.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown> = {}) =>
+      cmd === "convert_source"
+        ? ({
+            source: args.source,
+            payload: { editor: "flowchart", data: { nodes: [{ variableName: "a" }], edges: [] }, dropped: [] },
+            dropped: [],
+            error: null,
+            document: null,
+          } as unknown as Awaited<ReturnType<typeof real>>)
+        : real(cmd, args)
+    );
+    backend.add("flowchart", "載らない図", { source: "flowchart TD\n    a[a]\n" });
+    shell();
+    await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("載らない図"), LONG);
+    // エディタが居ないので取り込みが起きず、準備済みにならない。その間は隠して「読み込み中…」
+    expect(editorArea()).toHaveAttribute("aria-busy", "true");
+    // visibility では隠さない: xyflow は大きさを測ったノードに visibility: visible を付けるので、ノードだけ見えてしまう
+    // (2026-09-26 実機で観測)。子から上書きできない opacity で隠す
+    expect(editorArea()).toHaveStyle({ opacity: "0" });
+    expect(editorArea()).not.toHaveStyle({ visibility: "hidden" });
+    expect(await screen.findByText("読み込み中…")).toBeInTheDocument();
+    await waitFor(() => expect(editorArea()).toHaveAttribute("aria-busy", "false"), { timeout: 3000 });
+    expect(editorArea()).toHaveStyle({ opacity: "1" });
+    expect(screen.queryByText("読み込み中…")).toBeNull();
+  });
+
+  it("新規作成で別の種類のページへ移る間は、今のページのエディタが作り直されても見せない (spec 05 D4)", async () => {
+    // 2026-09-26 実機で観測: ER 図のページでフローチャートを新規作成すると、ページが移る前に ER 図のエディタが作り直され、
+    // 「新規作成の直後 = エディタが作り直されたら見せる」で ER 図の初期図が一瞬見えた
+    pathname = "/er-diagram/";
+    backend.add("erDiagram", "ER 図");
+    const view = render(
+      <ReactFlowProvider>
+        <DesktopShell>
+          <Registering />
+        </DesktopShell>
+      </ReactFlowProvider>
+    );
+    await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("ER 図"), LONG);
+    await waitFor(() => expect(registeredArea()).toHaveAttribute("aria-busy", "false"), LONG);
+    await view.user.click((await list()).getByRole("button", { name: "新規作成" }));
+    await view.user.click(await screen.findByRole("menuitem", { name: "フローチャート" }));
+    await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("無題のフローチャート"));
+    expect(push).toHaveBeenCalledWith("/");
+    // まだ ER 図のページ (push はフェイク)。作り直された ER 図のエディタで見せない
+    await new Promise((r) => setTimeout(r, 100));
+    expect(registeredArea()).toHaveAttribute("aria-busy", "true");
   });
 
   it("タイトルバーの ≡ で一覧を開閉する", async () => {

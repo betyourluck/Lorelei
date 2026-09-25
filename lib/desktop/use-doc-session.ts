@@ -34,6 +34,8 @@ import { firstDrain, hasPendingOpens, queueOpen, setDocsBridge } from "./use-des
 
 const AUTOSAVE_DELAY_MS = 1000;
 const FIRST_DRAIN_TIMEOUT_MS = 1500;
+/** 図を開く間エディタを隠す上限。門が何かの理由で開かなくても、空のまま止めない (spec 05 D4) */
+const SETTLE_TIMEOUT_MS = 1500;
 
 type Snapshot = { source: string; layout: Layout };
 
@@ -46,6 +48,8 @@ export interface DocSession {
   saveError: string | null;
   /** エディタを作り直すための key (D9) */
   generation: number;
+  /** エディタを見せてよい。図を開いている間 (初期図・位置を当てる前) は false (spec 05 D4) */
+  settled: boolean;
   open(id: string): Promise<void>;
   create(editor: EditorKind): Promise<void>;
   /** ツールバーの [フローチャート|ER図] (D11) */
@@ -94,6 +98,14 @@ export function useDocSession(): DocSession {
   const [unopenable, setUnopenable] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
+  // 起動直後もエディタは初期図を持っているので、最初の図が開くまで隠す
+  const [settled, setSettled] = useState(false);
+  /** 隠し始めるたびに進む番号。時間切れの数え直しに使う */
+  const [hideSeq, setHideSeq] = useState(0);
+  const hide = useCallback(() => {
+    setSettled(false);
+    setHideSeq((n) => n + 1);
+  }, []);
 
   const currentRef = useRef<DocumentSummary | null>(null);
   const readyRef = useRef(false);
@@ -201,6 +213,9 @@ export function useDocSession(): DocSession {
       }
       becomeCurrent(doc);
       setUnopenable(Boolean(text) && !request?.payload);
+      // 開けない図は初期図のまま「開けないので保存しません」を出すので隠さない。それ以外は開き終えるまで隠す
+      if (text && !request?.payload) setSettled(true);
+      else hide();
       expectedRef.current = request?.payload ? expectedKeys(doc.editor, request.payload.data) : null;
       layoutRef.current = doc.layout ?? {};
       // 開く中身が無い = 新規作成の直後。エディタの初期図で始まり、作り直した時点で準備済み
@@ -210,7 +225,7 @@ export function useDocSession(): DocSession {
       setGeneration((g) => g + 1);
       if (openingRef.current === id) openingRef.current = null;
     },
-    [becomeCurrent, leave, notice, router]
+    [becomeCurrent, hide, leave, notice, router]
   );
 
   const create = useCallback(
@@ -289,9 +304,22 @@ export function useDocSession(): DocSession {
 
   const editorMounted = useCallback(() => {
     if (!awaitMountRef.current) return;
+    // 別の種類のページで作り直されたエディタ (ページが移る前) は、この図のエディタではない。移った先で作り直されるのを待つ
+    // (2026-09-26 実機で観測: ER 図のページでフローチャートを新規作成すると、ER 図の初期図が一瞬見えた)
+    if (currentRef.current && currentRef.current.editor !== pathKindRef.current) return;
     awaitMountRef.current = false;
     readyRef.current = true;
+    // 新規作成の直後は初期図がこの図の中身
+    setSettled(true);
   }, []);
+
+  // 時間切れ: 図を開き始めてから一定時間で見せる。起動直後 (まだ何も開き始めていない) は数えない —
+  // 起動処理が図を開く前に見せると、その間の初期図が見える
+  useEffect(() => {
+    if (settled || hideSeq === 0) return;
+    const t = setTimeout(() => setSettled(true), SETTLE_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [settled, hideSeq]);
 
   const flushForClose = useCallback(async () => {
     try {
@@ -317,6 +345,7 @@ export function useDocSession(): DocSession {
       layout,
     });
     readyRef.current = next.ready;
+    if (next.settled) setSettled(true);
     if (next.applyLayout) rf.setNodes((ns) => withLayout(doc.editor, ns, layout));
     if (!next.save) return;
     const n = nodes;
@@ -366,6 +395,7 @@ export function useDocSession(): DocSession {
         expectedRef.current = expectedKeys(doc.editor, request.payload.data);
         layoutRef.current = {};
         awaitMountRef.current = false;
+        hide();
         void refreshList();
       },
       afterImport: () => {
@@ -374,7 +404,7 @@ export function useDocSession(): DocSession {
       beforeLeave: leaveNow,
     });
     return () => setDocsBridge(null);
-  }, [autosaver, becomeCurrent, notice, refreshList]);
+  }, [autosaver, becomeCurrent, hide, notice, refreshList]);
 
   // 起動時: 届いている図 (AI) を先に取り込ませ、無ければ前回の図 → 一番新しい図 → 新規作成 (D9)
   useEffect(() => {
@@ -392,9 +422,11 @@ export function useDocSession(): DocSession {
       if (currentRef.current || hasPendingOpens()) return;
       if (target) await open(target.id);
       else await create("flowchart");
-    })().catch((e) =>
-      notice({ status: "error", title: "図の一覧を読めません", description: String(e), isClosable: true, duration: null })
-    );
+    })().catch((e) => {
+      // 開けなかったので隠したまま止めない
+      setSettled(true);
+      notice({ status: "error", title: "図の一覧を読めません", description: String(e), isClosable: true, duration: null });
+    });
   }, [create, notice, open, refreshList]);
 
   return {
@@ -403,6 +435,7 @@ export function useDocSession(): DocSession {
     unopenable,
     saveError,
     generation,
+    settled,
     open,
     create,
     switchKind,

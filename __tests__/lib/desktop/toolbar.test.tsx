@@ -2,9 +2,9 @@ import { ReactFlowProvider } from "@xyflow/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, renderHook, screen, waitFor } from "@/__tests__/test-utils";
-import { DesktopShell as Shell } from "@/lib/desktop/desktop-shell";
 import type { DesktopActions } from "@/lib/desktop/desktop-actions";
 import { useDesktopActions } from "@/lib/desktop/desktop-actions";
+import { DesktopShell as Shell } from "@/lib/desktop/desktop-shell";
 import { fakeBackend } from "./fake-backend";
 
 const DesktopShell = ({ children }: { children: ReactNode }) => (
@@ -57,7 +57,11 @@ describe("ツールバー (spec 02 P2)", () => {
         <Panel add={{ label: "テーブル追加", run: add }} code={code} />
       </DesktopShell>
     );
-    await user.click(await screen.findByRole("button", { name: "テーブル追加" }));
+    // 最初の図が開き終えるまでは押せない (spec 05 D4: 隠している間は見えない図に足さない)
+    await waitFor(() => expect(screen.getByRole("button", { name: "テーブル追加" })).toBeEnabled(), {
+      timeout: 5000,
+    });
+    await user.click(screen.getByRole("button", { name: "テーブル追加" }));
     await user.click(screen.getByRole("button", { name: "コード生成" }));
     expect(add).toHaveBeenCalledTimes(1);
     expect(code).toHaveBeenCalledTimes(1);

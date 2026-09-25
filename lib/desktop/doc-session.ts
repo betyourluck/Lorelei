@@ -65,6 +65,7 @@ export const layoutReady = ({
  * 位置を持たない図 (AI から届いた図) は変化が起きないので、準備済みになった時点で保存する (2026-09-24 実機で観測した取りこぼし)。
  * ストアのノードは、今載っているページのエディタのもの。今の図と種類が違えば、それは今の図のノードではない
  * (遅れて効いたページ移動で、ER 図のノードがフローの図として保存された。spec 04 P0)。
+ * settled は「エディタを見せてよい」: 準備済みで、位置を当て終えた (spec 05 D4。初期図と当てる前の配置を見せない)。
  */
 export const onNodesChanged = ({
   ready,
@@ -84,13 +85,14 @@ export const onNodesChanged = ({
   editor: EditorKind;
   nodes: Node[];
   layout: Layout;
-}): { ready: boolean; applyLayout: boolean; save: boolean } => {
-  if (page !== editor) return { ready: false, applyLayout: false, save: false };
-  if (ready) return { ready: true, applyLayout: false, save: true };
+}): { ready: boolean; applyLayout: boolean; save: boolean; settled: boolean } => {
+  if (page !== editor) return { ready: false, applyLayout: false, save: false, settled: false };
+  if (ready) return { ready: true, applyLayout: false, save: true, settled: true };
   if (!expected || !layoutReady({ imported, expected, editor, nodes }))
-    return { ready: false, applyLayout: false, save: false };
+    return { ready: false, applyLayout: false, save: false, settled: false };
   const applyLayout = Object.keys(layout).length > 0;
-  return { ready: true, applyLayout, save: !applyLayout };
+  // 位置を当てる回はまだ見せない。当てた後の変化 (ready: true の回) で見せる (spec 05 D4)
+  return { ready: true, applyLayout, save: !applyLayout, settled: !applyLayout };
 };
 
 /** Rust の save_document が初期図での上書きを拒んだ (src-tauri documents::INITIAL_FIGURE_REJECTED, spec 04 D4-2) */

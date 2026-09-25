@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Flex } from "@yamada-ui/react";
+import { Box, Center, Flex, Text } from "@yamada-ui/react";
 import type { FC, ReactNode } from "react";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { RegisteredActions } from "./desktop-actions";
@@ -113,7 +113,8 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
         onStatus={setMcp}
       />
       <Toolbar
-        actions={actions}
+        // 図を開いている間 (隠している間) は見えない図に足さないよう押せなくする (spec 05 D4)
+        actions={session.settled ? actions : null}
         current={session.current?.editor ?? null}
         onSwitchKind={(kind) => void session.switchKind(kind)}
         onSave={() => void session.save()}
@@ -140,14 +141,47 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
             onReset={pane.resetList}
           />
         )}
-        {/* エディタの Box は h="var(--lorelei-editor-h, 100vh)"。高さの引き算はどこにも書かない (D4) */}
-        <Box flex="1" minW="0" style={{ ["--lorelei-editor-h" as string]: "100%" }}>
-          <DesktopActionsProvider register={register}>
-            {/* 同じ種類の図へ切り替える時は key でエディタを作り直す (D9) */}
-            <Fragment key={session.generation}>{children}</Fragment>
-          </DesktopActionsProvider>
+        <Box flex="1" minW="0" position="relative">
+          {/* エディタの Box は h="var(--lorelei-editor-h, 100vh)"。高さの引き算はどこにも書かない (spec 02 D4)。
+              図を開いている間は隠す (spec 05 D4)。display: none にしない — ReactFlow がノードの大きさを測れず、取り込みが進まない。
+              visibility: hidden にもしない — xyflow は大きさを測ったノードに visibility: visible を付けるので、ノードだけ見える
+              (2026-09-26 実機で観測)。子から上書きできない opacity で隠し、押せないようにもする */}
+          <Box
+            h="full"
+            aria-busy={!session.settled}
+            style={{
+              ["--lorelei-editor-h" as string]: "100%",
+              opacity: session.settled ? 1 : 0,
+              pointerEvents: session.settled ? undefined : "none",
+            }}
+          >
+            <DesktopActionsProvider register={register}>
+              {/* 同じ種類の図へ切り替える時は key でエディタを作り直す (D9) */}
+              <Fragment key={session.generation}>{children}</Fragment>
+            </DesktopActionsProvider>
+          </Box>
+          {!session.settled && <LoadingLabel />}
         </Box>
       </Flex>
     </Flex>
+  );
+};
+
+/** 「読み込み中…」。普段の速い切り替えで点滅させないよう、少し待ってから出す (spec 05 D4、利用者裁定 2026-09-26) */
+const LOADING_LABEL_DELAY_MS = 200;
+
+const LoadingLabel: FC = () => {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setShown(true), LOADING_LABEL_DELAY_MS);
+    return () => clearTimeout(t);
+  }, []);
+  if (!shown) return null;
+  return (
+    <Center position="absolute" inset="0" pointerEvents="none">
+      <Text fontSize="sm" color="gray.500">
+        読み込み中…
+      </Text>
+    </Center>
   );
 };

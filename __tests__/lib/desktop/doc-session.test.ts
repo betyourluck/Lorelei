@@ -72,7 +72,7 @@ describe("onNodesChanged — ストアのノードが変わった時にするこ
   it("準備前で合図がそろっていなければ何もしない", () => {
     expect(
       onNodesChanged({ ready: false, imported: false, expected: ["会員"], page: "erDiagram", editor: "erDiagram", nodes, layout: {} })
-    ).toEqual({ ready: false, applyLayout: false, save: false });
+    ).toEqual({ ready: false, applyLayout: false, save: false, settled: false });
   });
 
   it("位置を持たない図 (AI から届いた図) も、準備済みになった時点で保存する", () => {
@@ -80,7 +80,7 @@ describe("onNodesChanged — ストアのノードが変わった時にするこ
     // source が空のまま残り、開き直すと「新規作成の直後」と判定されて初期図になる
     expect(
       onNodesChanged({ ready: false, imported: true, expected: ["会員"], page: "erDiagram", editor: "erDiagram", nodes, layout: {} })
-    ).toEqual({ ready: true, applyLayout: false, save: true });
+    ).toEqual({ ready: true, applyLayout: false, save: true, settled: true });
   });
 
   it("位置を持つ図は、位置を当ててから保存する (当てた後の変化で保存される)", () => {
@@ -94,7 +94,7 @@ describe("onNodesChanged — ストアのノードが変わった時にするこ
         nodes,
         layout: { 会員: { x: 1, y: 2 } },
       })
-    ).toEqual({ ready: true, applyLayout: true, save: false });
+    ).toEqual({ ready: true, applyLayout: true, save: false, settled: false });
   });
 
   it("ページのエディタが今の図の種類と違えば、準備済みでも保存せず、準備前に戻す (spec 04 P0)", () => {
@@ -102,16 +102,30 @@ describe("onNodesChanged — ストアのノードが変わった時にするこ
     // ER 図のノードがフローの図として保存された (flowchart TD / node部署[] ...)
     expect(
       onNodesChanged({ ready: true, imported: true, expected: null, page: "flowchart", editor: "erDiagram", nodes, layout: {} })
-    ).toEqual({ ready: false, applyLayout: false, save: false });
+    ).toEqual({ ready: false, applyLayout: false, save: false, settled: false });
     expect(
       onNodesChanged({ ready: false, imported: true, expected: ["会員"], page: "flowchart", editor: "erDiagram", nodes, layout: {} })
-    ).toEqual({ ready: false, applyLayout: false, save: false });
+    ).toEqual({ ready: false, applyLayout: false, save: false, settled: false });
+  });
+
+  it("見せてよい (settled) のは、準備済みで位置を当て終えた時だけ (spec 05 D4)", () => {
+    // 位置を当てる回は、当てた後の変化 (次の回) で見せる。当てる前の配置を見せない
+    const base = {
+      imported: true,
+      expected: ["会員"],
+      page: "erDiagram" as const,
+      editor: "erDiagram" as const,
+      nodes,
+    };
+    expect(onNodesChanged({ ...base, ready: false, layout: { 会員: { x: 1, y: 2 } } }).settled).toBe(false);
+    expect(onNodesChanged({ ...base, ready: true, layout: { 会員: { x: 1, y: 2 } } }).settled).toBe(true);
+    expect(onNodesChanged({ ...base, ready: false, imported: false, layout: {} }).settled).toBe(false);
   });
 
   it("準備済みなら変化のたびに保存する", () => {
     expect(
       onNodesChanged({ ready: true, imported: true, expected: null, page: "erDiagram", editor: "erDiagram", nodes, layout: {} })
-    ).toEqual({ ready: true, applyLayout: false, save: true });
+    ).toEqual({ ready: true, applyLayout: false, save: true, settled: true });
   });
 });
 

@@ -24,6 +24,11 @@ export const queueOpen = (request: OpenRequest): void => {
 /** 別のページのエディタへ回した図が、まだ取り込まれずに残っている (起動処理が前回の図を開くのを控えるため) */
 export const hasPendingOpens = (): boolean => stash.length > 0;
 
+/** テスト用: 預かりを空にする。エディタの居ないテストでは誰も取り込まないので、次のテストへ残る */
+export const clearPendingOpens = (): void => {
+  stash = [];
+};
+
 /**
  * 図の一覧 (外枠) との橋渡し。取り込みの前後とページを移る前に呼ぶ。
  * **どれも同期**。取り込みの前で await すると、開発モード (StrictMode) で effect が 2 回走る間に取り込みを取りこぼす
