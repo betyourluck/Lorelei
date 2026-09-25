@@ -88,7 +88,9 @@ export function fakeBackend() {
         return d;
       }
       case "save_document": {
-        const d = docs.get(args.id as string)!;
+        const d = docs.get(args.id as string);
+        // src-tauri documents::DOCUMENT_GONE と同じ (ごみ箱へ移した図への書き込み)
+        if (!d) throw "DOCUMENT_GONE: 図が一覧にありません";
         const firstFill = d.source === "";
         Object.assign(d, { source: args.source, layout: args.layout });
         if (!firstFill) d.updatedAt = now();

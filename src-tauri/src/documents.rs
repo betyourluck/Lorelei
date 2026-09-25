@@ -176,6 +176,10 @@ impl Store {
     /// 中身が同じなら書かない (図を開いただけで「変更あり」にしない)。source が空だった図の最初の書き込み
     /// (新規作成の初期図・AI / インポートで届いた図がエディタに載った時) は利用者の変更ではないので updated_at を進めない
     pub fn save(&self, id: &str, source: String, layout: Layout) -> Result<DocumentSummary, String> {
+        // ごみ箱へ移した・消えた図への書き込みは、書き直しても通らない。フロントが見分けて捨てる印を付ける
+        if !self.contains(id) {
+            return Err(format!("{DOCUMENT_GONE}: 図が一覧にありません（ごみ箱へ移したか、消えました）"));
+        }
         let mut doc = self.load(id)?;
         // 保険 (spec 04 D4-2): AI / インポートの図を、エディタの初期図で潰さない。止めるのは門の漏れの 1 つの形
         // (空への最初の書き込み) だけで、初期図の上で編集された形は止まらない — そちらはフロントの門が受け持つ
@@ -270,6 +274,9 @@ fn now() -> String {
     Local::now().to_rfc3339_opts(SecondsFormat::Micros, false)
 }
 
+/// `save` の相手の図が一覧に無い時のエラーの頭 (フロントはこれで見分けて、その書き込みを捨てる)
+pub const DOCUMENT_GONE: &str = "DOCUMENT_GONE";
+
 /// `save` が初期図での上書きを拒んだ時のエラーの頭 (フロントはこれで見分けて、その書き込みを捨てる)
 pub const INITIAL_FIGURE_REJECTED: &str = "INITIAL_FIGURE_REJECTED";
 
@@ -329,6 +336,18 @@ mod tests {
         s.save(&new.id, flow.into(), BTreeMap::new()).unwrap();
         // 種類の違う初期図は対象外 (その種類の初期図だけを拒む)
         s.save(&ai.id, er.into(), BTreeMap::new()).unwrap();
+    }
+
+    // 2026-09-25 実機で観測: ごみ箱へ移した図が「今の図」に残り、その自動保存が「図を読めません」で失敗し続け、
+    // 「保存できなければ切り替えない」に掛かって図を移れなくなった。フロントが見分けて捨てられるよう印を付ける
+    #[test]
+    fn saving_a_trashed_diagram_says_it_is_gone() {
+        let s = store();
+        let d = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
+        s.trash(&d.id).unwrap();
+        let err = s.save(&d.id, "flowchart TD\n    a[a]\n".into(), BTreeMap::new()).unwrap_err();
+        assert!(err.starts_with("DOCUMENT_GONE"), "{err}");
+        assert!(!err.contains(&*s.root.to_string_lossy()), "パスを載せない: {err}");
     }
 
     #[test]

@@ -96,6 +96,9 @@ export const onNodesChanged = ({
 /** Rust の save_document が初期図での上書きを拒んだ (src-tauri documents::INITIAL_FIGURE_REJECTED, spec 04 D4-2) */
 export const isInitialFigureRejected = (e: unknown): boolean => String(e).startsWith("INITIAL_FIGURE_REJECTED");
 
+/** Rust の save_document の相手の図が一覧に無い (ごみ箱へ移した。src-tauri documents::DOCUMENT_GONE) */
+export const isDocumentGone = (e: unknown): boolean => String(e).startsWith("DOCUMENT_GONE");
+
 /** 今の図の Mermaid (フォーク元の生成器の出力)。これが Document.source になる */
 export const toSource = (editor: EditorKind, nodes: Node[], edges: Edge[]): string =>
   editor === "flowchart"

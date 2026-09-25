@@ -272,6 +272,7 @@ Document:
     flowchart: "flowchart TD\n    startNode[Start]\n"
     erDiagram: "erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }"
   save_guard: "origin が ai / import の図に initial_sources と同じ source を書こうとしたら save_document が拒む (前の source に依らない)。new の図は対象外。拒んだ時のエラーは INITIAL_FIGURE_REJECTED で始まる"
+  save_gone: "save_document の相手の図が documents/ に無い (ごみ箱へ移した・消えた) 時のエラーは DOCUMENT_GONE で始まる。フロントはその書き込みを捨てる (書き直しても通らない。残すと「保存できなければ切り替えない」で図を移れなくなる)"
 
 DocumentSummary:
   description: 一覧用。source / layout / original_source を持たない

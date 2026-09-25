@@ -9,6 +9,7 @@ import {
   Autosaver,
   collectLayout,
   expectedKeys,
+  isDocumentGone,
   isInitialFigureRejected,
   onNodesChanged,
   toSource,
@@ -102,6 +103,8 @@ export function useDocSession(): DocSession {
   const awaitMountRef = useRef(false);
   /** 図を開くたびに進む番号。開く途中で別の図 (届いた図) に切り替わったことを見分ける */
   const navSeq = useRef(0);
+  /** 開いている途中の図の id (開き終えたら null) */
+  const openingRef = useRef<string | null>(null);
   const pathKindRef = useRef(kindOf(pathname));
   pathKindRef.current = kindOf(pathname);
   const listRef = useRef(list);
@@ -116,7 +119,9 @@ export function useDocSession(): DocSession {
           // 自動保存では並びを動かさない (D12)。● だけ更新する
           setList((l) => l.map((d) => (d.id === id ? saved : d)));
         } catch (e) {
-          if (isInitialFigureRejected(e)) {
+          if (isDocumentGone(e)) {
+            // ごみ箱へ移した図への書き込み。書き直しても通らないので捨てる (Autosaver が捨てる。図は切り替えられる)
+          } else if (isInitialFigureRejected(e)) {
             // 門の漏れを Rust が止めた。この書き込みは捨てる (Autosaver が捨てる。図は切り替えられる)
             noticeRef.current({
               status: "warning",
@@ -130,7 +135,7 @@ export function useDocSession(): DocSession {
           }
           throw e;
         }
-      }, AUTOSAVE_DELAY_MS, isInitialFigureRejected),
+      }, AUTOSAVE_DELAY_MS, (e) => isInitialFigureRejected(e) || isDocumentGone(e)),
     []
   );
 
@@ -173,6 +178,7 @@ export function useDocSession(): DocSession {
       // キャンバスはこの図、という食い違いになる (2026-09-25 配布ビルドで観測)
       const seq = ++navSeq.current;
       const superseded = () => navSeq.current !== seq;
+      openingRef.current = id;
       if (!(await leave()) || superseded()) return;
       const doc = await loadDocument(id);
       if (superseded()) return;
@@ -202,6 +208,7 @@ export function useDocSession(): DocSession {
       if (request?.payload) queueOpen(request);
       if (doc.editor !== pathKindRef.current) router.push(routeOf(doc.editor));
       setGeneration((g) => g + 1);
+      if (openingRef.current === id) openingRef.current = null;
     },
     [becomeCurrent, leave, notice, router]
   );
@@ -239,7 +246,14 @@ export function useDocSession(): DocSession {
 
   const trash = useCallback(
     async (id: string) => {
-      const wasCurrent = currentRef.current?.id === id;
+      // 開いている途中の図も「今の図」として扱い、その開き方をやめる。続けると、ごみ箱の図が今の図に残り、
+      // 自動保存が失敗し続けて図を切り替えられなくなる (2026-09-25 実機で観測)
+      const opening = openingRef.current === id;
+      if (opening) {
+        navSeq.current += 1;
+        openingRef.current = null;
+      }
+      const wasCurrent = currentRef.current?.id === id || opening;
       if (wasCurrent) {
         autosaver.cancel();
         readyRef.current = false;

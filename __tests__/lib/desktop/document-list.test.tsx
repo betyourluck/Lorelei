@@ -109,6 +109,32 @@ describe("図の一覧 (spec 02 P3)", { timeout: 15000 }, () => {
     expect((await list()).queryByText("消す図")).toBeNull();
   });
 
+  it("開いている途中の図をごみ箱へ移すと、その図は開かず、残りの図を開く", async () => {
+    // 2026-09-25 実機で観測: 開ききる前にその図をごみ箱へ移すと、ごみ箱の図が「今の図」に残り、
+    // 自動保存が失敗し続けて (保存できなければ切り替えない) どの図にも移れなくなった
+    const stay = backend.add("flowchart", "残る図");
+    const doomed = backend.add("flowchart", "消す図", { source: "flowchart TD\n    消す[消す]\n" });
+    backend.setLast(stay.id);
+    const { user } = shell();
+    await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("残る図"), LONG);
+    // 「消す図」を読み込んだ後 (変換の待ち) で止めておく。読み込み前にごみ箱へ移ると、読み込みが失敗して開かないので再現しない
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const real = backend.invoke.getMockImplementation()!;
+    backend.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown> = {}) => {
+      if (cmd === "convert_source" && args.source === doomed.source) await gate;
+      return real(cmd, args);
+    });
+    await user.click((await list()).getByText("消す図"));
+    await user.click((await list()).getByRole("button", { name: "「消す図」をごみ箱へ" }));
+    release();
+    await waitFor(() => expect(backend.trashed).toEqual([doomed.id]));
+    await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("残る図"));
+    expect(screen.getByRole("banner")).not.toHaveTextContent("消す図");
+  });
+
   it("ツールバーの「保存」で、開いている図を一覧の先頭へ動かす (D12)", async () => {
     const a = backend.add("flowchart", "古い図");
     backend.add("flowchart", "新しい図");

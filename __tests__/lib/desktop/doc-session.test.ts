@@ -6,6 +6,8 @@ import {
   Autosaver,
   collectLayout,
   expectedKeys,
+  isDocumentGone,
+  isInitialFigureRejected,
   layoutReady,
   onNodesChanged,
   toSource,
@@ -174,6 +176,12 @@ describe("Autosaver — 1 秒待って保存、切り替え・終了の前は fl
     expect(a.dirty).toBe(false);
     await a.flush();
     expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it("ごみ箱へ移した図への書き込み (DOCUMENT_GONE) は捨ててよい失敗、他の失敗は捨てない", () => {
+    expect(isDocumentGone("DOCUMENT_GONE: 図が一覧にありません")).toBe(true);
+    expect(isDocumentGone("図を読めません: disk")).toBe(false);
+    expect(isInitialFigureRejected("DOCUMENT_GONE: 図が一覧にありません")).toBe(false);
   });
 
   it("別の図に切り替えた後に古い図の変更は保存しない (cancel)", async () => {
