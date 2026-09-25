@@ -2,7 +2,7 @@
 
 **ID**: 05
 **Date**: 2026-09-26
-**Status**: In Progress（rev1 承認 2026-09-26。rev0 に D3・D4 の見せ方の利用者裁定を反映。P1 から）
+**Status**: In Progress（rev1 承認 2026-09-26。rev0 に D3・D4 の見せ方の利用者裁定を反映。P1 着地、次は P2）
 **Branch**: なし（Phase 単位で main へ直接コミット）
 
 ## Goal
@@ -89,6 +89,19 @@ Fuseforks の `PaneSplitter` を React に移す。見た目は図の一覧の�
 - **P1**: つまみ（D1〜D3）。テスト: 幅の収め方（下限・上限・窓の半分）と保存値の読み直し（壊れた値・範囲外）を純粋関数で、つまみのドラッグ・ダブルクリック・矢印キーを vitest で
 - **P2**: 隠す（D4）。テスト: `settled` の移り変わり（開く → 取り込み → 位置を当てる → 見える / 新規作成 / 変換できない / 時間切れ）を vitest で
 - **P3**: 実機 — 配布ビルドで、幅をドラッグ・ダブルクリック・起動し直して覚えているか、AI の図・保存した図・新規作成・種類の切り替えで初期図が見えないか
+
+## P1 結果（2026-09-26）
+
+- 着地: `lib/desktop/pane-splitter.tsx`（つまみ。Fuseforks の `PaneSplitter.vue` を React に移した）、`lib/desktop/pane-layout.ts`（`clampListWidth`・`loadLayout` / `saveLayout`・`usePaneLayout`）。
+  `desktop-shell.tsx` は開閉を `usePaneLayout` に移し、一覧の右につまみを置いた（一覧の右の境界線はつまみが兼ねる）。`document-list.tsx` は幅を受け取る（`DOCUMENT_LIST_WIDTH` を撤去）
+- 幅の足し方は「見えている幅（窓の半分で収めた値）+ 差分」。保存値のままに足すと、窓の半分に張り付いた後で戻す時に空走りが出る
+- data_contract に `DesktopLayout` を先に凍結（localStorage `lorelei.layout.v1`、`listWidth` / `listOpen`、読めない時の扱い）
+- テスト（Red → Green）: `pane-layout.test.ts` 6 件（既定・範囲・窓の半分・読み直し・壊れた値と範囲外・読み書きできない localStorage）、
+  `pane-splitter.test.tsx` 4 件（aria・差分のドラッグ・押していない時の移動は無視・ダブルクリックと矢印キー）、`document-list.test.tsx` 2 件（ドラッグで幅が変わり幅と開閉を覚える・起動時に覚えた値で始まる）。
+  jsdom は `PointerEvent` を持たないので、テストの横に最小のもの（`pointer-event.ts`）を置いた（フォーク元の `setup.ts` は触らない）
+- デスクトップの vitest 67 件緑、型検査・lint 通過
+- **実機（`tauri dev`）で利用者が確認**: ホバーで線とカーソルが変わる / ドラッグで幅が変わり素早くても追従し、下限・上限で止まる / ダブルクリックで戻る /
+  最大の幅にして閉じて終了すると、閉じたまま起動し、開くと最大の幅のまま
 
 ## 受け入れ条件
 

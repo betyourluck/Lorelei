@@ -19,7 +19,6 @@ import { useState } from "react";
 import type { DocumentSummary } from "./documents";
 import type { EditorKind } from "./open-requests";
 
-export const DOCUMENT_LIST_WIDTH = "240px";
 
 interface Props {
   list: DocumentSummary[];
@@ -28,23 +27,23 @@ interface Props {
   onCreate: (editor: EditorKind) => void;
   onRename: (id: string, title: string) => void;
   onTrash: (id: string) => void;
+  /** 幅 (px)。つまみで変わる (spec 05 D1) */
+  width: number;
 }
 
 /** 左ペインの図の一覧 (spec 02 D6)。ダブルクリックで名前を変える。削除はごみ箱へ移すだけ */
-export const DocumentList: FC<Props> = ({ list, currentId, onOpen, onCreate, onRename, onTrash }) => {
+export const DocumentList: FC<Props> = ({ list, currentId, onOpen, onCreate, onRename, onTrash, width }) => {
   const [editing, setEditing] = useState<string | null>(null);
 
   return (
     <VStack
       as="nav"
       aria-label="図の一覧"
-      w={DOCUMENT_LIST_WIDTH}
+      style={{ width: `${width}px` }}
       flexShrink={0}
       h="full"
       gap="0"
       bg="gray.50"
-      borderRightWidth="1px"
-      borderColor="gray.200"
     >
       <Box p="sm" borderBottomWidth="1px" borderColor="gray.200">
         <Menu>

@@ -1,3 +1,5 @@
+import "./pointer-event";
+import { fireEvent } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@/__tests__/test-utils";
@@ -31,6 +33,7 @@ describe("図の一覧 (spec 02 P3)", { timeout: 15000 }, () => {
     pathname = "/";
     push.mockClear();
     (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
+    localStorage.clear();
   });
   afterEach(() => {
     delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
@@ -188,6 +191,32 @@ describe("図の一覧 (spec 02 P3)", { timeout: 15000 }, () => {
     );
     await waitFor(() => expect(push).toHaveBeenCalledWith("/"));
     expect(screen.getByRole("banner")).toHaveTextContent("注文フロー");
+  });
+
+  it("つまみで一覧の幅を変え、幅と開閉を覚える (spec 05 D1・D3)", async () => {
+    const { user } = shell();
+    await list();
+    const el = screen.getByRole("separator", { name: "図の一覧の幅" });
+    expect(screen.getByRole("navigation", { name: "図の一覧" })).toHaveStyle({ width: "240px" });
+    fireEvent.pointerDown(el, { clientX: 240, pointerId: 1 });
+    fireEvent.pointerMove(el, { clientX: 300, pointerId: 1 });
+    fireEvent.pointerUp(el, { clientX: 300, pointerId: 1 });
+    await waitFor(() =>
+      expect(screen.getByRole("navigation", { name: "図の一覧" })).toHaveStyle({ width: "300px" })
+    );
+    expect(JSON.parse(localStorage.getItem("lorelei.layout.v1")!)).toEqual({ listWidth: 300, listOpen: true });
+    // 閉じるとつまみも消え、閉じたことを覚える
+    await user.click(screen.getByRole("button", { name: "図の一覧を開閉" }));
+    expect(screen.queryByRole("separator", { name: "図の一覧の幅" })).toBeNull();
+    expect(JSON.parse(localStorage.getItem("lorelei.layout.v1")!)).toEqual({ listWidth: 300, listOpen: false });
+  });
+
+  it("起動時は覚えた幅と開閉で始める (spec 05 D3)", async () => {
+    localStorage.setItem("lorelei.layout.v1", JSON.stringify({ listWidth: 360, listOpen: true }));
+    shell();
+    await waitFor(() =>
+      expect(screen.getByRole("navigation", { name: "図の一覧" })).toHaveStyle({ width: "360px" })
+    );
   });
 
   it("タイトルバーの ≡ で一覧を開閉する", async () => {

@@ -7,6 +7,8 @@ import type { RegisteredActions } from "./desktop-actions";
 import { DesktopActionsProvider } from "./desktop-actions";
 import { DocumentList } from "./document-list";
 import { useMcpStatus } from "./mcp";
+import { LIST_WIDTH, usePaneLayout } from "./pane-layout";
+import { PaneSplitter } from "./pane-splitter";
 import { SettingsDialog } from "./settings-dialog";
 import { isTauri, onCloseRequested, windowAction } from "./tauri";
 import { TitleBar } from "./title-bar";
@@ -36,7 +38,8 @@ export const DesktopShell: FC<{ children: ReactNode }> = ({ children }) => {
 const Shell: FC<{ children: ReactNode }> = ({ children }) => {
   const session = useDocSession();
   const [actions, setActions] = useState<RegisteredActions | null>(null);
-  const [listOpen, setListOpen] = useState(true);
+  // 図の一覧の幅と開閉。起動をまたいで覚える (spec 05 D1〜D3)
+  const pane = usePaneLayout();
   const [closeError, setCloseError] = useState<string | null>(null);
   const [mcp, setMcp] = useMcpStatus();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -98,7 +101,7 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
         title={session.current ? `${unsaved ? "● " : ""}${session.current.title}` : undefined}
         warning={warning}
         closeError={closeError}
-        onToggleList={() => setListOpen((o) => !o)}
+        onToggleList={pane.toggleList}
         onForceClose={() => void windowAction("destroy")}
         mcp={mcp}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -116,14 +119,25 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
         onSave={() => void session.save()}
       />
       <Flex flex="1" minH="0">
-        {listOpen && (
+        {pane.listOpen && (
           <DocumentList
+            width={pane.listWidth}
             list={session.list}
             currentId={session.current?.id ?? null}
             onOpen={(id) => void session.open(id)}
             onCreate={(kind) => void session.create(kind)}
             onRename={(id, title) => void session.rename(id, title)}
             onTrash={(id) => void session.trash(id)}
+          />
+        )}
+        {pane.listOpen && (
+          <PaneSplitter
+            label="図の一覧の幅"
+            value={pane.listWidth}
+            min={LIST_WIDTH.min}
+            max={LIST_WIDTH.max}
+            onDelta={pane.resizeList}
+            onReset={pane.resetList}
           />
         )}
         {/* エディタの Box は h="var(--lorelei-editor-h, 100vh)"。高さの引き算はどこにも書かない (D4) */}

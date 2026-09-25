@@ -284,6 +284,15 @@ DocumentState:
   fields:
     last_opened: { type: string, format: uuid, nullable: true }   # 起動時に開く図。無い・消えている時は一覧の先頭 (最後に「保存」した図, spec 02 D12)、1 件も無ければフローチャートを 1 件作る (D9)
 
+DesktopLayout:
+  description: デスクトップの外枠の寸法と開閉 (spec 05 D1〜D3)。表示の都合なので図の一覧やアプリの状態とは分ける
+  storage: "WebView の localStorage、キー lorelei.layout.v1 (利用者裁定 2026-09-26)。dev と配布版は起点が違うので別々に覚える"
+  writer: js   # lib/desktop/pane-layout.ts だけが読み書きする。Rust は触らない
+  fields:
+    listWidth: { type: int, unit: px, default: 240, range: [180, 480] }   # さらに窓の幅の半分を超えない (画面の都合で決まるので保存値は 480 までの値のまま)
+    listOpen: { type: bool, default: true }                              # タイトルバーの ≡
+  on_read_error: "読めない・壊れている → 既定値。範囲外 → 範囲の端。書けなくても操作は続ける"
+
 # EditorInbox ({app_data_dir}/inbox/{uuid}.json と lorelei --open) は spec 03 P3 で撤去した。
 # open_in_editor は GUI の中の HTTP の MCP から EditorPort でじかに届く (McpServer.http.editor_port)。
 # 既に残っている inbox/ のファイルは誰も読まない (利用者裁定 2026-09-25: 放置でよい)
