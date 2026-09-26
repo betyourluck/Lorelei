@@ -2,7 +2,7 @@
 
 **ID**: 07
 **Date**: 2026-09-26
-**Status**: In Progress（rev1 承認 2026-09-26。rev0 に査読 2 件を反映。P0 着地、次は P1）
+**Status**: In Progress（rev1 承認 2026-09-26。rev0 に査読 2 件を反映。P0・P1 着地、次は P2）
 **Branch**: なし（Phase 単位で main へ直接コミット）
 
 ## Goal
@@ -94,6 +94,22 @@ data_contract に凍結した（コードはまだ触らない）:
 - `DesktopActions`（新規。これまで data_contract に無かった `useDesktopActions` の形を名詞にした）: `add` / `code` に `direction` / `setDirection` を足し、外枠は向きの変化でも自動保存する
 - フォーク元のテストの置き場を確かめた: 生成器・読み込み・往復は `features/flowchart/__tests__/utils/mermaid/`（`generate-mermaid-code` / `parse-mermaid-code` / `round-trip`）と
   `features/er-diagram/__tests__/`（`generate-mermaid-code` / `import-mermaid-to-er`）。P1 はここに Red から足す
+
+## P1 結果（2026-09-26）
+
+フォーク元の改善のコミットを 3 つ（上流へ返せる。`lib/desktop/`・台帳を含まない）:
+
+| コミット | 中身 | テスト（Red → Green） |
+|---|---|---|
+| `76be364` | FK（D2）: `ERColumn.fk?`、表の FK の列（PK・UK の排他に巻き込まない）、生成は PK → UK → FK のカンマ区切り、読み込みはどの順でも | 生成 1・読み込み 1・表 1 |
+| `a132d70` | フローの向き（D1）: `hooks/direction.ts`（`normalizeDirection`・`placeByDirection`・`handlePositions`）、`DirectionContext`、`DirectionMenu`（モーダルの向きのメニューを部品にした）、エディタの向きの状態・取り込み時の配置・パネルの切り替え・モーダルはエディタの向きを読み書き（props は任意）・接続点 | 純粋関数 3・読み込み 2・往復 1・部品 1・モーダル 1・エディタ 2 |
+| `09fc2dc` | ER 図の向き（D1）: 同じ部品を使う。生成は `TD` なら向きの行を書かず、`LR` / `RL` / `BT` なら書く。読み込みは `direction` の行を読む | 生成 1・読み込み 1・配置 1・エディタ 1 |
+
+- 読み込みは `TD` 以外の時だけ `direction` を持つ（data_contract の「無ければ TD」。フォーク元の既存の `toEqual` のテストを壊さない）。
+  フォーク元の既存テスト 1 件（`graph LR` のヘッダーを読み飛ばす）は、向きを捨てる今までの振る舞いを期待していたので、期待値に `direction: "LR"` を足した（意図した変更）
+- 横向き（`LR` / `RL`）の時は、段の間と並びの間を入れ替えた値を使う（ノード・テーブルは横に長いので、縦の時の段の間では重なる）
+- テストで分かったこと: フォーク元のインポートのテストは入力欄を模擬に差し替えていて、`data-testid` はその模擬のもの。エディタ全体のテストでは本物の `textarea`（ダイアログの中の `textbox`）で探す
+- 全体: vitest 582 件中、落ちるのは ArrowTypeSelector の時間切れ 1 件（failures #3、変更前と同じ顔ぶれ）。型検査通過
 
 ## 受け入れ条件
 
