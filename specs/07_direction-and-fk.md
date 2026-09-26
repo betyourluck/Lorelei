@@ -2,7 +2,7 @@
 
 **ID**: 07
 **Date**: 2026-09-26
-**Status**: In Progress（rev1 承認 2026-09-26。rev0 に査読 2 件を反映。P0 から）
+**Status**: In Progress（rev1 承認 2026-09-26。rev0 に査読 2 件を反映。P0 着地、次は P1）
 **Branch**: なし（Phase 単位で main へ直接コミット）
 
 ## Goal
@@ -74,7 +74,7 @@ AI が送った図をエディタで開くと、**向き（`flowchart LR` など
 - 保存済みの図は `source` に向きが入るので、開き直すと向きが戻る
 - ER 図の「コード生成」のモーダルには向きの選択を足さない（エディタの向きで書くだけ。向きはパネル・ツールバーで変える）。フローのモーダルの選択はエディタの向きを読み書きする
 
-## Phase（案）
+## Phase
 
 - **P0**: 型と形の凍結 — data_contract（`EditorPayload.direction`・カラムの `fk` と既定値）、生成器の形（D1）、`useDesktopActions` の `direction` / `setDirection`（D3）。
   フォーク元の生成器・読み込みのテストの書き方の確認
@@ -83,7 +83,19 @@ AI が送った図をエディタで開くと、**向き（`flowchart LR` など
 - **P2**: デスクトップ — data_contract → Rust の変換（D3）→ `toSource`。MCP の `open_in_editor` で `dropped` から消えること、`read_diagram` で向きと FK が戻ること
 - **P3**: 実機 — AI が送った `flowchart LR` と FK 付きの ER 図を開き、直して、読み戻す。Web 版の「コード生成」も
 
-## 受け入れ条件（案）
+## P0 結果（2026-09-26）
+
+data_contract に凍結した（コードはまだ触らない）:
+
+- `EditorPayload.mapping`: フローと ER 図の出力に `direction?`（`GraphType`、無ければ `TD`、merman の `TB` は `TD` にそろえる）、ER 図のカラムに `fk?`（無ければ false）、
+  キーは merman の `attribute.keys`（順は問わない）から写す。`dropped_constructs` から `direction:<…>` と `fk` を外した
+- `EditorDirection`（新規）: 値・既定・生成の規則（フローは `generateMermaidCode(flowData, direction)` の第 2 引数のまま、ER 図は `generateERDiagramMermaidCode(nodes, edges, direction = TD)` を足し、
+  `TD` なら向きの行を書かない）・キーの書く順（PK → UK → FK）・取り込み時の配置（軸と逆向き、取り込みの時だけ）・向きごとの接続点
+- `DesktopActions`（新規。これまで data_contract に無かった `useDesktopActions` の形を名詞にした）: `add` / `code` に `direction` / `setDirection` を足し、外枠は向きの変化でも自動保存する
+- フォーク元のテストの置き場を確かめた: 生成器・読み込み・往復は `features/flowchart/__tests__/utils/mermaid/`（`generate-mermaid-code` / `parse-mermaid-code` / `round-trip`）と
+  `features/er-diagram/__tests__/`（`generate-mermaid-code` / `import-mermaid-to-er`）。P1 はここに Red から足す
+
+## 受け入れ条件
 
 1. `flowchart LR` を開くと、`dropped` に `direction:LR` が出ず、保存・読み戻しの Mermaid も `flowchart LR`
 2. `int user_id PK, FK` を開くと `dropped` に `fk` が出ず、テーブルで FK がチェックされ、保存・読み戻しで `PK, FK` が戻る

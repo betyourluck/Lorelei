@@ -85,7 +85,8 @@ EditorPayload:
     dropped: "EditorCompat.dropped"
   mapping:
     flowchart:
-      output: "ParsedMermaidData { nodes: [{ id, variableName, label, shapeType }], edges: [{ id, source, target, label, arrowType }] }"
+      output: "ParsedMermaidData { nodes: [{ id, variableName, label, shapeType }], edges: [{ id, source, target, label, arrowType }], direction? }"
+      direction: "GraphType = TD | LR | RL | BT。無ければ TD (spec 07 D1)。merman の TB は TD にそろえる (同じ意味)。graph と flowchart は区別しない (生成器はいつも flowchart と書く)"
       node: "id = variableName = merman の id。label はそのまま (markdown の記法も文字列のまま)"
       edge_id: "{source}-{target}。同じ組が 2 本目以降なら -2, -3 … を付ける (フォーク元は重複 ID を作る)"
       shape:   # merman の shape → エディタの shapeType。表に無い形は rectangle にして dropped "shape:<名前>"
@@ -104,9 +105,11 @@ EditorPayload:
         "double_arrow_point, thick": bidirectional-thick
       arrow_fallback: "stroke が invisible → invisible / double_* → bidirectional (thick なら -thick) / それ以外 → stroke に応じて arrow・thick・dotted"
       edge_to_subgraph: "subgraph 自体を指す辺はエディタに行き先が無いので落とし、dropped edge_to_subgraph"
-      dropped_constructs: [subgraph, edge_to_subgraph, classDef, class, style, click, tooltip, "direction:<LR 等>", "shape:<名前>", "edge:<矢印>", edge_length, accessibility]
+      dropped_constructs: [subgraph, edge_to_subgraph, classDef, class, style, click, tooltip, "shape:<名前>", "edge:<矢印>", edge_length, accessibility]   # direction は spec 07 で写すようにした
     erDiagram:
-      output: "ParsedMermaidERData { nodes: [{ id, name, columns: [{ name, type, pk, uk }] }], edges: [{ id: edge-N, type: erEdge, source, target, data: { label, cardinality } }] }"
+      output: "ParsedMermaidERData { nodes: [{ id, name, columns: [{ name, type, pk, uk, fk? }] }], edges: [{ id: edge-N, type: erEdge, source, target, data: { label, cardinality } }], direction? }"
+      direction: "flowchart と同じ GraphType。無ければ TD (spec 07 D1)"
+      keys: "merman の attribute.keys (PK / UK / FK の配列、順は問わない) → pk / uk / fk。fk は無ければ false (spec 07 D2。古い保存データ・フォーク元の既存データを壊さない)"
       entity: "id = name = merman の entities のキー (alias は使わない)"
       label: "roleA をそのまま。空なら空 (フォーク元の生成器が出力時に relation で補う)"
       cardinality:   # merman の (cardB = 左側の記号, cardA = 右側の記号)。2026-09-24 実測で確認
@@ -118,7 +121,27 @@ EditorPayload:
         "ONLY_ONE, ZERO_OR_ONE": one-to-zero           # ||--o|
         "ONLY_ONE, ONE_OR_MORE": one-to-many-mandatory # ||--|{
       cardinality_fallback: "表に無い組はフォーク元の既定 one-to-many にして dropped cardinality_unsupported"
-      dropped_constructs: [alias, attribute_comment, fk, non_identifying, cardinality_unsupported, classDef, class, style, "direction:<LR 等>", accessibility]
+      dropped_constructs: [alias, attribute_comment, non_identifying, cardinality_unsupported, classDef, class, style, accessibility]   # fk と direction は spec 07 で写すようにした
+
+EditorDirection:
+  description: エディタの図の向き (spec 07 D1)。フォーク元の GraphType。エディタの状態がただ 1 つの持ち主で、ツールバー・パネル・コード生成のモーダルはそれを読み書きする
+  values: [TD, LR, RL, BT]
+  default: TD
+  generate:
+    flowchart: "generateMermaidCode(flowData, direction) → 1 行目 flowchart {direction}"
+    erDiagram: "generateERDiagramMermaidCode(nodes, edges, direction = TD) → TD なら direction の行を書かない (今の出力のまま)。LR / RL / BT なら erDiagram の次の行に direction {dir}"
+  keys_order: "ER 図のキーは PK → UK → FK の順でカンマ区切り (例 PK, FK)。読む時は順を問わない"
+  layout_on_import: "軸 = LR / RL なら横、TD / BT なら縦。逆向き = BT / RL なら階層の順を反対に。取り込みの時だけ並べる (向きを変えても並べ直さない)"
+  handles: { TD: [target Top, source Bottom], BT: [target Bottom, source Top], LR: [target Left, source Right], RL: [target Right, source Left] }
+
+DesktopActions:
+  description: エディタのパネルが外枠 (lib/desktop) に登録する操作 (spec 02 D3、useDesktopActions)。外枠はこれでツールバーを動かす
+  fields:
+    add: "{ label, run }。ノード追加 / テーブル追加"
+    code: "() => void。コード生成のモーダルを開く"
+    direction: "EditorDirection。今のエディタの向き (spec 07 D3)。外枠はツールバーの切り替えに出し、保存 (toSource) に使う"
+    setDirection: "(EditorDirection) => void。ツールバーの切り替えから向きを変える (spec 07 D3)"
+  autosave: "外枠は向きの変化でも自動保存する (ノード・辺が変わらなくても。spec 07 D3)"
 
 RenderConfigOverrides:
   description: 入力の %%{init}%% より優先して Lorelei が固定する設定
