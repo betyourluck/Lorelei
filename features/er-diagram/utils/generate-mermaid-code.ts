@@ -14,12 +14,10 @@ export function generateERDiagramMermaidCode(
     const lines = [
       `  ${node.data.name} {`,
       ...node.data.columns.map((col) => {
+        // キーは PK → UK → FK の順でカンマ区切り (Mermaid の ER 図は複数のキーを書ける)。PK と UK は排他 (PK を優先)
+        const keys = [col.pk ? "PK" : col.uk ? "UK" : null, col.fk ? "FK" : null].filter(Boolean);
         const attrs = [col.type, col.name];
-        if (col.pk) {
-          attrs.push("PK");
-        } else if (col.uk) {
-          attrs.push("UK");
-        }
+        if (keys.length > 0) attrs.push(keys.join(", "));
         return `    ${attrs.join(" ")}`;
       }),
       `  }`,

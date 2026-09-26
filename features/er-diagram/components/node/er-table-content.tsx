@@ -29,6 +29,8 @@ export type ERColumn = {
   type: string;
   pk: boolean;
   uk: boolean;
+  /** 外部キー。PK・UK のどちらとも同時に付けられる。無ければ false */
+  fk?: boolean;
 };
 
 export type ERTableContentProps = {
@@ -115,6 +117,24 @@ export const ERTableContent: FC<ERTableContentProps> = ({
         />
       ),
       accessorKey: "uk",
+    },
+    {
+      header: () => "FK",
+      cell: ({ row }) => (
+        <ui.input
+          type="checkbox"
+          checked={Boolean(columns[row.index].fk)}
+          aria-label="FK"
+          // PK と UK の排他に巻き込まない (FK はどちらとも同時に付けられる)
+          onChange={(e) => {
+            const checked = e.target.checked;
+            onColumnsChange(
+              columns.map((col, i) => (i === row.index ? { ...col, fk: checked } : col))
+            );
+          }}
+        />
+      ),
+      accessorKey: "fk",
     },
     {
       header: "",

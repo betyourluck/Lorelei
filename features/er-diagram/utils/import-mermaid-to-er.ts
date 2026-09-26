@@ -9,9 +9,9 @@ const CARDINALITY_MAP: Record<string, string> = Object.fromEntries(
 
 /**
  * カラム属性パターン
- * @description PK（主キー）またはUK（ユニークキー）の属性定義パターン
+ * @description キー (PK / UK / FK) をカンマ区切りで 1 つ以上。順は問わない (例: "PK", "PK, FK", "FK, PK")
  */
-const COLUMN_ATTRIBUTE_PATTERN = "(PK|UK)";
+const COLUMN_ATTRIBUTE_PATTERN = "((?:PK|UK|FK)(?:\\s*,\\s*(?:PK|UK|FK))*)";
 
 /**
  * カラム定義の正規表現パターン
@@ -23,11 +23,11 @@ const COLUMN_ATTRIBUTE_PATTERN = "(PK|UK)";
  *   // マッチ結果: ["varchar(255) name", "varchar(255)", "name", undefined]
  * @captureGroup 1 型名（英字、数字、アンダースコア、丸括弧のみ。例: varchar(255), int）
  * @captureGroup 2 カラム名（英字、数字、アンダースコアのみ）
- * @captureGroup 3 属性（"PK" または "UK"。省略可）
+ * @captureGroup 3 キー（"PK" / "UK" / "FK" のカンマ区切り。省略可）
  * @restrictions
  * - 型名: 英字、数字、アンダースコア、丸括弧のみ許可（例: varchar(255), int）
  * - カンマを含む型名（decimal(10,2)）は公式Mermaidでサポートされていないため除外
- * - 複数属性（PK UK）も公式Mermaidでサポートされていないため、単一属性のみ対応
+ * - キーは Mermaid どおりカンマで複数並べられる（"PK, FK"）
  */
 const COLUMN_PATTERN = new RegExp(
   `^([A-Za-z0-9_()]+)\\s+([A-Za-z0-9_]+)(?:\\s+${COLUMN_ATTRIBUTE_PATTERN})?$`
@@ -131,14 +131,17 @@ function parseColumns(lines: string[]): ERColumn[] {
        * @example "int id PK" → type="int", name="id", attribute="PK"
        * @restrictions
        * - 型名: 英字、数字、アンダースコア、丸括弧のみ許可（例: varchar(255), int）
-       * - カンマを含む型名（decimal(10,2)）や複数属性（PK UK）は公式Mermaidでサポートされていないため対応しない
+       * - カンマを含む型名（decimal(10,2)）は公式Mermaidでサポートされていないため対応しない
        */
       const m = line.match(COLUMN_PATTERN);
       if (!m) return null;
       const [, type, name, attribute] = m;
-      const pk = attribute === "PK";
-      const uk = attribute === "UK";
-      return { name, type, pk, uk };
+      const keys = (attribute ?? "").split(",").map((k) => k.trim());
+      const pk = keys.includes("PK");
+      // PK と UK はエディタで排他 (PK を優先)
+      const uk = !pk && keys.includes("UK");
+      // fk は有る時だけ持つ (無い列の形はこれまでと同じ)
+      return keys.includes("FK") ? { name, type, pk, uk, fk: true } : { name, type, pk, uk };
     })
     .filter(Boolean) as ERColumn[];
 }

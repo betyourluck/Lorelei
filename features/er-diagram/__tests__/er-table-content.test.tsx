@@ -198,3 +198,26 @@ describe("ERTableContent のテーブル削除", () => {
     expect(screen.queryByRole("button", { name: "テーブル『会員』の操作メニューを開く" })).toBeNull();
   });
 });
+
+// spec 07 D2: FK の列。PK と UK の排他に巻き込まない
+describe("ERTableContent の FK", () => {
+  test("FK を付け外しでき、PK や UK が付いていても押せる", async () => {
+    render(
+      <StateWrapper initialColumns={[{ name: "user_id", type: "int", pk: true, uk: false }]}>
+        {({ name, columns, setColumns }) => (
+          <>
+            <ERTableContent name={name} columns={columns} onNameChange={() => {}} onColumnsChange={setColumns} />
+            <output data-testid="fk">{String(Boolean(columns[0].fk))}</output>
+          </>
+        )}
+      </StateWrapper>
+    );
+    const fk = screen.getByRole("checkbox", { name: "FK" });
+    expect(fk).not.toBeDisabled();
+    expect(fk).not.toBeChecked();
+    fireEvent.click(fk);
+    await waitFor(() => expect(screen.getByTestId("fk")).toHaveTextContent("true"));
+    expect(screen.getByRole("checkbox", { name: "UK" })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: "FK" })).toBeChecked();
+  });
+});

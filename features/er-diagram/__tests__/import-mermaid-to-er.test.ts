@@ -570,3 +570,23 @@ describe("convertParsedDataToNodes", () => {
     expect(invalidEdge).toBeUndefined();
   });
 });
+
+// spec 07 D2: 複数のキー (カンマ区切り、順は問わない) と FK
+describe("convertMermaidToERData の FK と複数のキー", () => {
+  it("PK, FK / FK, PK / UK, FK / FK を読む。FK が無ければ fk を持たない", () => {
+    const result = convertMermaidToERData(`erDiagram
+  Order {
+    int user_id PK, FK
+    int shop_id FK, PK
+    string code UK, FK
+    int item_id FK
+    int id PK
+  }`);
+    const cols = result.nodes[0].columns;
+    expect(cols[0]).toEqual({ name: "user_id", type: "int", pk: true, uk: false, fk: true });
+    expect(cols[1]).toEqual({ name: "shop_id", type: "int", pk: true, uk: false, fk: true });
+    expect(cols[2]).toEqual({ name: "code", type: "string", pk: false, uk: true, fk: true });
+    expect(cols[3]).toEqual({ name: "item_id", type: "int", pk: false, uk: false, fk: true });
+    expect(cols[4]).toEqual({ name: "id", type: "int", pk: true, uk: false });
+  });
+});

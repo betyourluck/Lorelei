@@ -329,3 +329,31 @@ describe("generateERDiagramMermaidCode", () => {
     expect(code).toContain("EmptyTable {\n  }");
   });
 });
+
+// spec 07 D2: FK。キーは PK → UK → FK の順でカンマ区切り (Mermaid の ER 図は複数のキーを書ける)
+describe("generateERDiagramMermaidCode の FK", () => {
+  const table = (columns: ERTableNodeProps["columns"]): Node<ERTableNodeProps>[] => [
+    {
+      id: "1",
+      type: "erTable",
+      position: { x: 0, y: 0 },
+      data: { name: "Order", columns, onNameChange: () => {}, onColumnsChange: () => {} },
+    },
+  ];
+
+  it("FK を PK・UK と一緒にカンマで並べる", () => {
+    const code = generateERDiagramMermaidCode(
+      table([
+        { name: "user_id", type: "int", pk: true, uk: false, fk: true },
+        { name: "code", type: "string", pk: false, uk: true, fk: true },
+        { name: "item_id", type: "int", pk: false, uk: false, fk: true },
+        { name: "id", type: "int", pk: true, uk: false },
+      ]),
+      []
+    );
+    expect(code).toContain("    int user_id PK, FK");
+    expect(code).toContain("    string code UK, FK");
+    expect(code).toContain("    int item_id FK");
+    expect(code).toContain("    int id PK\n");
+  });
+});
