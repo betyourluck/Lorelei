@@ -120,3 +120,17 @@
 - **処方**: 子から上書きできない `opacity: 0`（と `pointer-events: none`）で隠す。テストは `opacity` そのものと「`visibility` で隠していない」を確かめる（`document-list.test.tsx`）。
   `display: none` も使わない（ReactFlow がノードの大きさを測れず、取り込みが進まない）。
 - **一般化**: 「隠す」の手段は、中身のライブラリがどの CSS を自分で触るかで選ぶ。`visibility` は継承されるが上書きもされる。見た目を確かめるテストは、状態の旗ではなく効いている CSS を見る。
+
+## #11 テストの環境の罠 2 つ — 隠れたノードは名前で探せない / モジュールの状態がテストの間に残る（2026-09-26, spec 05 P2・spec 06 P1）
+
+- **症状 1**: ER 図のエディタ全体を描いたテストで、テーブルの見出しのボタン（`aria-label` 付き）が `getByRole("button", { name })` で見つからない。`hidden: true` を付けても見つからない。
+  DOM を出すとボタンはあった。
+- **真因 1**: jsdom はノードの大きさを測れないので、xyflow がノードを `visibility: hidden` にする（#10 と同じ仕組み）。`getByRole` の名前の計算（dom-accessibility-api）は
+  隠れた要素の名前を空として扱うので、`hidden: true` でも名前が一致しない。
+- **処方 1**: ノードの中の要素は `getByLabelText`（`aria-label`）で探す（`er-diagram-editor-delete.test.tsx`・`flow-editor-delete.test.tsx` にコメント）。
+- **症状 2**: 図の一覧のテストが、単独なら通り、ファイル全体で回すと毎回落ちた（spec 05 P2）。
+- **真因 2**: `use-desktop-open.ts` の「開く要求」の預かり（`stash`）はモジュールの変数。エディタの居ないテストでは誰も取り込まないので、前のテストが預けた要求が次のテストへ残り、
+  起動処理（`hasPendingOpens`）を変えていた。実機ではエディタが必ず取り込むので起きない。
+- **処方 2**: テスト用に `clearPendingOpens` を出し、`beforeEach` で呼ぶ。
+- **一般化**: 「単独なら通る・並べると落ちる」は、テストの間で共有された状態を先に疑う（モジュールの変数・localStorage・フェイクのバックエンド）。
+  「DOM にあるのに見つからない」は、アクセシビリティの計算（隠れた要素・名前）を疑う。
