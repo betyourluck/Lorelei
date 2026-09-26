@@ -590,3 +590,26 @@ describe("convertMermaidToERData の FK と複数のキー", () => {
     expect(cols[4]).toEqual({ name: "id", type: "int", pk: true, uk: false });
   });
 });
+
+// spec 07 D1: ER 図の向きを読み、取り込み時は向きに沿って並べる
+describe("convertMermaidToERData の向き", () => {
+  it("direction LR を読む。TB / TD は向きを持たない。テーブルは今までどおり読む", () => {
+    const lr = convertMermaidToERData("erDiagram\n  direction LR\n  User {\n    int id PK\n  }");
+    expect(lr.direction).toBe("LR");
+    expect(lr.nodes.map((n) => n.name)).toEqual(["User"]);
+    expect(convertMermaidToERData("erDiagram\n  direction TB\n  User {\n  }").direction).toBeUndefined();
+    expect(convertMermaidToERData("erDiagram\n  User {\n  }").direction).toBeUndefined();
+  });
+
+  it("LR で取り込むと、関係の段が左から右へ並ぶ", () => {
+    const data = convertMermaidToERData(
+      "erDiagram\n  A ||--o{ B : has\n  B ||--o{ C : has\n  A {\n  }\n  B {\n  }\n  C {\n  }"
+    );
+    const handlers = { onNameChange: vi.fn(), onColumnsChange: vi.fn() };
+    const nodes = convertParsedDataToNodes(data.nodes, data.edges, handlers, "LR");
+    const pos = (name: string) => nodes.find((n) => n.data.name === name)!.position;
+    expect(pos("A").x).toBeLessThan(pos("B").x);
+    expect(pos("B").x).toBeLessThan(pos("C").x);
+    expect(pos("A").y).toBe(pos("B").y);
+  });
+});

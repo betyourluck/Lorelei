@@ -357,3 +357,22 @@ describe("generateERDiagramMermaidCode の FK", () => {
     expect(code).toContain("    int id PK\n");
   });
 });
+
+// spec 07 D1: ER 図の向き。TD なら direction の行を書かない (今の出力のまま)
+describe("generateERDiagramMermaidCode の向き", () => {
+  const nodes: Node<ERTableNodeProps>[] = [
+    {
+      id: "1",
+      type: "erTable",
+      position: { x: 0, y: 0 },
+      data: { name: "User", columns: [], onNameChange: () => {}, onColumnsChange: () => {} },
+    },
+  ];
+
+  it("TD (既定) は書かず、LR / RL / BT は erDiagram の次の行に書く", () => {
+    expect(generateERDiagramMermaidCode(nodes, [])).not.toContain("direction");
+    expect(generateERDiagramMermaidCode(nodes, [], "TD")).not.toContain("direction");
+    expect(generateERDiagramMermaidCode(nodes, [], "LR").split("\n").slice(0, 2)).toEqual(["erDiagram", "  direction LR"]);
+    expect(generateERDiagramMermaidCode(nodes, [], "BT")).toContain("  direction BT");
+  });
+});

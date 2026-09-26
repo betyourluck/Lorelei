@@ -1,5 +1,6 @@
 import type { Node, Edge } from "@xyflow/react";
 import type { ERTableNodeProps } from "@/features/er-diagram/components/node/er-table-node";
+import type { GraphType } from "@/features/flowchart/types/types";
 import { ER_CARDINALITY_SYMBOLS } from "../types";
 
 /**
@@ -7,7 +8,9 @@ import { ER_CARDINALITY_SYMBOLS } from "../types";
  */
 export function generateERDiagramMermaidCode(
   nodes: Node<ERTableNodeProps>[],
-  edges: Edge[]
+  edges: Edge[],
+  /** 図の向き。TD (既定) の時は direction の行を書かない */
+  direction: GraphType = "TD"
 ): string {
   // ノード部
   const nodeDefs = nodes.map((node) => {
@@ -39,5 +42,6 @@ export function generateERDiagramMermaidCode(
       return `  ${sourceNode.data.name} ${symbol} ${targetNode.data.name} : ${label}`;
     });
 
-  return ["erDiagram", ...nodeDefs, ...edgeDefs.filter(Boolean)].join("\n");
+  const header = direction === "TD" ? ["erDiagram"] : ["erDiagram", `  direction ${direction}`];
+  return [...header, ...nodeDefs, ...edgeDefs.filter(Boolean)].join("\n");
 }

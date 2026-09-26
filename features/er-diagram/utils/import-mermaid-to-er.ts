@@ -1,4 +1,6 @@
 import type { Node, Edge } from "@xyflow/react";
+import { normalizeDirection, placeByDirection } from "@/features/flowchart/hooks/direction";
+import type { GraphType } from "@/features/flowchart/types/types";
 import type { ERColumn } from "../components/node/er-table-content";
 import type { ERTableNodeProps } from "../components/node/er-table-node";
 import { ER_CARDINALITY_SYMBOLS } from "../types";
@@ -112,6 +114,8 @@ export interface ParsedERTableData {
 export interface ParsedMermaidERData {
   nodes: ParsedERTableData[];
   edges: Edge[];
+  /** 図の向き。TD (と同じ意味の TB) の時は持たない (無ければ TD) */
+  direction?: GraphType;
 }
 
 /**
@@ -189,6 +193,8 @@ export function convertMermaidToERData(mermaid: string): ParsedMermaidERData {
    * @rationale 同じテーブル間に複数のリレーションがある場合でも重複を避けるため
    */
   let edgeCounter = 0;
+  /** 図の向き (direction の行)。無ければ TD */
+  let direction: GraphType = "TD";
 
   /**
    * erDiagramヘッダー行をスキップするためのインデックス
@@ -202,6 +208,14 @@ export function convertMermaidToERData(mermaid: string): ParsedMermaidERData {
   while (i < lines.length) {
     const line = lines[i].trim();
     if (!line) {
+      i++;
+      continue;
+    }
+
+    // 図の向き (例: "direction LR")
+    const directionMatch = line.match(/^direction\s+(\S+)$/);
+    if (directionMatch) {
+      direction = normalizeDirection(directionMatch[1]);
       i++;
       continue;
     }
@@ -317,7 +331,7 @@ export function convertMermaidToERData(mermaid: string): ParsedMermaidERData {
 
     i++;
   }
-  return { nodes, edges };
+  return direction === "TD" ? { nodes, edges } : { nodes, edges, direction };
 }
 
 /**
@@ -443,19 +457,34 @@ function groupTablesByLevel(levels: Map<string, number>): Map<number, string[]> 
  * @returns テーブルIDと座標のマップ
  */
 function calculateTablePositions(
-  tablesByLevel: Map<number, string[]>
+  tablesByLevel: Map<number, string[]>,
+  direction: GraphType = "TD"
 ): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();
+  const maxLevel = Math.max(0, ...Array.from(tablesByLevel.keys()));
+  const horizontal = direction === "LR" || direction === "RL";
+  // 段は向きに沿って (TD なら上から下、LR なら左から右)、同じ段は中央揃えで並べる。
+  // 横向きの時は、段の間にテーブルの横幅ぶん、並びの間に縦の間隔を使う
+  const gaps = horizontal
+    ? {
+        levelGap: ER_LAYOUT_CONSTANTS.TABLE_SPACING,
+        spacing: ER_LAYOUT_CONSTANTS.LEVEL_HEIGHT,
+        start: ER_LAYOUT_CONSTANTS.VERTICAL_OFFSET,
+        center: ER_LAYOUT_CONSTANTS.CENTER_OFFSET,
+      }
+    : {
+        levelGap: ER_LAYOUT_CONSTANTS.LEVEL_HEIGHT,
+        spacing: ER_LAYOUT_CONSTANTS.TABLE_SPACING,
+        start: ER_LAYOUT_CONSTANTS.VERTICAL_OFFSET,
+        center: ER_LAYOUT_CONSTANTS.CENTER_OFFSET,
+      };
 
   tablesByLevel.forEach((tableIds, level) => {
-    const levelWidth = tableIds.length * ER_LAYOUT_CONSTANTS.TABLE_SPACING;
-    const startX = -levelWidth / 2; // 中央揃え
-
     tableIds.forEach((tableId, index) => {
-      positions.set(tableId, {
-        x: startX + index * ER_LAYOUT_CONSTANTS.TABLE_SPACING + ER_LAYOUT_CONSTANTS.CENTER_OFFSET,
-        y: level * ER_LAYOUT_CONSTANTS.LEVEL_HEIGHT + ER_LAYOUT_CONSTANTS.VERTICAL_OFFSET,
-      });
+      positions.set(
+        tableId,
+        placeByDirection({ level, index, count: tableIds.length, maxLevel }, direction, gaps)
+      );
     });
   });
 
@@ -472,7 +501,9 @@ export function convertParsedDataToNodes(
   handlers: {
     onNameChange: (nodeId: string, newName: string) => void;
     onColumnsChange: (nodeId: string, newColumns: ERColumn[]) => void;
-  }
+  },
+  /** 取り込む図の向き。並べ方をこれに合わせる */
+  direction: GraphType = "TD"
 ): Node<ERTableNodeProps>[] {
   /**
    * テーブルの階層構造を分析してレイアウトを決定
@@ -485,7 +516,7 @@ export function convertParsedDataToNodes(
   ): Map<string, { x: number; y: number }> => {
     const levels = calculateTableLevels(tables, edges);
     const tablesByLevel = groupTablesByLevel(levels);
-    return calculateTablePositions(tablesByLevel);
+    return calculateTablePositions(tablesByLevel, direction);
   };
 
   const positions = layoutTables(parsedData, edges);

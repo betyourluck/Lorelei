@@ -14,6 +14,9 @@ import { Box, useToken } from "@yamada-ui/react";
 import { useCallback, useState, useRef } from "react";
 import { FlowLayout } from "@/components/layout/";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
+import { DirectionContext } from "@/features/flowchart/components/direction-context";
+import { normalizeDirection } from "@/features/flowchart/hooks/direction";
+import type { GraphType } from "@/features/flowchart/types/types";
 import { useDesktopOpen } from "@/lib/desktop";
 import { ErEdge } from "./components/edge/er-edge";
 import type { ERColumn } from "./components/node/er-table-content";
@@ -87,6 +90,8 @@ export const ERDiagramEditor: FC = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialERNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [nodeId, setNodeId] = useState(2);
+  // 図の向き (spec 07 D1)。コード生成・パネル・接続点はこれを読み書きする
+  const [direction, setDirection] = useState<GraphType>("TD");
 
   // エッジラベル編集ハンドラ
   const handleEdgeLabelChange = useCallback(
@@ -145,6 +150,9 @@ export const ERDiagramEditor: FC = () => {
   // Mermaidインポート処理
   const handleImportMermaid = useCallback(
     (data: ParsedMermaidERData) => {
+      // 取り込んだ図の向き (無ければ TD)。配置もこの向きに合わせる
+      const importedDirection = normalizeDirection(data.direction);
+      setDirection(importedDirection);
       // ノードとエッジをクリアしてからインポートデータを設定
       const importedNodes = convertParsedDataToNodes(data.nodes, data.edges, {
         onNameChange: (nodeId: string, newName: string) => {
@@ -159,7 +167,7 @@ export const ERDiagramEditor: FC = () => {
             )
           );
         },
-      });
+      }, importedDirection);
 
       setNodes(importedNodes);
       setEdges(data.edges);
@@ -308,6 +316,8 @@ export const ERDiagramEditor: FC = () => {
 
   return (
     <Box h="var(--lorelei-editor-h, 100vh)" w="full">
+      {/* テーブルが接続点の位置を向きに合わせるのに使う */}
+      <DirectionContext.Provider value={direction}>
       <ReactFlow
         nodes={nodesWithHandlers}
         edges={edgesWithHandlers}
@@ -327,10 +337,13 @@ export const ERDiagramEditor: FC = () => {
             onImportMermaid={handleImportMermaid}
             nodes={nodes}
             edges={edges}
-            generateCode={generateERDiagramMermaidCode}
+            generateCode={(n, e) => generateERDiagramMermaidCode(n, e, direction)}
+            direction={direction}
+            onDirectionChange={setDirection}
           />
         </FlowLayout>
       </ReactFlow>
+      </DirectionContext.Provider>
       {confirmDelete.dialog}
     </Box>
   );

@@ -4,6 +4,8 @@ import { PlusIcon, DownloadIcon, UploadIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import { VStack, HStack, Text, Button, useBoolean } from "@yamada-ui/react";
 import { NavigationMenu } from "@/components/ui";
+import { DirectionMenu } from "@/features/flowchart/components/direction-menu";
+import type { GraphType } from "@/features/flowchart/types/types";
 import { useDesktopActions } from "@/lib/desktop";
 import type { ParsedMermaidERData } from "../../utils/import-mermaid-to-er";
 import { ImportModal } from "../mermaid/import-modal";
@@ -16,6 +18,9 @@ export type ERDiagramPanelProps = {
   nodes: Node<ERTableNodeProps>[];
   edges: Edge[];
   generateCode: (nodes: Node<ERTableNodeProps>[], edges: Edge[]) => string;
+  /** 図の向き (エディタが持つ)。渡されると切り替えを出す */
+  direction?: GraphType;
+  onDirectionChange?: (direction: GraphType) => void;
 };
 
 export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
@@ -24,6 +29,8 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
   nodes,
   edges,
   generateCode,
+  direction,
+  onDirectionChange,
 }) => {
   const [open, setOpen] = useBoolean(false);
   const [openImport, setOpenImport] = useBoolean(false);
@@ -74,6 +81,9 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
             >
               mermaidインポート
             </Button>
+            {direction && onDirectionChange && (
+              <DirectionMenu value={direction} onChange={onDirectionChange} />
+            )}
           </HStack>
         </VStack>
       </VStack>
