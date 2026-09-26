@@ -58,6 +58,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
+- 2026-09-26: [spec 07](specs/07_direction-and-fk.md) rev1 承認（図の向きと ER 図の FK をエディタで扱い、取り込みで落とさない）。P0 から
 - 2026-09-26: [spec 06](specs/06_confirm-delete.md) **Done** — rev1（ER 図のテーブルを「⋮⋮」メニューから消せるようにし、テーブル・ノードの削除（ボタンも Backspace も）に確認を入れる）。
   **フォーク元の改善**で、上流へ返せるコミットは spec 06「P2 結果」に一覧（PR を出すかは利用者が決める）
 - 2026-09-26: [spec 05](specs/05_pane-width-and-loading.md) **Done** — rev1（左ペインの幅を変えるつまみと幅・開閉の記憶、図を開く間はエディタを隠して初期図を見せない、
