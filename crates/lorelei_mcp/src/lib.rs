@@ -272,7 +272,7 @@ impl LoreleiServer {
 
     #[tool(
         name = "read_diagram",
-        description = "人が Lorelei の GUI で直した今の図を Mermaid で読む。id を省くと今 GUI で開いている図。                       source はエディタが出した Mermaid で、向き (LR など)・FK の印・subgraph・style などは落ちている。                       渡した原文が要る時は include_original=true (original_source)。                       GUI での編集は約 1 秒後に保存されるので、直後の編集は含まれないことがある。                       source が空文字なら、新規作成の図はまだ何も保存されておらず、AI やインポートで届いた図はまだエディタに載っていない。                       source はそのまま validate / render に渡せる。"
+        description = "人が Lorelei の GUI で直した今の図を Mermaid で読む。id を省くと今 GUI で開いている図。                       source はエディタが出した Mermaid で、subgraph・style・classDef などは落ちている (向きと FK は残る)。                       渡した原文が要る時は include_original=true (original_source)。                       GUI での編集は約 1 秒後に保存されるので、直後の編集は含まれないことがある。                       source が空文字なら、新規作成の図はまだ何も保存されておらず、AI やインポートで届いた図はまだエディタに載っていない。                       source はそのまま validate / render に渡せる。"
     )]
     async fn read_diagram(
         &self,

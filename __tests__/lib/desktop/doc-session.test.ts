@@ -142,6 +142,17 @@ describe("エディタの初期図 (data_contract Document.initial_sources, spec
   });
 });
 
+describe("toSource の向き (spec 07 D3)", () => {
+  it("エディタの向きで書く。ER 図は TD なら向きの行を書かない", () => {
+    expect(toSource("flowchart", initialFlowNodes, [], "LR")).toBe("flowchart LR\n    startNode[Start]\n");
+    expect(toSource("erDiagram", initialERNodes, [], "LR").split("\n").slice(0, 2)).toEqual([
+      "erDiagram",
+      "  direction LR",
+    ]);
+    expect(toSource("erDiagram", initialERNodes, [], "TD")).not.toContain("direction");
+  });
+});
+
 describe("Autosaver — 1 秒待って保存、切り替え・終了の前は flush (D7)", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());

@@ -87,11 +87,27 @@ fn subgraph_is_reported_and_does_not_become_a_node() {
 #[test]
 fn styling_and_interaction_are_counted() {
     let src = "flowchart LR\n  %% コメントは構文ではないので数えない\n  A[a] --> B[b]\n  style A fill:#f9f\n  linkStyle 0 stroke:#f00\n  click B \"https://example.com\"\n";
-    let (_, dropped) = flow(src);
-    assert_eq!(
-        dropped,
-        [d("click", 1), d("direction:LR", 1), d("style", 2)]
-    );
+    let (data, dropped) = flow(src);
+    // 向きは spec 07 で写すようにした (落とさない)
+    assert_eq!(dropped, [d("click", 1), d("style", 2)]);
+    assert_eq!(data.direction.as_deref(), Some("LR"));
+}
+
+// spec 07 D1: 向きを写す。TB は TD と同じ意味なので TD にそろえ、TD の時は持たない (無ければ TD)
+#[test]
+fn flowchart_direction_is_carried_and_tb_means_td() {
+    for (src, want) in [
+        ("flowchart LR\n  A --> B\n", Some("LR")),
+        ("flowchart RL\n  A --> B\n", Some("RL")),
+        ("flowchart BT\n  A --> B\n", Some("BT")),
+        ("graph LR\n  A --> B\n", Some("LR")),
+        ("flowchart TB\n  A --> B\n", None),
+        ("flowchart TD\n  A --> B\n", None),
+    ] {
+        let (data, dropped) = flow(src);
+        assert_eq!(data.direction.as_deref(), want, "{src}");
+        assert!(dropped.is_empty(), "{src}: {dropped:?}");
+    }
 }
 
 #[test]
@@ -192,19 +208,20 @@ fn japanese_attributes_keys_and_entity_order_survive() {
     let cols: Vec<_> = data.nodes[0]
         .columns
         .iter()
-        .map(|c| (c.kind.as_str(), c.name.as_str(), c.pk, c.uk))
+        .map(|c| (c.kind.as_str(), c.name.as_str(), c.pk, c.uk, c.fk))
         .collect();
     assert_eq!(
         cols,
         [
-            ("int", "id", true, false),
-            ("string", "氏名", false, true),
-            ("int", "会社_id", false, false)
+            ("int", "id", true, false, false),
+            ("string", "氏名", false, true, false),
+            // FK は spec 07 で写すようにした (落とさない)
+            ("int", "会社_id", false, false, true)
         ]
     );
     assert_eq!(data.nodes[1].columns[0].name, "注文日");
     assert_eq!(data.edges[0].data.label, "行う");
-    assert_eq!(dropped, [d("attribute_comment", 1), d("fk", 1)]);
+    assert_eq!(dropped, [d("attribute_comment", 1)]);
 }
 
 #[test]
@@ -212,16 +229,22 @@ fn er_alias_class_style_and_direction_are_reported() {
     let src = "erDiagram\n  direction LR\n  A[\"顧客\"] {\n    int id\n  }\n  A ||--o{ B : has\n  classDef hot fill:#f00\n  class A hot\n  style B fill:#0f0\n";
     let (data, dropped) = er(src);
     assert_eq!(data.nodes[0].name, "A", "alias ではなく識別子を名前に使う");
+    // 向きは spec 07 で写すようにした (落とさない)
     assert_eq!(
         dropped,
-        [
-            d("alias", 1),
-            d("class", 1),
-            d("classDef", 1),
-            d("direction:LR", 1),
-            d("style", 1)
-        ]
+        [d("alias", 1), d("class", 1), d("classDef", 1), d("style", 1)]
     );
+    assert_eq!(data.direction.as_deref(), Some("LR"));
+}
+
+// spec 07 D2: 複数のキー (順は問わない) と FK を写す
+#[test]
+fn er_keys_are_carried_in_any_order() {
+    let (data, dropped) = er("erDiagram\n  注文 {\n    int 顧客_id PK, FK\n    int 店_id FK, PK\n    string 番号 UK, FK\n  }\n");
+    let keys: Vec<_> = data.nodes[0].columns.iter().map(|c| (c.pk, c.uk, c.fk)).collect();
+    assert_eq!(keys, [(true, false, true), (true, false, true), (false, true, true)]);
+    assert!(dropped.is_empty(), "{dropped:?}");
+    assert_eq!(data.direction, None);
 }
 
 // ---------- 共通 ----------

@@ -4,6 +4,7 @@
 import type { Edge, Node } from "@xyflow/react";
 import { generateERDiagramMermaidCode } from "@/features/er-diagram/utils/generate-mermaid-code";
 import { generateMermaidCode, getSafeVariableName } from "@/features/flowchart/hooks/mermaid";
+import type { GraphType } from "@/features/flowchart/types/types";
 import type { EditorKind } from "./open-requests";
 
 export type Pos = { x: number; y: number };
@@ -102,10 +103,16 @@ export const isInitialFigureRejected = (e: unknown): boolean => String(e).starts
 export const isDocumentGone = (e: unknown): boolean => String(e).startsWith("DOCUMENT_GONE");
 
 /** 今の図の Mermaid (フォーク元の生成器の出力)。これが Document.source になる */
-export const toSource = (editor: EditorKind, nodes: Node[], edges: Edge[]): string =>
+export const toSource = (
+  editor: EditorKind,
+  nodes: Node[],
+  edges: Edge[],
+  /** エディタの向き (spec 07 D3)。ER 図は TD なら向きの行を書かない */
+  direction: GraphType = "TD"
+): string =>
   editor === "flowchart"
-    ? generateMermaidCode({ nodes, edges })
-    : generateERDiagramMermaidCode(nodes as never, edges);
+    ? generateMermaidCode({ nodes, edges }, direction)
+    : generateERDiagramMermaidCode(nodes as never, edges, direction);
 
 /**
  * 変化から `delay` ms 待って保存する。図を切り替える前・閉じる前は flush。

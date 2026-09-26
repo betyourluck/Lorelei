@@ -222,7 +222,7 @@ DiagramSummary:   # MCP の出力の形 (snake_case)。GUI の Document / Docume
 Diagram:
   fields: "DiagramSummary の全項目 + source + original_source"
   source: >-
-    string。今の図の Mermaid (エディタの生成器の出力。向き・FK の印・subgraph などは落ちている)。
+    string。今の図の Mermaid (エディタの生成器の出力。subgraph・style などは落ちている。向きと FK は spec 07 で残るようにした)。
     空文字は「new の図: まだ一度も保存されていない」「ai / import の図: まだエディタに載っていない」(エラーにしない。注記の欄は設けない)
   original_source: "include_original=false ならキーごと出さない。true なら ai / import は届いた原文、new は null"
 

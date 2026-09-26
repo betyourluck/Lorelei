@@ -50,6 +50,9 @@ impl EditorPayload {
 pub struct FlowData {
     pub nodes: Vec<FlowNode>,
     pub edges: Vec<FlowEdge>,
+    /// 図の向き (LR / RL / BT)。TD (と同じ意味の TB) の時は持たない (無ければ TD, spec 07 D1)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub direction: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -76,6 +79,9 @@ pub struct FlowEdge {
 pub struct ErData {
     pub nodes: Vec<ErNode>,
     pub edges: Vec<ErEdge>,
+    /// 図の向き。FlowData と同じ規則
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub direction: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -92,6 +98,13 @@ pub struct ErColumn {
     pub kind: String,
     pub pk: bool,
     pub uk: bool,
+    /// 外部キー (spec 07 D2)。無ければ持たない (無ければ false。フォーク元の読み込みと同じ形)
+    #[serde(skip_serializing_if = "is_false")]
+    pub fk: bool,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -166,10 +179,11 @@ fn non_empty(v: &Value, key: &str) -> bool {
     }
 }
 
-fn direction_drop(drops: &mut Drops, model: &Value) {
-    let dir = str_of(model, "direction");
-    if !dir.is_empty() && dir != "TB" && dir != "TD" {
-        drops.add(format!("direction:{dir}"), 1);
+/// 図の向きを写す (spec 07 D1)。TD と、同じ意味の TB は持たない (無ければ TD)
+fn direction_of(model: &Value) -> Option<String> {
+    match str_of(model, "direction").to_ascii_uppercase().as_str() {
+        d @ ("LR" | "RL" | "BT") => Some(d.to_string()),
+        _ => None,
     }
 }
 
@@ -185,7 +199,6 @@ fn accessibility_drop(drops: &mut Drops, model: &Value) {
 
 fn flowchart(model: &Value) -> Result<EditorPayload, CoreError> {
     let mut drops = Drops::default();
-    direction_drop(&mut drops, model);
     accessibility_drop(&mut drops, model);
     drops.add("subgraph", arr(model, "subgraphs").len());
     drops.add(
@@ -293,7 +306,11 @@ fn flowchart(model: &Value) -> Result<EditorPayload, CoreError> {
     }
 
     Ok(EditorPayload::Flowchart {
-        data: FlowData { nodes, edges },
+        data: FlowData {
+            nodes,
+            edges,
+            direction: direction_of(model),
+        },
         dropped: drops.into_vec(),
     })
 }
@@ -332,7 +349,6 @@ fn arrow_type(edge: &Value, drops: &mut Drops) -> &'static str {
 
 fn er(model: &Value) -> Result<EditorPayload, CoreError> {
     let mut drops = Drops::default();
-    direction_drop(&mut drops, model);
     accessibility_drop(&mut drops, model);
     drops.add(
         "classDef",
@@ -370,13 +386,14 @@ fn er(model: &Value) -> Result<EditorPayload, CoreError> {
         let mut columns = Vec::new();
         for a in arr(e, "attributes") {
             let keys: Vec<&str> = arr(a, "keys").iter().filter_map(Value::as_str).collect();
-            drops.add("fk", usize::from(keys.contains(&"FK")));
             drops.add("attribute_comment", usize::from(non_empty(a, "comment")));
             columns.push(ErColumn {
                 name: str_of(a, "name").to_string(),
                 kind: str_of(a, "type").to_string(),
                 pk: keys.contains(&"PK"),
-                uk: keys.contains(&"UK"),
+                // PK と UK はエディタで排他 (PK を優先。フォーク元の読み込みと同じ)
+                uk: !keys.contains(&"PK") && keys.contains(&"UK"),
+                fk: keys.contains(&"FK"),
             });
         }
         nodes.push(ErNode {
@@ -426,7 +443,11 @@ fn er(model: &Value) -> Result<EditorPayload, CoreError> {
     }
 
     Ok(EditorPayload::ErDiagram {
-        data: ErData { nodes, edges },
+        data: ErData {
+            nodes,
+            edges,
+            direction: direction_of(model),
+        },
         dropped: drops.into_vec(),
     })
 }

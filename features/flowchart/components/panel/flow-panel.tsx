@@ -44,7 +44,12 @@ export const PanelContent: FC<PanelContentProps> = ({
   const { open: openImport, onOpen: onOpenImport, onClose: onCloseImport } = useDisclosure();
   const { open: openDownload, onOpen: onOpenDownload, onClose: onCloseDownload } = useDisclosure();
   // Lorelei: デスクトップ版のツールバーから呼べるようにする (Web 版では何もしない)
-  useDesktopActions({ add: { label: "ノード追加", run: onAddNode }, code: onOpenDownload });
+  useDesktopActions({
+    add: { label: "ノード追加", run: onAddNode },
+    code: onOpenDownload,
+    direction,
+    setDirection: onDirectionChange,
+  });
 
   return (
     <VStack gap={4} p={4} bg="white" borderRadius="md" boxShadow="md">

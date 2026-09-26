@@ -36,7 +36,12 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
   const [openImport, setOpenImport] = useBoolean(false);
   const code = generateCode(nodes, edges);
   // Lorelei: デスクトップ版のツールバーから呼べるようにする (Web 版では何もしない)
-  useDesktopActions({ add: { label: "テーブル追加", run: onAddTable }, code: setOpen.on });
+  useDesktopActions({
+    add: { label: "テーブル追加", run: onAddTable },
+    code: setOpen.on,
+    direction,
+    setDirection: onDirectionChange,
+  });
 
   const handleDownload = () => {
     const blob = new Blob([code], { type: "text/plain" });

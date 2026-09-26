@@ -2,7 +2,7 @@
 
 **ID**: 07
 **Date**: 2026-09-26
-**Status**: In Progress（rev1 承認 2026-09-26。rev0 に査読 2 件を反映。P0・P1 着地、次は P2）
+**Status**: In Progress（rev1 承認 2026-09-26。rev0 に査読 2 件を反映。P0〜P2 着地、次は P3）
 **Branch**: なし（Phase 単位で main へ直接コミット）
 
 ## Goal
@@ -110,6 +110,17 @@ data_contract に凍結した（コードはまだ触らない）:
 - 横向き（`LR` / `RL`）の時は、段の間と並びの間を入れ替えた値を使う（ノード・テーブルは横に長いので、縦の時の段の間では重なる）
 - テストで分かったこと: フォーク元のインポートのテストは入力欄を模擬に差し替えていて、`data-testid` はその模擬のもの。エディタ全体のテストでは本物の `textarea`（ダイアログの中の `textbox`）で探す
 - 全体: vitest 582 件中、落ちるのは ArrowTypeSelector の時間切れ 1 件（failures #3、変更前と同じ顔ぶれ）。型検査通過
+
+## P2 結果（2026-09-26）
+
+- Rust `lorelei_core::editor`: `FlowData` / `ErData` に `direction`（`LR` / `RL` / `BT` の時だけ。`TD` と `TB` は持たない）、`ErColumn` に `fk`（有る時だけ）。
+  `direction:*` と `fk` を `dropped` から外した。PK と UK は排他（PK を優先。フォーク元の読み込みと同じ）
+- `lib/desktop`: `DesktopActions` に `direction` / `setDirection`（向きが変わったら登録し直す）、ツールバーに `DirectionMenu`（エディタが向きを持つ時だけ）、
+  `toSource(editor, nodes, edges, direction)`、`useDocSession(direction)` は向きが変わっても自動保存する。フォーク元のパネル 2 つの `useDesktopActions` に向きを足した（デスクトップへの差し込みの行）
+- 台帳: ツールの説明（`read_diagram`）・data_contract（`Diagram.source`）・LORELEI.md の「落ちるもの」から向きと FK を外した
+- テスト（Red → Green）: Rust 2 件新規（フローの向きを写す・`TB` は `TD` / ER 図のキーをどの順でも写す）と既存 2 件の期待値（向きと FK は落とさない）、
+  src-tauri 1 件の期待値（`LR` は `dropped` ではなくペイロードに）/ vitest 3 件（`toSource` の向き・ツールバーの切り替え・向きだけ変えても自動保存）
+- 全体: Rust（ワークスペース・src-tauri 39 件）緑、clippy 警告 0。vitest 585 件中、落ちるのは ArrowTypeSelector の 2 件（failures #3 の顔ぶれ。今回は同じファイルのもう 1 件も負荷で時間切れ）。型検査通過
 
 ## 受け入れ条件
 

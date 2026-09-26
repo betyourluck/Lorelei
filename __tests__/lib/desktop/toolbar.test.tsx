@@ -68,6 +68,19 @@ describe("ツールバー (spec 02 P2)", { timeout: 15000 }, () => {
     expect(code).toHaveBeenCalledTimes(1);
   });
 
+  it("エディタが登録した向きをツールバーで切り替える (spec 07 D3)", async () => {
+    const setDirection = vi.fn();
+    const { user } = render(
+      <DesktopShell>
+        <Panel add={{ label: "ノード追加", run: vi.fn() }} code={vi.fn()} direction="LR" setDirection={setDirection} />
+      </DesktopShell>
+    );
+    const menu = await screen.findByRole("button", { name: "図の向き: LR" }, { timeout: 5000 });
+    await user.click(menu);
+    await user.click(await screen.findByRole("menuitem", { name: "RL" }));
+    expect(setDirection).toHaveBeenCalledWith("RL");
+  });
+
   it("何も登録されていない間は「追加」「コード生成」を押せない", async () => {
     render(<DesktopShell>x</DesktopShell>);
     expect(await screen.findByRole("button", { name: "コード生成" })).toBeDisabled();

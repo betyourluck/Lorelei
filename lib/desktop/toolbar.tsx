@@ -4,6 +4,7 @@ import { CodeIcon, FileInputIcon, PlusIcon, SaveIcon } from "@yamada-ui/lucide";
 import { Box, Button, ButtonGroup, HStack } from "@yamada-ui/react";
 import type { FC } from "react";
 import { useState } from "react";
+import { DirectionMenu } from "@/features/flowchart/components/direction-menu";
 import type { RegisteredActions } from "./desktop-actions";
 import { ImportDialog } from "./import-dialog";
 import type { EditorKind } from "./open-requests";
@@ -74,6 +75,8 @@ export const Toolbar: FC<Props> = ({ actions, current, onSwitchKind, onSave }) =
       <Button size="sm" variant="outline" startIcon={<FileInputIcon />} onClick={() => setImporting(true)}>
         インポート
       </Button>
+      {/* 図の向き (spec 07 D3)。エディタが向きを持つ時だけ */}
+      {actions?.setDirection && <DirectionMenu value={actions.direction} onChange={actions.setDirection} />}
       <ImportDialog open={importing} onClose={() => setImporting(false)} />
       <Box flex="1" />
       <Button

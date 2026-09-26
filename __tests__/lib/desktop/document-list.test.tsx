@@ -1,6 +1,7 @@
 import "./pointer-event";
 import { fireEvent } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@/__tests__/test-utils";
 import { useDesktopActions } from "@/lib/desktop/desktop-actions";
@@ -23,6 +24,20 @@ const Registering = () => {
   useDesktopActions({ add: { label: "ノード追加", run: () => {} }, code: () => {} });
   return <div>registering editor</div>;
 };
+/** 向きを持つエディタの代わり (spec 07 D3)。ボタンで向きを変える */
+const DirectionEditor = () => {
+  const [direction, setDirection] = useState<"TD" | "LR" | "RL" | "BT">("TD");
+  useDesktopActions({ add: { label: "ノード追加", run: () => {} }, code: () => {}, direction, setDirection });
+  return (
+    <div>
+      direction editor
+      <button type="button" onClick={() => setDirection("LR")}>
+        向きを LR に
+      </button>
+    </div>
+  );
+};
+
 const registeredArea = () => screen.getByText("registering editor").closest("[aria-busy]")!;
 
 const shell = () =>
@@ -290,6 +305,25 @@ describe("図の一覧 (spec 02 P3)", { timeout: 15000 }, () => {
     // まだ ER 図のページ (push はフェイク)。作り直された ER 図のエディタで見せない
     await new Promise((r) => setTimeout(r, 100));
     expect(registeredArea()).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("向きだけを変えても、その向きで自動保存する (spec 07 D3)", async () => {
+    // 新規作成の図 (エディタが作り直されたら準備済み)。ノードは変えずに向きだけを変える
+    const view = render(
+      <ReactFlowProvider>
+        <DesktopShell>
+          <DirectionEditor />
+        </DesktopShell>
+      </ReactFlowProvider>
+    );
+    await waitFor(() => expect(backend.calls("create_document")).toHaveLength(1), LONG);
+    await waitFor(() => expect(screen.getByText("direction editor").closest("[aria-busy]")).toHaveAttribute("aria-busy", "false"), LONG);
+    await view.user.click(screen.getByRole("button", { name: "向きを LR に" }));
+    await waitFor(
+      () =>
+        expect(backend.calls("save_document").some((a) => String(a?.source).startsWith("flowchart LR"))).toBe(true),
+      { timeout: 3000 }
+    );
   });
 
   it("タイトルバーの ≡ で一覧を開閉する", async () => {

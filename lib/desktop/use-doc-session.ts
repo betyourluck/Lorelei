@@ -4,6 +4,7 @@ import { useReactFlow, useStore } from "@xyflow/react";
 import { useNotice } from "@yamada-ui/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { GraphType } from "@/features/flowchart/types/types";
 import type { Layout } from "./doc-session";
 import {
   Autosaver,
@@ -83,7 +84,10 @@ const summaryOf = (d: Omit<DocumentSummary, "unsaved"> & { unsaved?: boolean }):
  * 保存してよいのは「準備済み」の図だけ。作り直したエディタは初期図を持っているので、読み込みが済むまで
  * (取り込んだノードのキーがストアに全部そろい、位置を当て終えるまで) は保存しない。
  */
-export function useDocSession(): DocSession {
+export function useDocSession(
+  /** エディタの今の向き (spec 07 D3)。保存に使い、変わったら保存し直す */
+  direction: GraphType = "TD"
+): DocSession {
   const rf = useReactFlow();
   const nodes = useStore((s) => s.nodes);
   const edges = useStore((s) => s.edges);
@@ -350,11 +354,12 @@ export function useDocSession(): DocSession {
     if (!next.save) return;
     const n = nodes;
     const e = edges;
+    const d = direction;
     autosaver.touch(doc.id, () => ({
-      source: toSource(doc.editor, n, e),
+      source: toSource(doc.editor, n, e, d),
       layout: collectLayout(doc.editor, n),
     }));
-  }, [nodes, edges, rf, autosaver]);
+  }, [nodes, edges, direction, rf, autosaver]);
 
   // 今の図と違う種類のページに居て、これから取り込む図も無い = 遅れて効いたページ移動で迷い込んだ。
   // 今の図を開き直してそのページへ戻る (spec 04 P0。保存は onNodesChanged の page で止まっている)

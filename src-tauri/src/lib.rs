@@ -467,9 +467,14 @@ mod tests {
     fn request_from_source_converts_with_lorelei_core() {
         let r = request_from_source("flowchart LR\n  注文 --> 発送\n".into());
         assert!(r.error.is_none(), "{:?}", r.error);
-        assert!(matches!(r.payload, Some(EditorPayload::Flowchart { .. })));
-        // LR は エディタで表現できないので dropped に載る (フォーク元のパーサーなら黙って捨てる)
-        assert!(r.dropped.iter().any(|d| d.construct.starts_with("direction")));
+        // 向きはエディタへ渡り、dropped に載らない (spec 07 で落とさないようにした)
+        match &r.payload {
+            Some(EditorPayload::Flowchart { data, .. }) => {
+                assert_eq!(data.direction.as_deref(), Some("LR"))
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(r.dropped.is_empty(), "{:?}", r.dropped);
     }
 
     #[test]
