@@ -68,6 +68,8 @@ describe("parseMermaidCode - flowchartヘッダーなしのケース", () => {
         { id: "B", variableName: "B", label: "終了", shapeType: "rectangle" },
       ],
       edges: [{ id: "A-B", source: "A", target: "B", label: "", arrowType: "arrow" }],
+      // 向きはヘッダーから読む (TD 以外の時だけ持つ)
+      direction: "LR",
     };
 
     expect(parseMermaidCode(mermaid)).toEqual(expected);

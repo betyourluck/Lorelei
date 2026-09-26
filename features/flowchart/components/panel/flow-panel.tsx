@@ -8,6 +8,8 @@ import { VStack, HStack, Text, Button, useDisclosure } from "@yamada-ui/react";
 import { NavigationMenu } from "@/components/ui";
 import { useDesktopActions } from "@/lib/desktop";
 import type { ParsedMermaidData } from "../../hooks/mermaid";
+import type { GraphType } from "../../types/types";
+import { DirectionMenu } from "../direction-menu";
 import { ImportModal } from "../mermaid";
 import { DownloadModal } from "../mermaid/download-modal";
 
@@ -16,24 +18,17 @@ interface FlowPanelProps {
   onImportMermaid: (data: ParsedMermaidData) => void;
   nodes: Node[];
   edges: Edge[];
+  /** 図の向き (エディタが持つ)。渡されると切り替えを出し、コード生成もこの向きで書く */
+  direction?: GraphType;
+  onDirectionChange?: (direction: GraphType) => void;
 }
 
-interface PanelContentProps {
-  onAddNode: () => void;
-  onImportMermaid: (data: ParsedMermaidData) => void;
-  nodes: Node[];
-  edges: Edge[];
-}
+type PanelContentProps = FlowPanelProps;
 
-export const FlowPanel: FC<FlowPanelProps> = ({ onAddNode, onImportMermaid, nodes, edges }) => {
+export const FlowPanel: FC<FlowPanelProps> = (props) => {
   return (
     <Panel position="top-left">
-      <PanelContent
-        onAddNode={onAddNode}
-        onImportMermaid={onImportMermaid}
-        nodes={nodes}
-        edges={edges}
-      />
+      <PanelContent {...props} />
     </Panel>
   );
 };
@@ -43,6 +38,8 @@ export const PanelContent: FC<PanelContentProps> = ({
   onImportMermaid,
   nodes,
   edges,
+  direction,
+  onDirectionChange,
 }) => {
   const { open: openImport, onOpen: onOpenImport, onClose: onCloseImport } = useDisclosure();
   const { open: openDownload, onOpen: onOpenDownload, onClose: onCloseDownload } = useDisclosure();
@@ -76,10 +73,17 @@ export const PanelContent: FC<PanelContentProps> = ({
           <Button startIcon={<UploadIcon />} colorScheme="purple" size="sm" onClick={onOpenImport}>
             インポート
           </Button>
+          {direction && onDirectionChange && <DirectionMenu value={direction} onChange={onDirectionChange} />}
         </HStack>
       </VStack>
       <ImportModal open={openImport} onClose={onCloseImport} onImport={onImportMermaid} />
-      <DownloadModal open={openDownload} onClose={onCloseDownload} flowData={{ nodes, edges }} />
+      <DownloadModal
+        open={openDownload}
+        onClose={onCloseDownload}
+        flowData={{ nodes, edges }}
+        direction={direction}
+        onDirectionChange={onDirectionChange}
+      />
     </VStack>
   );
 };

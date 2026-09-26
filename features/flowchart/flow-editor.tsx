@@ -7,9 +7,11 @@ import { useCallback, useState, useRef, useEffect } from "react";
 import { FlowLayout } from "@/components/layout/";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
 import { useDesktopOpen } from "@/lib/desktop";
+import { DirectionContext } from "./components/direction-context";
 import { edgeTypes } from "./components/edge/edge-types";
 import { nodeTypes } from "./components/node/node-types";
 import { FlowPanel } from "./components/panel/flow-panel";
+import { normalizeDirection, placeByDirection } from "./hooks/direction";
 import {
   calculateNodePosition,
   createNewNode,
@@ -18,6 +20,7 @@ import {
 } from "./hooks/flow-helpers";
 import type { ParsedMermaidData } from "./hooks/mermaid";
 import type { MermaidArrowType } from "./types";
+import type { GraphType } from "./types/types";
 
 // レイアウト定数
 const LAYOUT_CONSTANTS = {
@@ -25,6 +28,7 @@ const LAYOUT_CONSTANTS = {
   NODE_SPACING: 250, // 同レベル内のノード間隔（横方向）
   CENTER_OFFSET: 300, // 中央揃えのためのオフセット
   VERTICAL_OFFSET: 50, // 上部からの初期オフセット
+  LEVEL_WIDTH: 450, // 横向き (LR / RL) のレベル間の横幅 (ノードは横に長いので縦より広く)
 } as const;
 
 /** 新しいエディタの初期図 (デスクトップ版は Document.initial_sources として凍結している, spec 04 D4-2) */
@@ -50,6 +54,8 @@ export function FlowEditor() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialFlowNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [nodeId, setNodeId] = useState(2);
+  // 図の向き (spec 07 D1)。コード生成・パネル・接続点はこれを読み書きする
+  const [direction, setDirection] = useState<GraphType>("TD");
   // DownloadModalの状態管理はFlowPanelに移動
   const connectingNodeId = useRef<string | null>(null);
   const { screenToFlowPosition, deleteElements } = useReactFlow();
@@ -327,6 +333,9 @@ export function FlowEditor() {
 
   const handleImportMermaid = useCallback(
     (data: ParsedMermaidData) => {
+      // 取り込んだ図の向き (無ければ TD)。配置もこの向きに合わせる
+      const importedDirection = normalizeDirection(data.direction);
+      setDirection(importedDirection);
       // ノードの階層構造を分析してレイアウトを決定
       const layoutNodes = (
         nodes: ParsedMermaidData["nodes"],
@@ -373,18 +382,33 @@ export function FlowEditor() {
           nodesByLevel.get(level)!.push(nodeId);
         });
 
-        // 位置を計算
+        // 位置を計算。段は向きに沿って (TD なら上から下、LR なら左から右)、同じ段は中央揃えで並べる
         const positions = new Map<string, { x: number; y: number }>();
+        const maxLevel = Math.max(0, ...Array.from(nodesByLevel.keys()));
+        const horizontal = importedDirection === "LR" || importedDirection === "RL";
 
         nodesByLevel.forEach((nodeIds, level) => {
-          const levelWidth = nodeIds.length * LAYOUT_CONSTANTS.NODE_SPACING;
-          const startX = -levelWidth / 2; // 中央揃え
-
           nodeIds.forEach((nodeId, index) => {
-            positions.set(nodeId, {
-              x: startX + index * LAYOUT_CONSTANTS.NODE_SPACING + LAYOUT_CONSTANTS.CENTER_OFFSET, // 左から右へノード配置（中央揃え）
-              y: level * LAYOUT_CONSTANTS.LEVEL_HEIGHT + LAYOUT_CONSTANTS.VERTICAL_OFFSET, // 上から下へレベル配置
-            });
+            positions.set(
+              nodeId,
+              placeByDirection(
+                { level, index, count: nodeIds.length, maxLevel },
+                importedDirection,
+                horizontal
+                  ? {
+                      levelGap: LAYOUT_CONSTANTS.LEVEL_WIDTH,
+                      spacing: LAYOUT_CONSTANTS.LEVEL_HEIGHT,
+                      start: LAYOUT_CONSTANTS.VERTICAL_OFFSET,
+                      center: LAYOUT_CONSTANTS.CENTER_OFFSET,
+                    }
+                  : {
+                      levelGap: LAYOUT_CONSTANTS.LEVEL_HEIGHT,
+                      spacing: LAYOUT_CONSTANTS.NODE_SPACING,
+                      start: LAYOUT_CONSTANTS.VERTICAL_OFFSET,
+                      center: LAYOUT_CONSTANTS.CENTER_OFFSET,
+                    }
+              )
+            );
           });
         });
 
@@ -448,6 +472,8 @@ export function FlowEditor() {
 
   return (
     <Box h="var(--lorelei-editor-h, 100vh)" w="full">
+      {/* ノードが接続点の位置を向きに合わせるのに使う */}
+      <DirectionContext.Provider value={direction}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -467,9 +493,12 @@ export function FlowEditor() {
             onImportMermaid={handleImportMermaid}
             nodes={nodes}
             edges={edges}
+            direction={direction}
+            onDirectionChange={setDirection}
           />
         </FlowLayout>
       </ReactFlow>
+      </DirectionContext.Provider>
       {confirmDelete.dialog}
     </Box>
   );

@@ -143,3 +143,23 @@ describe("DownloadModal", () => {
     expect(screen.getByText("生成されたMermaidコード")).toBeInTheDocument();
   });
 });
+
+// spec 07 D1: モーダルの向きはエディタの向き (ただ 1 つの持ち主) を読み書きする
+describe("DownloadModal の向き", () => {
+  test("渡された向きで書き、選び直すとエディタへ知らせる", async () => {
+    const onDirectionChange = vi.fn();
+    const { user } = render(
+      <DownloadModal
+        open
+        onClose={vi.fn()}
+        flowData={{ nodes: [], edges: [] }}
+        direction="LR"
+        onDirectionChange={onDirectionChange}
+      />
+    );
+    expect(mockGenerateMermaidCode).toHaveBeenCalledWith({ nodes: [], edges: [] }, "LR");
+    await user.click(screen.getByRole("button", { name: "図の向き: LR" }));
+    await user.click(await screen.findByRole("menuitem", { name: "RL" }));
+    expect(onDirectionChange).toHaveBeenCalledWith("RL");
+  });
+});

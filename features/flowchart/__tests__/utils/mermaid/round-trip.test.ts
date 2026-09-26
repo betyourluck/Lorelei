@@ -255,3 +255,11 @@ describe("Mermaid round-trip test", () => {
     expect(generatedMermaidDefault).toBe(generatedMermaidTD);
   });
 });
+
+// spec 07 D1: 向きの往復
+describe("Mermaid round-trip の向き", () => {
+  test("LR で書いて読むと LR に戻る", () => {
+    const code = generateMermaidCode({ nodes: [], edges: [] }, "LR");
+    expect(parseMermaidCode(code).direction).toBe("LR");
+  });
+});

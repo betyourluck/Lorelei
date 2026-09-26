@@ -1,12 +1,14 @@
 "use client";
 
-import { Handle, Position } from "@xyflow/react";
+import { Handle, useUpdateNodeInternals } from "@xyflow/react";
 import type { FC } from "@yamada-ui/react";
 import { Box } from "@yamada-ui/react";
 import type { MouseEvent, ChangeEvent, KeyboardEvent } from "react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { handlePositions } from "../../hooks/direction";
 import type { MermaidShapeType } from "../../types/types";
 import { UI_CONSTANTS } from "../../types/types";
+import { useDirection } from "../direction-context";
 import { VariableNameEditor, LabelEditor } from "../editor";
 import { NodeMenu } from "./node-menu";
 
@@ -24,11 +26,16 @@ interface EditableNodeProps {
 }
 
 export const EditableNode: FC<EditableNodeProps> = (props) => {
+  // 接続点は図の向きに合わせる (LR なら入口 左・出口 右)。変わったら xyflow に位置を測り直させる
+  const direction = useDirection();
+  const { target, source } = handlePositions(direction);
+  const updateNodeInternals = useUpdateNodeInternals();
+  useEffect(() => updateNodeInternals(props.id), [direction, props.id, updateNodeInternals]);
   return (
     <>
       <NodeContent {...props} />
-      <Handle type="target" position={Position.Top} />
-      <Handle type="source" position={Position.Bottom} />
+      <Handle type="target" position={target} />
+      <Handle type="source" position={source} />
     </>
   );
 };

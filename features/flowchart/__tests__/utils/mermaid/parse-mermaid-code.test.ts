@@ -604,3 +604,17 @@ describe("parseMermaidCode", () => {
     });
   });
 });
+
+// spec 07 D1: 向きを読む。TD (と同じ意味の TB) の時は持たない (無ければ TD)
+describe("parseMermaidCode の向き", () => {
+  test("flowchart LR / graph RL / flowchart BT は向きを持つ", () => {
+    expect(parseMermaidCode("flowchart LR\n  A --> B").direction).toBe("LR");
+    expect(parseMermaidCode("graph RL\n  A --> B").direction).toBe("RL");
+    expect(parseMermaidCode("flowchart BT\n  A --> B").direction).toBe("BT");
+  });
+
+  test("TD と TB は向きを持たない", () => {
+    expect(parseMermaidCode("flowchart TD\n  A --> B").direction).toBeUndefined();
+    expect(parseMermaidCode("flowchart TB\n  A --> B").direction).toBeUndefined();
+  });
+});

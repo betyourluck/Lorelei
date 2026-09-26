@@ -1,4 +1,5 @@
 import type { MermaidArrowType, MermaidShapeType, GraphType } from "../types/types";
+import { normalizeDirection } from "./direction";
 import type { FlowData } from "./flow-helpers";
 
 /**
@@ -7,6 +8,8 @@ import type { FlowData } from "./flow-helpers";
 export interface ParsedMermaidData {
   nodes: ParsedMermaidNode[];
   edges: ParsedMermaidEdge[];
+  /** 図の向き。TD (と同じ意味の TB) の時は持たない (無ければ TD) */
+  direction?: GraphType;
 }
 
 /**
@@ -287,7 +290,10 @@ export const parseMermaidCode = (mermaidCode: string): ParsedMermaidData => {
     .map((line) => line.trim())
     .filter((line) => line);
 
-  // flowchartヘッダーをスキップ
+  // flowchartヘッダーから向きを読み、ヘッダーはスキップ
+  const header = lines.find((line) => line.startsWith("flowchart") || line.startsWith("graph"));
+  const direction = normalizeDirection(header?.split(/\s+/)[1]);
+  if (direction !== "TD") result.direction = direction;
   const contentLines = lines.filter(
     (line) => !line.startsWith("flowchart") && !line.startsWith("graph")
   );

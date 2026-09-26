@@ -1,54 +1,35 @@
 "use client";
 
-import {
-  ChevronDownIcon,
-  DownloadIcon,
-  ArrowUpIcon,
-  ArrowRightIcon,
-  ArrowLeftIcon,
-  ArrowDownIcon,
-} from "@yamada-ui/lucide";
-import type { Component, IconProps, FC } from "@yamada-ui/react";
-import {
-  Modal,
-  ModalHeader,
-  ModalBody,
-  ModalCloseButton,
-  HStack,
-  Text,
-  Button,
-  useDisclosure,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
-} from "@yamada-ui/react";
+import { DownloadIcon } from "@yamada-ui/lucide";
+import type { FC } from "@yamada-ui/react";
+import { Modal, ModalHeader, ModalBody, ModalCloseButton, HStack, Text, Button } from "@yamada-ui/react";
 import { useCallback, useState, useMemo } from "react";
 import { CopyButton, MermaidHighlight } from "@/components/ui";
 import { ExportButtons } from "@/lib/desktop";
 import type { FlowData } from "../../hooks/flow-helpers";
 import { generateMermaidCode } from "../../hooks/mermaid";
 import type { GraphType } from "../../types/";
+import { DirectionMenu } from "../direction-menu";
 
 interface DownloadModalProps {
   open: boolean;
   onClose: () => void;
   flowData: FlowData;
+  /** エディタの向き (ただ 1 つの持ち主)。渡されなければモーダルの中で選ぶ */
+  direction?: GraphType;
+  onDirectionChange?: (direction: GraphType) => void;
 }
 
-type GraphTypeWithArrow = {
-  type: GraphType;
-  arrow: Component<"svg", IconProps>;
-};
-const graphType: GraphTypeWithArrow[] = [
-  { type: "TD", arrow: ArrowDownIcon },
-  { type: "LR", arrow: ArrowRightIcon },
-  { type: "RL", arrow: ArrowLeftIcon },
-  { type: "BT", arrow: ArrowUpIcon },
-];
-
-export const DownloadModal: FC<DownloadModalProps> = ({ open, onClose, flowData }) => {
-  const [currentGraphType, setCurrentGraphType] = useState<GraphType>("TD");
+export const DownloadModal: FC<DownloadModalProps> = ({
+  open,
+  onClose,
+  flowData,
+  direction,
+  onDirectionChange,
+}) => {
+  const [ownGraphType, setOwnGraphType] = useState<GraphType>("TD");
+  const currentGraphType = direction ?? ownGraphType;
+  const setCurrentGraphType = onDirectionChange ?? setOwnGraphType;
 
   // 現在選択されている方向でMermaidコードを生成
   const currentMermaidCode = useMemo(() => {
@@ -64,8 +45,6 @@ export const DownloadModal: FC<DownloadModalProps> = ({ open, onClose, flowData 
     element.click();
     document.body.removeChild(element);
   }, [currentMermaidCode]);
-
-  const { open: openMenu, onOpen: onOpenMenu, onClose: onCloseMenu } = useDisclosure();
 
   return (
     <Modal open={open} onClose={onClose} size="2xl">
@@ -88,24 +67,7 @@ export const DownloadModal: FC<DownloadModalProps> = ({ open, onClose, flowData 
           </Button>
           <ExportButtons code={currentMermaidCode} fileStem="flowchart" />
 
-          <Menu open={openMenu} onOpen={onOpenMenu} onClose={onCloseMenu}>
-            <MenuButton size="sm" as={Button} rightIcon={<ChevronDownIcon fontSize="xl" />}>
-              {currentGraphType}
-            </MenuButton>
-
-            <MenuList>
-              {graphType.map((graph) => (
-                <MenuItem
-                  key={graph.type}
-                  icon={<graph.arrow />}
-                  bgColor={graph.type === currentGraphType ? "primary.50" : "transparent"}
-                  onClick={() => setCurrentGraphType(graph.type)}
-                >
-                  {graph.type}
-                </MenuItem>
-              ))}
-            </MenuList>
-          </Menu>
+          <DirectionMenu value={currentGraphType} onChange={setCurrentGraphType} />
         </HStack>
       </ModalHeader>
       <ModalCloseButton />
