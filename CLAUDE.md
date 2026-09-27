@@ -76,8 +76,10 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   Rust は `cargo test --workspace`（core / mcp）と `cd src-tauri && cargo test`（GUI の殻、独立 project）
 - **`src-tauri/Cargo.toml` にもルートと同じ `[patch.crates-io]` がある**（独立 project なのでルートの patch が効かない）。
   merman-core の patch を外す時は両方消す
-- **merman-core は `vendor/` の修正版を使っている**（日本語のノード ID を受け付けるため）。
-  上流が同等の修正を出したら消す。経緯は `vendor/merman-core/LORELEI_PATCH.md`、上流 PR は [Latias94/merman#146](https://github.com/Latias94/merman/pull/146)
+- **merman-core は `vendor/` の修正版を使っている**（日本語のノード ID を受け付けるため）。修正は上流に **マージ済み**
+  （[Latias94/merman#146](https://github.com/Latias94/merman/pull/146)、2026-09-24）だが、2026-09-28 時点で crates.io にはまだ入っていない
+  （最新 `0.8.0-alpha.6`）。**新しい版が出たら `merman` の版を上げて写しと patch を消す**。写しはマージ版の意味（mermaid.js の `UNICODE_TEXT` 範囲表、
+  キーワード境界は ASCII）に揃えてある。経緯は `vendor/merman-core/LORELEI_PATCH.md`
 - 同梱フォントのライセンス文は `crates/lorelei_core/fonts/OFL.txt`（google/fonts の ofl/notosansjp から取得）。
   配布物の `licenses/` に同梱し、About（タイトルバーの「?」。spec 02 でネイティブのメニューを撤去）に一覧を出す
 - フォーク元の vitest は、この環境では変更と無関係に 2〜3 件が時間切れで落ちる（failures #3）。

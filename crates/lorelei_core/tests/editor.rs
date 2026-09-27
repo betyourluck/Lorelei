@@ -327,13 +327,28 @@ fn bare_node_ids_are_rectangles_without_a_drop() {
     assert!(dropped.is_empty(), "{dropped:?}");
 }
 
-/// mermaid.js 11.17.2 と同じく、ASCII 以外の数字と句読点は ID に使えない (広げすぎていないことの見張り)。
+/// mermaid.js 11.17.2 と同じく、ASCII 以外の数字・句読点・結合記号・BMP の外の文字は ID に使えない
+/// (広げすぎていないことの見張り。上流 Latias94/merman#146 のマージ版と同じ 4 例)。
 #[test]
 fn fullwidth_digits_and_touten_in_ids_are_rejected_like_mermaid_js() {
     for src in [
         "flowchart TD\n  手順１ --> 手順２\n",
         "flowchart TD\n  開始、 --> 終了\n",
+        "flowchart TD\n  Aͅ --> B\n",
+        "flowchart TD\n  𠀀 --> B\n",
     ] {
         assert!(!validate(src).unwrap().ok, "{src}");
     }
+}
+
+/// mermaid.js 11.17.2 では、ASCII のキーワード・向きの直後に Unicode の文字が来ても語は続かない
+/// (`end開始` は `end` + `開始` で誤り、`TD開始` は向き TD + ノード `開始`)。上流 #146 のマージ版と同じ。
+#[test]
+fn ascii_keyword_boundaries_are_kept_before_unicode_like_mermaid_js() {
+    assert!(!validate("flowchart TD\nend開始 --> B\n").unwrap().ok);
+
+    let (data, dropped) = flow("flowchart TD開始 --> B\n");
+    assert_eq!(data.direction.as_deref(), None, "TD は向きとして読まれる");
+    assert_eq!(node_ids(&data), ["開始", "B"]);
+    assert!(dropped.is_empty(), "{dropped:?}");
 }

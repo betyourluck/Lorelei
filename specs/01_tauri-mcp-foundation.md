@@ -269,8 +269,9 @@ ASCII 英数字と `_` しか ID に取らないバイト単位の実装であ�
 - ラベル（`A[開始]`）と ER のエンティティ名・属性名の日本語は問題ない（テストで確認済み）
 
 **対応（案 A）**: `vendor/merman-core/`（`merman-core 0.8.0-alpha.6` の写し）の字句解析を直し、`[patch.crates-io]` で
-差し替えた。ASCII 以外の文字は `char::is_alphabetic()` なら ID に含める。全角数字・読点は mermaid.js と同じく拒否する
-（本家で確認）。修正内容・上流向けの差分・PR の下書きは `vendor/merman-core/LORELEI_PATCH.md`。**上流 PR: Latias94/merman#146**（2026-09-24）。
+差し替えた。ASCII 以外の文字は mermaid.js 11.17.2 の `UNICODE_TEXT` 範囲表に入っていれば ID に含める（初稿は `char::is_alphabetic()`。
+上流の査読で範囲表に置き換わり、2026-09-28 に写しも揃えた）。全角数字・読点・結合記号・BMP 外は mermaid.js と同じく拒否する（本家で確認）。
+修正内容と経緯は `vendor/merman-core/LORELEI_PATCH.md`。**上流 PR: Latias94/merman#146**（2026-09-24 提出、同日マージ。crates.io の次版待ち）。
 残る差: 全角スペースを区切りに使う書き方（本家は受け付ける）と、字句エラーで行番号が返らない件は別件。
 
 ### 変換器（D5'）の実装で分かった merman の出力の癖
@@ -356,7 +357,8 @@ ASCII 英数字と `_` しか ID に取らないバイト単位の実装であ�
   利用者の構想「ER 図の変更から DB の変更を指示する」（spec 04 候補。spec 02 → 03 → 04 と繰り下げ）では、これが差分の誤検出（触っていない FK が削除に見える）に直結する
 - 読み戻し（人が直した図を AI への指示として渡す）— spec 04 候補（spec 02 → 03 → 04 と繰り下げ）
 - 正式なアイコン、lefthook のフックを入れるか、第三者ライセンス一覧（cargo-about 等）、配布（署名・インストーラー）
-- merman 上流 PR（Latias94/merman#146）の取り込み待ち。取り込まれたら vendor と 2 か所の patch を消す
+- merman 上流 PR（Latias94/merman#146）は 2026-09-24 にマージ済み。crates.io に `0.8.0-alpha.6` より新しい版が出たら `merman` の版を上げ、
+  vendor と 2 か所の patch を消す（2026-09-28 時点で未リリース。写しはマージ版の意味に揃えた）
 
 ## スコープ外
 

@@ -3,31 +3,41 @@
 この `vendor/merman-core/` は crates.io の `merman-core 0.8.0-alpha.6` の写し（上流:
 https://github.com/Latias94/merman 、MIT OR Apache-2.0）。ルートの `Cargo.toml` の
 `[patch.crates-io]` で差し替えている。**`src-tauri/Cargo.toml` にも同じ patch がある**（独立 project なのでルートの patch が効かない）。
-**上流が同等の修正を含む版を出したら、この写しと両方の patch を消す。**
+
+**修正は上流にマージ済み（[Latias94/merman#146](https://github.com/Latias94/merman/pull/146)、2026-09-24、`d61d92c`）。
+crates.io に `0.8.0-alpha.6` より新しい版が出たら、`Cargo.toml` の `merman` の版を上げ、この写しと両方の patch を消す。**
+2026-09-28 時点で crates.io の最新は `0.8.0-alpha.6`（09-02 公開）のままで、マージ版を含む版はまだ無い。
+上流 main を git 依存で指す案は採らなかった（alpha.6 から 70 コミット先で、#120 の flowchart parity など 300 ファイルの未検証の変更が入るため）。
 
 無改変の写しは `dd4cca1`。そこからの差分が下の修正のすべて（`git diff dd4cca1 -- vendor/`）。
 
-## 1. flowchart のノード ID に ASCII 以外の文字を許す（2026-09-24）
+## 1. flowchart のノード ID に ASCII 以外の文字を許す（2026-09-24、2026-09-28 に上流のマージ版へ揃えた）
 
 - **症状**: `flowchart TD\n  開始 --> 終了` が `Unexpected character at 15` で失敗する。
   mermaid.js 11.17.2（merman が追従する版）は受け付ける。
-- **原因**: `src/diagrams/flowchart/lexer.rs` の `lex_id` / `lex_edge_id` / `starts_with_kw` /
-  `lex_direction` が、ID の文字を ASCII 英数字と `_`（`-`）のバイトだけで判定していた。
-- **修正**: ASCII 以外の文字は `char::is_alphabetic()` なら ID に含める（1 文字単位で進める）。
-  漢字・かな・長音記号 `ー`・アクセント付きラテン文字が通る。**数字（全角 `１`）と句読点（`、`）は通さない** —
-  mermaid.js 11.17.2 で両方ともエラーになることを確認したため（2026-09-24、jsDelivr の ESM を `mermaid.parse`）。
-- **テスト**: Lorelei 側は `crates/lorelei_core/tests/editor.rs` の `japanese_*` と
-  `fullwidth_digits_and_touten_in_ids_are_rejected_like_mermaid_js`。
-  上流側は `patches/0001-flowchart-unicode-node-ids.upstream-main.patch` に含まれる 2 本
-  （修正を外すと 1 本目が落ちる = Red を確認済み。上流 main `54d257aa` で merman-core の全テストが緑）。
+- **原因**: `src/diagrams/flowchart/lexer.rs` の `lex_id` / `lex_edge_id`（と shape data `A@{...}` の ID の先読み）が、
+  ID の文字を ASCII 英数字と `_`（`-`）のバイトだけで判定していた。
+- **修正**: mermaid.js 11.17.2 の `UNICODE_TEXT` トークンの範囲表（BMP の区間 300 余り）を `MERMAID_UNICODE_TEXT_RANGES` として持ち、
+  ASCII 以外の文字はその表に入っていれば ID に含める（1 文字単位で進める）。漢字・かな・長音記号 `ー`・`々`・アクセント付きラテン文字が通る。
+  **通さないもの**: 全角数字 `１`、句読点 `、`、結合記号（`Aͅ`）、BMP の外の文字（`𠀀`）— mermaid.js 11.17.2 がどれもエラーにするため。
+- **キーワード・向きの境界は ASCII のまま**: `end開始` は `end` + `開始` で誤り、`flowchart TD開始` は向き TD + ノード `開始`
+  （mermaid.js と同じ）。初稿では境界の判定も Unicode へ広げていて（`continues_word`）、ここが mermaid.js と食い違っていた（下の「経緯」）。
+- **テスト**: `crates/lorelei_core/tests/editor.rs` の `japanese_*`、`fullwidth_digits_and_touten_in_ids_are_rejected_like_mermaid_js`（4 例）、
+  `ascii_keyword_boundaries_are_kept_before_unicode_like_mermaid_js`。上流の 3 本（`parse_diagram_flowchart_accepts_non_ascii_node_ids` /
+  `..._rejects_non_ascii_digits_and_punctuation_in_ids` / `..._preserves_ascii_keyword_boundaries_before_unicode`）と同じ入力。
+  GUI の殻の側は `src-tauri` の `japanese_node_ids_are_accepted_in_the_gui_build`（patch が効いていることの見張り）。
 
-### 上流の状況
+### 経緯
 
-- 上流 main（`54d257aa`、2026-09-24 時点）でも `lex_id` は ASCII のみ。`lex_edge_id` だけは既に
-  Unicode 対応に書き換わっているので、**上流向けの差分は `lex_edge_id` を含まない**（`patches/` の方）。
-- 関連 issue は無い（"unicode OR japanese OR CJK OR non-ascii" で検索）。
-- **PR: https://github.com/Latias94/merman/pull/146**（2026-09-24 提出、betyourluck/merman の `fix/flowchart-unicode-node-ids`）。
-  提出前に同種の PR / issue が無いことを全件（PR 118・issue 27、状態不問）で確認。本文は利用者の査読を経て修正済み。
+- 2026-09-24: `char::is_alphabetic()` で判定する初稿を写しに当て、同じ内容を上流に PR #146 として提出（betyourluck/merman の
+  `fix/flowchart-unicode-node-ids`。提出前に同種の PR / issue が無いことを全件で確認）。
+- 2026-09-24: 上流の Latias94 が 1 コミット足して（`fix(flowchart): match Mermaid Unicode token boundaries`）マージ。
+  `is_alphabetic()` を mermaid.js の範囲表に置き換え、境界のテストを追加した。マージ版の lexer の差分は `lex_id` だけ
+  （上流 main は #120 で `lex_edge_id` と境界の判定が既に書き換わっている）。
+- 2026-09-28: 写しで実測して 4 つの食い違い（`end開始` / `TD開始` / `Aͅ` / `𠀀` を写しは通す）を確認し、写しをマージ版の意味に揃えた。
+  写しは alpha.6 なので上流のファイルをそのまま置けず、範囲表と `non_ascii_id_char_len` を移し、境界の判定を alpha.6 の元のバイト判定に戻した
+  （UTF-8 の先頭バイトは英数字でないので、元の判定がそのまま「Unicode の文字は語を続けない」になる）。
+  上流向けの差分ファイル `patches/` はマージ済みなので消した。
 
 ### 残っている差（今回の修正の範囲外）
 
@@ -35,33 +45,4 @@ https://github.com/Latias94/merman 、MIT OR Apache-2.0）。ルートの `Cargo
   `skip_ws` は `' '` `\t` `\r` しか飛ばさない。ID の修正とは別の処理なので別件。
 - **このエラーは行番号を失う**: 字句解析のエラーは生成時に span を持つが、`Engine::parse_diagram_sync` の
   戻り値では `span: None` になっている。validate が行番号を返せない。別件として上流に報告する候補。
-- `char::is_alphabetic()` は Unicode の Alphabetic 属性で、mermaid.js の `UNICODE_TEXT`（文字カテゴリ L*）より
-  わずかに広い（結合記号の一部など）。日本語の範囲では差は無い。
-
-## 上流へ出した PR の本文（提出版は #146 を正とする。下は初稿）
-
-**Title**: `fix(flowchart): accept non-ASCII letters in node ids`
-
-**Body**:
-
-> Mermaid's flowchart lexer accepts `UNICODE_TEXT` in node ids, so diagrams such as
->
-> ```mermaid
-> flowchart TD
->   開始 --> 終了
-> ```
->
-> parse in mermaid@11.17.2, but merman rejects them with `Unexpected character at 15`: `lex_id`
-> (and the keyword/direction boundary checks) only treat ASCII alphanumerics and `_` as id characters.
->
-> This PR lets a non-ASCII character continue an id when `char::is_alphabetic()` holds, stepping by
-> whole characters. Non-ASCII digits (`１`) and punctuation (`、`) are still rejected — mermaid@11.17.2
-> rejects both as well (checked with `mermaid.parse` from the jsDelivr ESM build). `lex_edge_id` is
-> already Unicode-aware on main and is unchanged.
->
-> Tests: `parse_diagram_flowchart_accepts_non_ascii_node_ids` (fails without the lexer change) and
-> `parse_diagram_flowchart_rejects_non_ascii_digits_and_punctuation_in_ids`. `cargo test -p merman-core`
-> is green locally (Windows).
->
-> Not addressed here: U+3000 as a separator (mermaid accepts it via JS `\s`), and the lexer error's
-> span being dropped before it reaches `parse_diagram_sync` callers.
+- 範囲表の CJK 統合漢字は `U+4E00..U+9FCC`（mermaid.js の表のまま）。`U+9FCD` 以降に後から足された漢字は通らないが、実用上は出会わない。

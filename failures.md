@@ -134,3 +134,19 @@
 - **処方 2**: テスト用に `clearPendingOpens` を出し、`beforeEach` で呼ぶ。
 - **一般化**: 「単独なら通る・並べると落ちる」は、テストの間で共有された状態を先に疑う（モジュールの変数・localStorage・フェイクのバックエンド）。
   「DOM にあるのに見つからない」は、アクセシビリティの計算（隠れた要素・名前）を疑う。
+
+## #12 「本家に合わせる」修正を、本家の定義ではなく手近な標準関数で書いたら、本家より広く通していた（2026-09-28, merman#146 のマージ後）
+
+- **症状**: 日本語のノード ID を通す修正（`vendor/merman-core`、上流 PR Latias94/merman#146）が、上流ではメンテナの追加コミットで別の実装に置き換わってマージされた。
+  写しで実測すると、mermaid.js 11.17.2 が拒む 4 つの入力（`end開始`・`flowchart TD開始`・結合記号 `Aͅ`・BMP 外の `𠀀`）を Lorelei の validate は通していた。
+- **真因**: 2 つ。(1) 「Unicode の文字」の判定に `char::is_alphabetic()` を使った。mermaid.js の `UNICODE_TEXT` は BMP の範囲表で、
+  Alphabetic 属性より狭い（結合記号・補助面を含まない）。「日本語の範囲では差は無い」と書いて済ませたが、Lorelei の役目は AI の書いた Mermaid の検査なので、
+  本家が拒むものを通すこと自体がズレ。(2) ID を広げるついでに、キーワード・向きの境界の判定（`starts_with_kw` / `lex_direction`）も Unicode へ広げた。
+  元のバイト判定は UTF-8 の先頭バイトを「語を続けない」と扱っていて、実はそのまま本家と同じだった。直す必要のない所を「一貫性」のために直して食い違いを作った。
+- **処方**: 上流の範囲表 `MERMAID_UNICODE_TEXT_RANGES` を写しに移し、境界の判定は元に戻した。上流の 3 本のテストと同じ入力を
+  `crates/lorelei_core/tests/editor.rs` に置いて Red → Green（`fullwidth_digits_and_touten_in_ids_are_rejected_like_mermaid_js` に 2 例追加、
+  `ascii_keyword_boundaries_are_kept_before_unicode_like_mermaid_js` を新設）。経緯は `vendor/merman-core/LORELEI_PATCH.md`。
+- **一般化**: 「本家 X に合わせる」修正は、X の**定義そのもの**（トークンの範囲表・正規表現）を持ち込む。標準ライブラリの近い関数で代用すると、
+  境目の入力で本家と食い違い、その差は「実用上は出会わない」と自分で赦してしまう。触る範囲は症状を再現する最小にとどめ、
+  「ついでに揃える」箇所は本家の振る舞いを 1 例ずつ確かめてから。上流に PR を出した修正は、**マージ版が自分の版と同じかを差分で確かめる**
+  （査読で書き換わることがある）。

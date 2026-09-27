@@ -79,7 +79,8 @@ MCP サーバーは **Lorelei の窓の中**で動きます（`127.0.0.1:39642/m
   MCP の戻り値と GUI の通知でその件数を知らせます（描画・書き出しは省かずに行います）
 - 長いラベルの折り返しで、行頭に「、」が来ることがあります（禁則処理がありません）
 - Mermaid の描画には [merman](https://github.com/Latias94/merman) を使っています。日本語などのノード ID を受け付けるよう修正した版を
-  同梱しています（[vendor/merman-core/LORELEI_PATCH.md](vendor/merman-core/LORELEI_PATCH.md)、上流へ提出済み: Latias94/merman#146）
+  同梱しています（[vendor/merman-core/LORELEI_PATCH.md](vendor/merman-core/LORELEI_PATCH.md)。修正は上流にマージ済み: Latias94/merman#146。
+  crates.io に新しい版が出たら同梱をやめます）
 
 ## ライセンス
 
