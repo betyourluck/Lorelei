@@ -1,14 +1,13 @@
 // MCP の open_in_editor → GUI へ届く「開く図」(src-tauri の OpenRequest, spec 01 D5' / D8)。
 // 振り分けと表示用の文言は純粋関数に分け、vitest で固定する。
 
+import type { DroppedItem } from "@/components/ui/mermaid-dropped";
 import type { DocumentSummary } from "./documents";
 
-export type EditorKind = "flowchart" | "erDiagram";
+// 取り込むと消える要素の型と言葉は、インポートの警告と共通にした (spec 11 D4。フォーク元の側 components/ui/mermaid-dropped.ts)
+export { describeDropped, type DroppedItem } from "@/components/ui/mermaid-dropped";
 
-export interface DroppedItem {
-  construct: string;
-  count: number;
-}
+export type EditorKind = "flowchart" | "erDiagram";
 
 export interface OpenRequest {
   source: string;
@@ -45,37 +44,3 @@ export const partitionOpens = (requests: OpenRequest[], editor: EditorKind): Par
   }
   return result;
 };
-
-const LABELS: Record<string, string> = {
-  subgraph: "サブグラフ",
-  edge_to_subgraph: "サブグラフへの矢印",
-  classDef: "classDef",
-  class: "class 指定",
-  style: "style 指定",
-  click: "click",
-  tooltip: "ツールチップ",
-  edge_length: "矢印の長さ指定",
-  accessibility: "アクセシビリティ情報",
-  alias: "別名",
-  attribute_comment: "属性のコメント",
-  fk: "FK",
-  non_identifying: "非識別関係 (点線)",
-  cardinality_unsupported: "未対応のカーディナリティ",
-};
-
-/** エディタで表現できず失われた要素を、人が読める 1 行にする。例: "サブグラフ ×2、style 指定 ×1" */
-export const describeDropped = (dropped: DroppedItem[]): string =>
-  dropped
-    .map(({ construct, count }) => {
-      const [kind, detail] = construct.split(":");
-      const label =
-        kind === "shape"
-          ? `形 ${detail}`
-          : kind === "edge"
-            ? `矢印 ${detail}`
-            : kind === "direction"
-              ? `向き ${detail}`
-              : (LABELS[kind] ?? construct);
-      return `${label} ×${count}`;
-    })
-    .join("、");
