@@ -11,6 +11,8 @@
 
 # next.js
 /.next/
+# Tauri の dev の作業場所 (build の .next と分ける, failures #15)
+/.next-tauri-dev/
 
 # production
 /build

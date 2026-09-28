@@ -15,6 +15,8 @@ export default tseslint.config(
     ignores: [
       "node_modules/**",
       ".next/**",
+      ".next-tauri-dev/**",
+      "out/**",
       "docs/**",
       "dist/**",
       "build/**",

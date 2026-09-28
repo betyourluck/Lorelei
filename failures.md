@@ -184,13 +184,20 @@
   (3) 1 回目の `tauri build` が `Cannot find module for page: /_document`（PageNotFoundError）で落ちた
 - **真因**: (1) Tauri は配る HTML の inline script のハッシュを `script-src` に自動で足す（止めているのは style-src だけ, #2）。自前の配信はそれをしていなかった。
   (2) `.next` に本番ビルドの `BUILD_ID`・`export-marker.json`（1 回目の `tauri build` の時刻）と PoC の型が残っていた = **どちらのビルドも `next dev` と同じ `.next` に書いた**。
-  `next.config.mjs` は Tauri の本番なら distDir を `out` にするつもりの枝を持つが、そこに入っていない。Next の bin は `NODE_ENV` が空なら production にしてから動くので、**入らない理由は突き止めていない**。
-  静的書き出しは distDir と別に `out/` へ出る。(3) P0 のビルドが残した `out/` を消して作り直したら通った（1 回の観測。2 回目のビルドの書き先は確かめていない）
+  **2026-09-29 に突き止めた**: 設定の枝は正しく `out` を選んでいた（Next の設定の読み込みが `distDir: "out"` を返すのを実測）。ところが Next 14.1 は
+  `output: "export"` かつ `distDir !== ".next"` の時、**`distDir` を書き出し先と読み替え、作業場所を `.next` に固定する**（`next/dist/export/utils.js` の `hasCustomExportOutput`、
+  `build/index.js` と `build/webpack-config.js` の両方で `config.distDir = ".next"`）。webpack の側は dev にも効くので、`output: "export"` のままでは dev と build が必ず `.next` を共有する。
+  再現: `TAURI_ENV_PLATFORM` 付きで `next dev` を起動 → dev のページのチャンク 7 つ中 0 が 404 → そのまま `next build` → 7 つ中 5 つが 404。
+  (3) P0 のビルドが残した `out/` を消して作り直したら通った（1 回の観測。なぜ残った `out/` で落ちたのかは突き止めていない）
 - **処方**: (1) CSP を真似て配る時は、HTML の inline script ごとに `'sha256-…'` を `script-src` へ足す（spec 09 P0 は node の小さな配信スクリプトでそうした）。確かめの本番は配布ビルドの exe。
-  (2) **`tauri dev` を動かしている間は `next build` / `tauri build` を走らせない**。走らせたら `tauri dev` を止め、`.next` を消してから起動し直す。
+  (2) **2026-09-29 に仕組みで防いだ**: `next.config.mjs` は Tauri の dev（`TAURI_ENV_PLATFORM` あり・production でない）の時だけ `output` を外し、作業場所を `.next-tauri-dev` にする
+  （dev に静的書き出しは要らない）。同じ再現の手順で、build の後も dev のチャンクは 7 つ中 0 が 404 のまま（Green）。`.gitignore` と eslint の除外にも足した。
+  Tauri を通さない Web 版の `next dev` は今までどおり `.next`（build と共有する。Web 版の開発で同時に build する時は同じ注意が要る）。
   (3) `/_document` の PageNotFoundError が出たら、`out/` を消して作り直す
 - **一般化**: 作業の途中で走らせる「確かめのビルド」は、**動いている開発サーバーと書き先を共有していないか**を先に見る（Next は distDir を dev と build で共有しうる）。
   設定の枝（`isTauri && NODE_ENV === "production"`）に入ったつもりでも、書き先は実際に出来たファイルの時刻で確かめる。
+  **設定の値が正しく解決されても、フレームワークがその値を後段で読み替えることがある**（今回の `distDir`）。「枝に入らない」と「入った値が読み替えられた」は、
+  設定の読み込みの結果を直接見れば 1 手で分けられる。
   借りた環境の振る舞い（CSP の自動追記）を真似る時は、その環境が**黙って足しているもの**まで数える
 
 ## #16 PowerShell から corepack の pnpm と git に渡した引数が、黙って別の意味になった（2026-09-28, spec 09・10）

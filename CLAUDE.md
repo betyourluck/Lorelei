@@ -64,7 +64,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   古い色付けの部品と依存 5 つを撤去。P0〜P4 着地（P4 は配布ビルド）。PowerShell からの pnpm・git の罠は failures #16
 - 2026-09-28: [spec 09](specs/09_code-preview.md) **Done** — rev2（「コード生成」のダイアログを 90%×85% に広げ、左にコード・右に mermaid.js で描いたプレビュー。
   mermaid は **11.17.2 に固定**（書き出しの merman と同じ版。12 は既定の配置が ELK・配色が neo に変わる）、ダイアログを開くまで読み込まない。プレビューと書き出しは描き手が違い一致しない — LORELEI.md 既知の制約）。
-  P0〜P2 着地（P2 は配布ビルド）。**`tauri dev` を動かしたまま `next build` / `tauri build` を走らせると `.next` を共有して dev が壊れる**（failures #15）
+  P0〜P2 着地（P2 は配布ビルド）。`tauri dev` を動かしたまま build すると dev が壊れた件（failures #15）は、2026-09-29 に真因（Next が `output: "export"` の時 `distDir` を書き出し先と読み替え、
+  作業場所を `.next` に固定する）を突き止め、**Tauri の dev は `output` を外して `.next-tauri-dev` を使う**ようにした（`next.config.mjs`）
 - 2026-09-28: [spec 08](specs/08_update-diagram.md) **Done** — rev2（AI が既存の図を書き換える `update_diagram`。AI は `expected_updated_at`、GUI の自動保存は `base_updated_at` の楽観ロック、
   開いている図は載せ替え、揃え書きは `normalize_pending` で `updated_at` を進めない、初期図の保険は `first_fill` の時だけ、書き換え前は `history/` に 1 世代）。P0〜P3 着地（P3 は `tauri dev`。配布ビルドでの往復と起動直後の画面の目視は未確認のまま閉じた — spec 08「P3 結果」）。
   P3 で起動直後の載せ替えが捨てられる不具合（failures #13。spec 04 現況 4 の 2 件目と同じ顔）を直した。テストの罠は failures #14
