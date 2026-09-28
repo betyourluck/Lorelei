@@ -122,9 +122,9 @@ mod tests {
         assert!(!before.summary.open);
 
         // エディタに載って最初の自動保存 (利用者の変更ではないので unsaved にならない)、その後に人が直す
-        s.save(&d.id, "flowchart TD\n    受付[受付]\n".into(), BTreeMap::new()).unwrap();
+        s.save(&d.id, "flowchart TD\n    受付[受付]\n".into(), BTreeMap::new(), &s.load(&d.id).unwrap().updated_at).unwrap();
         assert!(!read(&s, Some(d.id.clone())).unwrap().summary.unsaved);
-        s.save(&d.id, "flowchart TD\n    受付[受付]\n    検品[検品]\n".into(), BTreeMap::new()).unwrap();
+        s.save(&d.id, "flowchart TD\n    受付[受付]\n    検品[検品]\n".into(), BTreeMap::new(), &s.load(&d.id).unwrap().updated_at).unwrap();
         s.set_last_opened(&d.id).unwrap();
         let after = read(&s, None).unwrap();
         assert_eq!(after.summary.id, d.id);

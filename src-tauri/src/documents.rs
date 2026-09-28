@@ -5,8 +5,10 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard};
 
-use chrono::{Local, SecondsFormat};
+use chrono::{DateTime, Local, SecondsFormat};
+use lorelei_mcp::{EditorKind, UpdateError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,6 +51,9 @@ pub struct Document {
     /// 利用者が「保存」を押した時刻 (spec 02 D12)。一覧の並びはこれ (無ければ created_at) で決まる
     #[serde(default)]
     pub saved_at: Option<String>,
+    /// update_diagram が立てる印 (spec 08 D1)。次の save は揃え書きなので updated_at を進めず、印を消す。古いファイルに無ければ false
+    #[serde(default)]
+    pub normalize_pending: bool,
 }
 
 impl Document {
@@ -100,6 +105,15 @@ struct DocumentState {
 
 pub struct Store {
     pub root: PathBuf,
+}
+
+/// load → write を囲む、プロセスで 1 つの鍵 (data_contract `Document.store_lock`)。Store は呼ぶたび作られるので static。
+/// MCP の update は spawn_blocking、自動保存は Tauri の command で、別スレッドから同じファイルに来る
+static STORE_LOCK: Mutex<()> = Mutex::new(());
+
+fn lock() -> MutexGuard<'static, ()> {
+    // 鍵を持ったまま panic したテストがあっても、後の呼び手を巻き込まない
+    STORE_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 impl Store {
@@ -158,6 +172,7 @@ impl Store {
             created_at: now.clone(),
             updated_at: now,
             saved_at: None,
+            normalize_pending: false,
         };
         self.write(&doc)?;
         Ok(doc)
@@ -172,37 +187,91 @@ impl Store {
         read_doc(&self.doc_path(id)?)
     }
 
-    /// 自動保存。書き換えるのは source と layout だけ。title / editor / origin / original_source は触らない。
-    /// 中身が同じなら書かない (図を開いただけで「変更あり」にしない)。source が空だった図の最初の書き込み
-    /// (新規作成の初期図・AI / インポートで届いた図がエディタに載った時) は利用者の変更ではないので updated_at を進めない
-    pub fn save(&self, id: &str, source: String, layout: Layout) -> Result<DocumentSummary, String> {
+    /// 自動保存。書き換えるのは source と layout だけ。title / editor / origin / original_source は触らない (update だけが触る)。
+    /// 中身が同じなら書かない (図を開いただけで「変更あり」にしない)。ただし normalize_pending を消す時は書く。
+    /// updated_at を進めない書き込みは 2 つ — source が空だった図の最初の書き込み (first_fill: 新規作成の初期図・
+    /// AI / インポートで届いた図がエディタに載った時) と、update の後の最初の書き込み (揃え書き。印が立っている) — で、
+    /// どちらか 1 回だけ (update は source を非空にするので重ならない)。
+    /// base_updated_at はフロントが読んだ版 (spec 08 D2)。ファイルが進んでいれば STALE_BASE で拒む
+    pub fn save(
+        &self,
+        id: &str,
+        source: String,
+        layout: Layout,
+        base_updated_at: &str,
+    ) -> Result<DocumentSummary, String> {
+        let _lock = lock();
         // ごみ箱へ移した・消えた図への書き込みは、書き直しても通らない。フロントが見分けて捨てる印を付ける
         if !self.contains(id) {
             return Err(format!("{DOCUMENT_GONE}: 図が一覧にありません（ごみ箱へ移したか、消えました）"));
         }
         let mut doc = self.load(id)?;
-        // 保険 (spec 04 D4-2): AI / インポートの図を、エディタの初期図で潰さない。止めるのは門の漏れの 1 つの形
-        // (空への最初の書き込み) だけで、初期図の上で編集された形は止まらない — そちらはフロントの門が受け持つ
-        if doc.origin != Origin::New && source == initial_source(doc.editor) {
+        // 古い版を添えた書き込み (走り出した古い保存・別の図を開く途中に来た update の後の保存) は届かせない。今の値を載せる
+        if !same_instant(base_updated_at, &doc.updated_at) {
+            return Err(format!("{STALE_BASE}: {}", doc.updated_at));
+        }
+        let first_fill = doc.source.is_empty();
+        // 保険 (spec 04 D4-2、spec 08 D1 で first_fill の時だけに絞った): AI / インポートの図を、空への最初の書き込みで
+        // エディタの初期図で潰さない (現況 4 の 1 件目の形)。中身のある図の上書きは保険の外 (門が受け持つ)
+        if first_fill && doc.origin != Origin::New && source == initial_source(doc.editor) {
             return Err(format!(
                 "{INITIAL_FIGURE_REJECTED}: AI やインポートで届いた図を、エディタの初期図で上書きしかけたので止めました"
             ));
         }
-        if doc.source == source && doc.layout == layout {
+        let normalizing = doc.normalize_pending;
+        if doc.source == source && doc.layout == layout && !normalizing {
             return Ok((&doc).into());
         }
-        let first_fill = doc.source.is_empty();
         doc.source = source;
         doc.layout = layout;
-        if !first_fill {
+        if normalizing {
+            doc.normalize_pending = false;
+        } else if !first_fill {
             doc.updated_at = now();
         }
         self.write(&doc)?;
         Ok((&doc).into())
     }
 
+    /// update_diagram の書き込み (spec 08 D1、data_contract `Document.update`)。届いた Mermaid で中身を丸ごと差し替える。
+    /// 書くのは source (そのまま) / original_source (同じ) / updated_at (今) / normalize_pending (true)。他は変えない。
+    /// 書く前に history/{id}.json へ 1 世代写す。断った時は何も書かない
+    pub fn update(
+        &self,
+        id: &str,
+        source: String,
+        editor: Editor,
+        expected_updated_at: &str,
+    ) -> Result<Document, UpdateError> {
+        let _lock = lock();
+        if !self.contains(id) {
+            return Err(UpdateError::NotFound);
+        }
+        let mut doc = self.load(id).map_err(UpdateError::Other)?;
+        if doc.editor != editor {
+            return Err(UpdateError::KindMismatch {
+                actual: editor_kind(doc.editor),
+            });
+        }
+        if !same_instant(expected_updated_at, &doc.updated_at) {
+            return Err(UpdateError::Conflict {
+                current_updated_at: doc.updated_at,
+            });
+        }
+        let kept = serde_json::to_vec_pretty(&doc).map_err(|e| UpdateError::Other(e.to_string()))?;
+        write_atomic(&self.root.join("history").join(format!("{id}.json")), &kept)
+            .map_err(|e| UpdateError::Other(format!("書き換え前の図を残せません: {e}")))?;
+        doc.original_source = Some(source.clone());
+        doc.source = source;
+        doc.updated_at = now();
+        doc.normalize_pending = true;
+        self.write(&doc).map_err(UpdateError::Other)?;
+        Ok(doc)
+    }
+
     /// 利用者が「保存」を押した (D12)。一覧の先頭へ動き、● が消える
     pub fn mark_saved(&self, id: &str) -> Result<DocumentSummary, String> {
+        let _lock = lock();
         let mut doc = self.load(id)?;
         doc.saved_at = Some(now());
         self.write(&doc)?;
@@ -211,13 +280,15 @@ impl Store {
 
     /// 名前を変える。並びも ● も動かさない
     pub fn rename(&self, id: &str, title: String) -> Result<(), String> {
+        let _lock = lock();
         let mut doc = self.load(id)?;
         doc.title = title;
         self.write(&doc)
     }
 
-    /// 物理削除しない。documents/ の外 (trash/) へ移すので一覧に出なくなる
+    /// 物理削除しない。documents/ の外 (trash/) へ移すので一覧に出なくなる。history/ は動かさない
     pub fn trash(&self, id: &str) -> Result<(), String> {
+        let _lock = lock();
         let from = self.doc_path(id)?;
         let dir = self.root.join("trash");
         std::fs::create_dir_all(&dir).map_err(|e| format!("ごみ箱を作れません: {e}"))?;
@@ -274,6 +345,25 @@ fn now() -> String {
     Local::now().to_rfc3339_opts(SecondsFormat::Micros, false)
 }
 
+/// RFC 3339 を時刻として解釈して同じ瞬間か (表記の違いは吸収、丸めた値は別の瞬間)。読めなければ違う扱い
+fn same_instant(a: &str, b: &str) -> bool {
+    match (DateTime::parse_from_rfc3339(a), DateTime::parse_from_rfc3339(b)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    }
+}
+
+/// MCP の型 (lorelei_mcp::EditorKind) へ。値は serde の名前と同じ
+pub fn editor_kind(e: Editor) -> EditorKind {
+    match e {
+        Editor::Flowchart => EditorKind::Flowchart,
+        Editor::ErDiagram => EditorKind::ErDiagram,
+    }
+}
+
+/// `save` の base_updated_at がファイルの updated_at と違う時のエラーの頭。後ろに今の updated_at を載せる (spec 08 D2)
+pub const STALE_BASE: &str = "STALE_BASE";
+
 /// `save` の相手の図が一覧に無い時のエラーの頭 (フロントはこれで見分けて、その書き込みを捨てる)
 pub const DOCUMENT_GONE: &str = "DOCUMENT_GONE";
 
@@ -309,6 +399,12 @@ mod tests {
         Store::new(root)
     }
 
+    /// 自動保存の形: 今のファイルの updated_at を base に添える (spec 08 D2)。無い図は空の base
+    fn sv(s: &Store, id: &str, source: &str, layout: Layout) -> Result<DocumentSummary, String> {
+        let base = s.load(id).map(|d| d.updated_at).unwrap_or_default();
+        s.save(id, source.into(), layout, &base)
+    }
+
     // spec 04 D4-2: AI の図がエディタの初期図で潰れた (現況 4)。門が漏れても保存の手前で止める保険
     #[test]
     fn an_ai_or_imported_diagram_is_not_overwritten_by_the_initial_figure() {
@@ -322,30 +418,157 @@ mod tests {
             .create(Editor::ErDiagram, None, Origin::Import, Some("erDiagram\n  会員 {\n  }\n".into()))
             .unwrap();
 
-        // 空の source への最初の書き込み (1 件目の形) も、中身のある source の上書きも拒む
-        let err = s.save(&ai.id, flow.into(), BTreeMap::new()).unwrap_err();
+        // 空の source への最初の書き込み (1 件目の形) だけを拒む (spec 08 D1 で絞った)。中身のある source の上書きは、
+        // 人が手で初期図と同じ図を作った場合や update_diagram の後の揃え書きで、拒まない
+        let err = sv(&s, &ai.id, flow, BTreeMap::new()).unwrap_err();
         assert!(err.starts_with("INITIAL_FIGURE_REJECTED"), "{err}");
-        s.save(&ai.id, "flowchart TD\n    受付[受付]\n".into(), BTreeMap::new()).unwrap();
-        assert!(s.save(&ai.id, flow.into(), BTreeMap::new()).is_err());
-        assert_eq!(s.load(&ai.id).unwrap().source, "flowchart TD\n    受付[受付]\n");
-        assert!(s.save(&imported.id, er.into(), BTreeMap::new()).is_err());
+        sv(&s, &ai.id, "flowchart TD\n    受付[受付]\n", BTreeMap::new()).unwrap();
+        sv(&s, &ai.id, flow, BTreeMap::new()).unwrap();
+        assert_eq!(s.load(&ai.id).unwrap().source, flow);
+        assert!(sv(&s, &imported.id, er, BTreeMap::new()).is_err());
         assert_eq!(s.load(&imported.id).unwrap().source, "");
 
         // 新規作成の図は初期図で始まるのが正しい
         let new = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
-        s.save(&new.id, flow.into(), BTreeMap::new()).unwrap();
+        sv(&s, &new.id, flow, BTreeMap::new()).unwrap();
         // 種類の違う初期図は対象外 (その種類の初期図だけを拒む)
-        s.save(&ai.id, er.into(), BTreeMap::new()).unwrap();
+        sv(&s, &ai.id, er, BTreeMap::new()).unwrap();
     }
 
     // 2026-09-25 実機で観測: ごみ箱へ移した図が「今の図」に残り、その自動保存が「図を読めません」で失敗し続け、
     // 「保存できなければ切り替えない」に掛かって図を移れなくなった。フロントが見分けて捨てられるよう印を付ける
+    // spec 08 D1: update_diagram は source / original_source / updated_at / normalize_pending だけを書き換え、他は変えない。書く前に history へ 1 世代
+    #[test]
+    fn update_replaces_the_content_and_keeps_the_rest_and_history() {
+        let s = store();
+        let d = s.create(Editor::Flowchart, Some("注文".into()), Origin::New, None).unwrap();
+        let mut layout = BTreeMap::new();
+        layout.insert("A".to_string(), Pos { x: 1.0, y: 2.0 });
+        sv(&s, &d.id, "flowchart TD\n    A[A]\n", layout.clone()).unwrap();
+        s.mark_saved(&d.id).unwrap();
+        let before = s.load(&d.id).unwrap();
+        assert!(!before.unsaved());
+
+        let after = s
+            .update(&d.id, "flowchart LR\n  A --> B\n".into(), Editor::Flowchart, &before.updated_at)
+            .unwrap();
+        assert_eq!(after.source, "flowchart LR\n  A --> B\n", "届いた Mermaid そのもの");
+        assert_eq!(after.original_source.as_deref(), Some("flowchart LR\n  A --> B\n"), "new の図も最後に届けた原文を持つ");
+        assert!(after.normalize_pending);
+        assert!(after.updated_at > before.updated_at);
+        assert!(after.unsaved(), "● が付く");
+        assert_eq!(after.layout, layout, "位置は残る");
+        assert_eq!((after.title.as_str(), after.editor, after.origin), ("注文", Editor::Flowchart, Origin::New));
+        assert_eq!((after.created_at.clone(), after.saved_at.clone()), (before.created_at.clone(), before.saved_at.clone()), "並びは動かない");
+        assert_eq!(s.load(&d.id).unwrap(), after);
+
+        // 書き換え前の中身が history/{id}.json に 1 世代 (次の update で上書き)
+        let history = s.root.join("history").join(format!("{}.json", d.id));
+        let kept: Document = serde_json::from_str(&std::fs::read_to_string(&history).unwrap()).unwrap();
+        assert_eq!(kept, before);
+        s.update(&d.id, "flowchart TD\n  C\n".into(), Editor::Flowchart, &after.updated_at).unwrap();
+        let kept: Document = serde_json::from_str(&std::fs::read_to_string(&history).unwrap()).unwrap();
+        assert_eq!(kept, after);
+        // ごみ箱へ移しても history は動かさない
+        s.trash(&d.id).unwrap();
+        assert!(history.exists());
+    }
+
+    // spec 08 D1・D2: 種類の不一致 / updated_at の不一致 (時刻として比べる) / 無い id
+    #[test]
+    fn update_refuses_by_kind_conflict_and_not_found() {
+        use lorelei_mcp::{EditorKind, UpdateError};
+        let s = store();
+        let d = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
+        sv(&s, &d.id, "flowchart TD\n    A[A]\n", BTreeMap::new()).unwrap();
+        let cur = s.load(&d.id).unwrap().updated_at;
+
+        let err = s.update(&d.id, "erDiagram\n  会員 {\n  }\n".into(), Editor::ErDiagram, &cur).unwrap_err();
+        assert_eq!(err, UpdateError::KindMismatch { actual: EditorKind::Flowchart });
+
+        // 古い版 → Conflict に今の値。丸めた値も別の瞬間
+        let err = s.update(&d.id, "flowchart TD\n  B\n".into(), Editor::Flowchart, "2026-09-25T10:00:00+09:00").unwrap_err();
+        assert_eq!(err, UpdateError::Conflict { current_updated_at: cur.clone() });
+        let rounded = cur.split('.').next().unwrap().to_string() + "+09:00";
+        assert!(matches!(
+            s.update(&d.id, "flowchart TD\n  B\n".into(), Editor::Flowchart, &rounded).unwrap_err(),
+            UpdateError::Conflict { .. }
+        ));
+        assert_eq!(s.load(&d.id).unwrap().source, "flowchart TD\n    A[A]\n", "ファイルは変わらない");
+        assert!(!s.root.join("history").exists(), "断った時は history も書かない");
+
+        // UTC に書き直した同じ瞬間は通る
+        let utc = chrono::DateTime::parse_from_rfc3339(&cur).unwrap().to_utc().to_rfc3339();
+        s.update(&d.id, "flowchart TD\n  B\n".into(), Editor::Flowchart, &utc).unwrap();
+
+        // 無い id・ごみ箱・uuid の形でない id
+        let cur = s.load(&d.id).unwrap().updated_at;
+        assert_eq!(s.update("../state", "flowchart TD\n  B\n".into(), Editor::Flowchart, &cur).unwrap_err(), UpdateError::NotFound);
+        s.trash(&d.id).unwrap();
+        assert_eq!(s.update(&d.id, "flowchart TD\n  B\n".into(), Editor::Flowchart, &cur).unwrap_err(), UpdateError::NotFound);
+    }
+
+    // spec 08 D2: 古い版を添えた自動保存は STALE_BASE で拒み、今の updated_at を載せる
+    #[test]
+    fn stale_base_is_rejected_with_the_current_updated_at() {
+        let s = store();
+        let d = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
+        sv(&s, &d.id, "flowchart TD\n    A[A]\n", BTreeMap::new()).unwrap();
+        let cur = s.load(&d.id).unwrap().updated_at;
+
+        let err = s.save(&d.id, "flowchart TD\n    old[old]\n".into(), BTreeMap::new(), "2026-09-25T10:00:00+09:00").unwrap_err();
+        assert!(err.starts_with(STALE_BASE), "{err}");
+        assert!(err.ends_with(&cur), "今の値を載せる: {err}");
+        assert_eq!(s.load(&d.id).unwrap().source, "flowchart TD\n    A[A]\n");
+        // 時刻として同じ瞬間なら通る。読めない base は拒む
+        let utc = chrono::DateTime::parse_from_rfc3339(&cur).unwrap().to_utc().to_rfc3339();
+        s.save(&d.id, "flowchart TD\n    B[B]\n".into(), BTreeMap::new(), &utc).unwrap();
+        assert!(s.save(&d.id, "flowchart TD\n    C[C]\n".into(), BTreeMap::new(), "").unwrap_err().starts_with(STALE_BASE));
+    }
+
+    // spec 08 D1: update の後の最初の save (揃え書き) は updated_at を進めず印を消す。中身が同じでも印を消すために書く
+    #[test]
+    fn the_first_save_after_an_update_normalizes_without_bumping() {
+        let s = store();
+        let d = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
+        sv(&s, &d.id, "flowchart TD\n    A[A]\n", BTreeMap::new()).unwrap();
+        let cur = s.load(&d.id).unwrap().updated_at;
+        let updated = s.update(&d.id, "flowchart LR\n  A --> B\n".into(), Editor::Flowchart, &cur).unwrap();
+
+        // 揃え書き (生成器の出力) は進めない
+        let mut layout = BTreeMap::new();
+        layout.insert("A".to_string(), Pos { x: 3.0, y: 4.0 });
+        let saved = sv(&s, &d.id, "flowchart LR\n    A[A]\n    B[B]\n    A --> B\n", layout).unwrap();
+        assert_eq!(saved.updated_at, updated.updated_at);
+        assert!(!s.load(&d.id).unwrap().normalize_pending, "印は消える");
+        // 次の保存は人の変更として進む
+        let saved = sv(&s, &d.id, "flowchart LR\n    A[A]\n", BTreeMap::new()).unwrap();
+        assert!(saved.updated_at > updated.updated_at);
+
+        // AI が生成器の書き方で送ると揃え書きは中身が同じ。それでも印は消える (ファイルに書く)
+        let cur = saved.updated_at;
+        let updated = s.update(&d.id, "flowchart LR\n    A[A]\n".into(), Editor::Flowchart, &cur).unwrap();
+        assert!(updated.normalize_pending);
+        let saved = sv(&s, &d.id, "flowchart LR\n    A[A]\n", BTreeMap::new()).unwrap();
+        assert_eq!(saved.updated_at, updated.updated_at);
+        assert!(!s.load(&d.id).unwrap().normalize_pending);
+        let saved = sv(&s, &d.id, "flowchart LR\n    A[A]\n    C[C]\n", BTreeMap::new()).unwrap();
+        assert!(saved.updated_at > updated.updated_at, "人の最初の編集が飲み込まれない");
+
+        // update で初期図と同じ図を送っても、揃え書きは拒まれない (保険は first_fill だけ)
+        let ai = s.create(Editor::Flowchart, None, Origin::Ai, Some("flowchart LR\n  A --> B\n".into())).unwrap();
+        sv(&s, &ai.id, "flowchart LR\n    A[A]\n", BTreeMap::new()).unwrap();
+        let cur = s.load(&ai.id).unwrap().updated_at;
+        s.update(&ai.id, "flowchart TD\n  startNode[Start]\n".into(), Editor::Flowchart, &cur).unwrap();
+        sv(&s, &ai.id, initial_source(Editor::Flowchart), BTreeMap::new()).unwrap();
+    }
+
     #[test]
     fn saving_a_trashed_diagram_says_it_is_gone() {
         let s = store();
         let d = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
         s.trash(&d.id).unwrap();
-        let err = s.save(&d.id, "flowchart TD\n    a[a]\n".into(), BTreeMap::new()).unwrap_err();
+        let err = sv(&s, &d.id, "flowchart TD\n    a[a]\n", BTreeMap::new()).unwrap_err();
         assert!(err.starts_with("DOCUMENT_GONE"), "{err}");
         assert!(!err.contains(&*s.root.to_string_lossy()), "パスを載せない: {err}");
     }
@@ -381,7 +604,7 @@ mod tests {
         assert_eq!(ids(&s), vec![b.id.clone(), a.id.clone()]);
 
         // 自動保存 (編集) では動かない
-        s.save(&a.id, "flowchart TD\n    x[x]\n".into(), BTreeMap::new()).unwrap();
+        sv(&s, &a.id, "flowchart TD\n    x[x]\n", BTreeMap::new()).unwrap();
         assert_eq!(ids(&s), vec![b.id.clone(), a.id.clone()]);
 
         // 「保存」を押すと先頭へ
@@ -401,18 +624,18 @@ mod tests {
         assert!(!unsaved(&s));
 
         // 新規作成の最初の書き込みはエディタの初期図 (利用者の変更ではない)
-        s.save(&d.id, "flowchart TD\n    startNode[Start]\n".into(), BTreeMap::new()).unwrap();
+        sv(&s, &d.id, "flowchart TD\n    startNode[Start]\n", BTreeMap::new()).unwrap();
         assert!(!unsaved(&s));
-        s.save(&d.id, "flowchart TD\n    a[a]\n".into(), BTreeMap::new()).unwrap();
+        sv(&s, &d.id, "flowchart TD\n    a[a]\n", BTreeMap::new()).unwrap();
         assert!(unsaved(&s), "作った後に編集した");
         s.mark_saved(&d.id).unwrap();
         assert!(!unsaved(&s));
 
         // 中身が同じ保存 (図を開いただけ) では変更にならない
-        s.save(&d.id, "flowchart TD\n    a[a]\n".into(), BTreeMap::new()).unwrap();
+        sv(&s, &d.id, "flowchart TD\n    a[a]\n", BTreeMap::new()).unwrap();
         assert!(!unsaved(&s), "開いただけで印が付いた");
 
-        s.save(&d.id, "flowchart TD\n    b[b]\n".into(), BTreeMap::new()).unwrap();
+        sv(&s, &d.id, "flowchart TD\n    b[b]\n", BTreeMap::new()).unwrap();
         assert!(unsaved(&s));
     }
 
@@ -423,7 +646,7 @@ mod tests {
         let d = s
             .create(Editor::Flowchart, None, Origin::Ai, Some("flowchart LR\n  A-->B\n".into()))
             .unwrap();
-        s.save(&d.id, "flowchart TD\n    A[A]\n".into(), BTreeMap::new()).unwrap();
+        sv(&s, &d.id, "flowchart TD\n    A[A]\n", BTreeMap::new()).unwrap();
         assert!(!s.list().unwrap()[0].unsaved);
     }
 
@@ -435,7 +658,7 @@ mod tests {
             .unwrap();
         let mut layout = BTreeMap::new();
         layout.insert("A".to_string(), Pos { x: 1.5, y: 2.0 });
-        let updated = s.save(&d.id, "flowchart TD\n    A[A]\n".into(), layout.clone()).unwrap();
+        let updated = sv(&s, &d.id, "flowchart TD\n    A[A]\n", layout.clone()).unwrap();
         let got = s.load(&d.id).unwrap();
         assert_eq!(got.source, "flowchart TD\n    A[A]\n");
         assert_eq!(got.layout, layout);
@@ -481,7 +704,7 @@ mod tests {
         let s = store();
         for bad in ["../state", "..\\x", "a/b", "", "not-a-uuid"] {
             assert!(s.load(bad).is_err(), "{bad}");
-            assert!(s.save(bad, String::new(), BTreeMap::new()).is_err(), "{bad}");
+            assert!(sv(&s, bad, "", BTreeMap::new()).is_err(), "{bad}");
             assert!(s.trash(bad).is_err(), "{bad}");
         }
     }
@@ -490,7 +713,7 @@ mod tests {
     fn save_leaves_no_temp_files() {
         let s = store();
         let d = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
-        s.save(&d.id, "flowchart TD\n".into(), BTreeMap::new()).unwrap();
+        sv(&s, &d.id, "flowchart TD\n", BTreeMap::new()).unwrap();
         let names: Vec<_> = std::fs::read_dir(s.root.join("documents"))
             .unwrap()
             .map(|e| e.unwrap().file_name().into_string().unwrap())

@@ -16,6 +16,10 @@ use tauri::{AppHandle, Emitter, Manager};
 /// (初回起動時はフロントの読み込み前に届くので、イベントだけだと取りこぼす)。
 pub const OPEN_EVENT: &str = "lorelei://open-pending";
 
+/// update_diagram がファイルを書けた合図 (本体は書き換え後の DocumentSummary)。外枠はその 1 件だけを一覧で差し替える
+/// (data_contract `GuiCommands.documents_event`, spec 08 D3)
+pub const DOCUMENTS_EVENT: &str = "lorelei://documents-changed";
+
 /// GUI へ届いた「開く図」1 件。フロントは editor ごとに既存の取り込み処理へ data を渡す。
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,8 +30,66 @@ pub struct OpenRequest {
     pub payload: Option<EditorPayload>,
     pub dropped: Vec<DroppedItem>,
     pub error: Option<String>,
-    /// AI / インポートで届いた図のために作った新しい 1 件 (spec 02 D8・D10)。変換に失敗した時は作らない
+    /// AI / インポートで届いた図のために作った新しい 1 件 (spec 02 D8・D10)、update_diagram では書き換え後のその 1 件。変換に失敗した時は作らない
     pub document: Option<documents::DocumentSummary>,
+    /// update_diagram が開いている図を載せ替える要求 (spec 08 D3)。フロントは partitionOpens に入れず別に扱う
+    pub reload: bool,
+    /// update_diagram の要求に付ける、その図の位置 (同じ ID のノードの位置を当てる)。保存した図を開く時 (convert_source) は None
+    pub layout: Option<documents::Layout>,
+}
+
+/// deliver_update の判断 (spec 08 D3、data_contract `update_diagram.gui_effect`)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UpdateEffect {
+    /// 今開いている図: reload の要求で載せ替える
+    Reload,
+    /// 開いていない図を open=true で: 開く要求を積む
+    Open,
+    /// 開いていない図: ファイルだけ
+    FileOnly,
+}
+
+/// last_opened と一致するか × open → 何をするかと、窓を前に出すか。純粋 (テストで固定)
+fn update_effect(is_open_in_gui: bool, open: bool) -> (UpdateEffect, bool) {
+    match (is_open_in_gui, open) {
+        (true, front) => (UpdateEffect::Reload, front),
+        (false, true) => (UpdateEffect::Open, true),
+        (false, false) => (UpdateEffect::FileOnly, false),
+    }
+}
+
+/// HTTP の MCP の update_diagram の行き先 (spec 08 D3)。Store::update で書き、last_opened と open で載せ替え・開く・ファイルだけを決め、
+/// 書けた時はどの場合も DOCUMENTS_EVENT を出す。断った時 (Err) は何も積まず、何も出さない。
+/// last_opened は図を開いている全区間で前の図を指す (現況 3) ので、その間は FileOnly に倒れる — 古いキャンバスの保存は STALE_BASE が受け持つ
+fn deliver_update<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    store: &documents::Store,
+    req: lorelei_mcp::UpdateRequest,
+) -> Result<lorelei_mcp::UpdateOutcome, lorelei_mcp::UpdateError> {
+    let editor = match req.editor {
+        lorelei_mcp::EditorKind::Flowchart => documents::Editor::Flowchart,
+        lorelei_mcp::EditorKind::ErDiagram => documents::Editor::ErDiagram,
+    };
+    let doc = store.update(&req.id, req.source, editor, &req.expected_updated_at)?;
+    let summary = documents::DocumentSummary::from(&doc);
+    let is_open = store.last_opened().as_deref() == Some(doc.id.as_str());
+    let (effect, front) = update_effect(is_open, req.open);
+    if effect != UpdateEffect::FileOnly {
+        // 変換は lorelei_mcp が to_editor で確かめ済みなので失敗しない。万一失敗しても error 付きの要求で通知が出る
+        let mut request = request_from_source(doc.source.clone());
+        request.document = Some(summary.clone());
+        request.reload = effect == UpdateEffect::Reload;
+        request.layout = Some(doc.layout.clone());
+        push_open(app, request);
+    }
+    if front {
+        bring_to_front(app);
+    }
+    let _ = app.emit(DOCUMENTS_EVENT, &summary);
+    Ok(lorelei_mcp::UpdateOutcome {
+        open: effect != UpdateEffect::FileOnly,
+        updated_at: doc.updated_at,
+    })
 }
 
 #[derive(Default)]
@@ -158,14 +220,15 @@ fn load_document(id: String) -> Result<documents::Document, String> {
     store()?.load(&id)
 }
 
-/// 自動保存 (D7)。並びは動かさない
+/// 自動保存 (D7)。並びは動かさない。base_updated_at はフロントが読んだ版 (spec 08 D2、STALE_BASE)
 #[tauri::command]
 fn save_document(
     id: String,
     source: String,
     layout: documents::Layout,
+    base_updated_at: String,
 ) -> Result<documents::DocumentSummary, String> {
-    store()?.save(&id, source, layout)
+    store()?.save(&id, source, layout, &base_updated_at)
 }
 
 /// 利用者の「保存」(D12)。一覧の先頭へ動く
@@ -243,11 +306,10 @@ impl lorelei_mcp::EditorPort for GuiEditor {
     fn open(&self, source: String, title: Option<String>) -> Result<lorelei_mcp::Opened, String> {
         deliver(&self.0, &store()?, source, title)
     }
-    // 書き換え (spec 08): Store::update と載せ替えは P2 で。それまでは口のエラーで断る (spec 04 P1 の list / read と同じ流儀)
-    fn update(&self, _: lorelei_mcp::UpdateRequest) -> Result<lorelei_mcp::UpdateOutcome, lorelei_mcp::UpdateError> {
-        Err(lorelei_mcp::UpdateError::Other(
-            "update_diagram はまだ使えません (spec 08 P2 で実装)".into(),
-        ))
+    // 書き換え (spec 08 D3): Store::update で書き、開いている図なら載せ替えの要求を積む
+    fn update(&self, req: lorelei_mcp::UpdateRequest) -> Result<lorelei_mcp::UpdateOutcome, lorelei_mcp::UpdateError> {
+        let store = store().map_err(lorelei_mcp::UpdateError::Other)?;
+        deliver_update(&self.0, &store, req)
     }
     // 読み戻し (spec 04): documents/ と state.json を読む。画面には問い合わせない (D1)
     fn list(&self) -> Result<Vec<lorelei_mcp::DiagramSummary>, String> {
@@ -312,6 +374,8 @@ impl OpenRequest {
             dropped: Vec::new(),
             error: Some(error),
             document: None,
+            reload: false,
+            layout: None,
         }
     }
 }
@@ -326,6 +390,8 @@ pub fn request_from_source(source: String) -> OpenRequest {
             source,
             error: None,
             document: None,
+            reload: false,
+            layout: None,
         },
         Ok(None) => OpenRequest::failed(source, "この図の種類は GUI エディタで開けません".into()),
         Err(e) => OpenRequest::failed(source, e.to_string()),
@@ -374,6 +440,86 @@ mod tests {
         let err = deliver(app.handle(), &store, "flowchart TD\n  A[a --> B\n".into(), None);
         assert!(err.is_err());
         assert_eq!(store.list().unwrap().len(), 1);
+    }
+
+    // spec 08 D3: last_opened と open で、載せ替える・開く・ファイルだけ、と前に出すかを決める (純粋な関数)
+    #[test]
+    fn update_effect_decides_reload_open_or_file_only() {
+        assert_eq!(update_effect(true, false), (UpdateEffect::Reload, false));
+        assert_eq!(update_effect(true, true), (UpdateEffect::Reload, true), "開いている図でも open=true なら前に出す");
+        assert_eq!(update_effect(false, true), (UpdateEffect::Open, true));
+        assert_eq!(update_effect(false, false), (UpdateEffect::FileOnly, false));
+    }
+
+    // spec 08 D3: HTTP の update_diagram は、開いている図なら reload の要求 (layout 付き、新しい 1 件は作らない) を積み、
+    // 開いていない図はファイルだけ書く (open=true なら開く要求を積む)
+    #[test]
+    fn http_update_diagram_reloads_the_open_diagram_or_writes_only() {
+        use lorelei_mcp::{EditorKind, UpdateError, UpdateRequest};
+        let app = tauri::test::mock_builder()
+            .manage(PendingOpens::default())
+            .build(tauri::generate_context!())
+            .expect("mock app");
+        let store = documents::Store::new(scratch());
+        let opened = deliver(app.handle(), &store, "flowchart TD\n  A --> B\n".into(), Some("注文".into())).unwrap();
+        let mut layout = documents::Layout::new();
+        layout.insert("A".into(), documents::Pos { x: 10.0, y: 20.0 });
+        store.save(&opened.id, "flowchart TD\n    A[A]\n    B[B]\n    A --> B\n".into(), layout, &opened.updated_at).unwrap();
+        let cur = store.load(&opened.id).unwrap().updated_at;
+        app.state::<PendingOpens>().0.lock().unwrap().clear();
+        let req = |source: &str, expected: &str, open: bool| UpdateRequest {
+            id: opened.id.clone(),
+            source: source.into(),
+            editor: EditorKind::Flowchart,
+            expected_updated_at: expected.into(),
+            open,
+        };
+
+        // 開いている図 (last_opened) → Reload: reload: true・layout・書き換え後の document。一覧に新しい 1 件は増えない
+        store.set_last_opened(&opened.id).unwrap();
+        let out = deliver_update(app.handle(), &store, req("flowchart LR\n  A --> C\n", &cur, false)).unwrap();
+        assert!(out.open);
+        {
+            let pending = app.state::<PendingOpens>();
+            let pending = pending.0.lock().unwrap();
+            assert_eq!(pending.len(), 1);
+            let r = &pending[0];
+            assert!(r.reload);
+            assert!(r.payload.is_some(), "{:?}", r.error);
+            assert_eq!(r.document.as_ref().unwrap().id, opened.id);
+            assert_eq!(r.document.as_ref().unwrap().updated_at, out.updated_at);
+            assert!(r.document.as_ref().unwrap().unsaved, "● が付く");
+            assert_eq!(r.layout.as_ref().unwrap()["A"].x, 10.0);
+        }
+        assert_eq!(store.list().unwrap().len(), 1);
+        assert_eq!(store.load(&opened.id).unwrap().source, "flowchart LR\n  A --> C\n");
+        app.state::<PendingOpens>().0.lock().unwrap().clear();
+
+        // 開いていない図 → FileOnly: 何も積まない。ファイルは書く
+        let other = store.create(documents::Editor::Flowchart, None, documents::Origin::New, None).unwrap();
+        store.set_last_opened(&other.id).unwrap();
+        let out = deliver_update(app.handle(), &store, req("flowchart LR\n  A --> D\n", &out.updated_at, false)).unwrap();
+        assert!(!out.open);
+        assert!(app.state::<PendingOpens>().0.lock().unwrap().is_empty());
+        assert_eq!(store.load(&opened.id).unwrap().source, "flowchart LR\n  A --> D\n");
+
+        // 開いていない図で open=true → Open: reload: false で積む
+        let out = deliver_update(app.handle(), &store, req("flowchart LR\n  A --> E\n", &out.updated_at, true)).unwrap();
+        assert!(out.open);
+        {
+            let pending = app.state::<PendingOpens>();
+            let pending = pending.0.lock().unwrap();
+            assert_eq!(pending.len(), 1);
+            assert!(!pending[0].reload);
+            assert!(pending[0].layout.is_some());
+        }
+        app.state::<PendingOpens>().0.lock().unwrap().clear();
+
+        // 断った時 (Conflict) は何も積まず、ファイルも変わらない
+        let err = deliver_update(app.handle(), &store, req("flowchart LR\n  A --> F\n", &cur, true)).unwrap_err();
+        assert!(matches!(err, UpdateError::Conflict { .. }));
+        assert!(app.state::<PendingOpens>().0.lock().unwrap().is_empty());
+        assert_eq!(store.load(&opened.id).unwrap().source, "flowchart LR\n  A --> E\n");
     }
 
     /// spec 05 D5: 窓は隠したまま起動し、外枠が描けてから JS が出す (起動直後に Web 版の画面を見せない)。
