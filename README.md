@@ -93,7 +93,7 @@ pnpm build-storybook
 ## 🛠️ 技術スタック
 
 - **Frontend**: Next.js 14, ReactFlow, TypeScript
-- **UI**: Yamada UI, react-simple-code-editor, PrismJS
+- **UI**: Yamada UI, CodeMirror 6（Mermaid の色付け・補完・文法の赤線）, mermaid.js（プレビュー）
 - **Quality**: ESLint, Prettier, Vitest (97.5% カバレッジ)
 - **CI/CD**: GitHub Actions, lefthook
 - **Deploy**: GitHub Pages

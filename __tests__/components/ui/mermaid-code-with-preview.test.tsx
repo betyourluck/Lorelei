@@ -11,8 +11,10 @@ describe("MermaidCodeWithPreview", () => {
     const previewColumn = screen.getByRole("region", { name: "プレビュー" });
 
     expect(within(codeColumn).getByRole("button", { name: "コードをコピーする" })).toBeInTheDocument();
-    // Prism は字句ごとに要素を分けるので、列の文字列全体で見る
-    expect(codeColumn).toHaveTextContent("A --> B");
+    // 左は読むだけのエディタ (spec 10 D7。テストでは textarea に模擬している)
+    const editor = within(codeColumn).getByTestId("code-editor");
+    expect(editor).toHaveValue("flowchart TD\n  A --> B");
+    expect(editor).toHaveAttribute("readonly");
     expect(await within(previewColumn).findByTestId("mermaid-svg")).toBeInTheDocument();
     expect(within(previewColumn).queryByRole("button", { name: "コードをコピーする" })).toBeNull();
 

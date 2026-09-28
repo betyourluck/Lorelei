@@ -108,6 +108,32 @@ describe("MermaidPreview", () => {
     expect(screen.getByTestId("mermaid-svg")).toHaveAttribute("data-run", "2");
   });
 
+  test("keepLast: 描けない時は最後に描けた図を残し、誤りを帯で重ねる (打っている途中で図を消さない)", async () => {
+    const { rerender } = render(<MermaidPreview code="flowchart TD" keepLast />);
+    await screen.findByTestId("mermaid-svg");
+
+    mockRender.mockRejectedValueOnce(new Error("Parse error on line 2"));
+    rerender(<MermaidPreview code={"flowchart TD\n  A --> -->"} keepLast />);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Parse error on line 2");
+    expect(screen.getByTestId("mermaid-svg")).toBeInTheDocument();
+    expect(screen.queryByText("描いています…")).toBeNull();
+  });
+
+  test("keepLast: 描き直している間も前の図を出したまま", async () => {
+    const { rerender } = render(<MermaidPreview code="flowchart TD" keepLast />);
+    await screen.findByTestId("mermaid-svg");
+    const d = deferred();
+    mockRender.mockReturnValueOnce(d.promise);
+    rerender(<MermaidPreview code="flowchart LR" keepLast />);
+
+    expect(screen.getByTestId("mermaid-svg")).toBeInTheDocument();
+    expect(screen.queryByText("描いています…")).toBeNull();
+    await act(async () => d.resolve('<svg data-testid="mermaid-svg" data-dir="LR"></svg>'));
+    expect(screen.getByTestId("mermaid-svg")).toHaveAttribute("data-dir", "LR");
+  });
+
   test("消えた後に結果が届いても何も起きない", async () => {
     const d = deferred();
     mockRender.mockReturnValueOnce(d.promise);

@@ -23,13 +23,6 @@ vi.mock("@/features/flowchart/hooks/mermaid", () => ({
 
 const mockGenerateMermaidCode = vi.mocked(generateMermaidCode);
 
-// MermaidHighlightのモック
-vi.mock("@/components/ui/mermaid-highlight", () => ({
-  MermaidHighlight: ({ code }: { code: string }) => (
-    <div data-testid="mermaid-highlight">{code}</div>
-  ),
-}));
-
 // CopyButtonのモック
 vi.mock("@/components/ui/copy-button", () => ({
   CopyButton: ({ value, ...props }: { value: string } & HTMLAttributes<HTMLButtonElement>) => (
@@ -84,7 +77,7 @@ describe("DownloadModal", () => {
 
     expect(screen.getByText("生成されたMermaidコード")).toBeInTheDocument();
     expect(screen.getByText("ダウンロード")).toBeInTheDocument();
-    expect(screen.getByTestId("mermaid-highlight")).toBeInTheDocument();
+    expect(screen.getByTestId("code-editor")).toBeInTheDocument();
     expect(screen.getByTestId("copy-button")).toBeInTheDocument();
 
     // モーダルが適切に表示されていることを確認
@@ -110,11 +103,12 @@ describe("DownloadModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  test("MermaidHighlightコンポーネントに正しいコードが渡される", () => {
+  test("左のエディタに正しいコードが読むだけで渡される (spec 10 D7)", () => {
     render(<DownloadModal {...mockProps} open />);
 
-    const highlight = screen.getByTestId("mermaid-highlight");
-    expect(highlight.textContent).toMatch(/flowchart TD[\s\S]*A --> B/);
+    const editor = screen.getByTestId("code-editor");
+    expect(editor).toHaveValue("flowchart TD\n  A --> B");
+    expect(editor).toHaveAttribute("readonly");
   });
 
   test("コピーボタンに正しいMermaidコードが渡される", () => {
@@ -163,7 +157,7 @@ describe("DownloadModal のプレビュー", () => {
     const codeColumn = screen.getByRole("region", { name: "Mermaid コード" });
     const previewColumn = screen.getByRole("region", { name: "プレビュー" });
     expect(within(codeColumn).getByTestId("copy-button")).toBeInTheDocument();
-    expect(within(codeColumn).getByTestId("mermaid-highlight")).toBeInTheDocument();
+    expect(within(codeColumn).getByTestId("code-editor")).toBeInTheDocument();
     const svg = await within(previewColumn).findByTestId("mermaid-svg");
     expect(decodeURIComponent(svg.getAttribute("data-code") ?? "")).toBe("flowchart TD\n  A --> B");
   });

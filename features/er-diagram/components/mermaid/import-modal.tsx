@@ -8,14 +8,13 @@ import {
   ModalBody,
   ModalFooter,
   Button,
-  VStack,
   Text,
   Alert,
   AlertIcon,
   AlertDescription,
 } from "@yamada-ui/react";
 import { useState } from "react";
-import { EditableMermaidHighlight } from "@/features/flowchart/components/mermaid/editable-mermaid-highlight";
+import { MermaidEditorWithPreview } from "@/components/ui";
 import { convertMermaidToERData } from "../../utils/import-mermaid-to-er";
 import type { ParsedMermaidERData } from "../../utils/import-mermaid-to-er";
 
@@ -107,30 +106,39 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
     User ||--o{ Post : "has posts"`;
 
   return (
-    <Modal open={open} onClose={handleClose} size="2xl">
+    <Modal
+      open={open}
+      onClose={handleClose}
+      maxW="90vw"
+      h="85vh"
+      // 本文がある時は Esc で閉じない (閉じると本文が消える, spec 10 D6)
+      closeOnEsc={!mermaidCode.trim()}
+    >
       <ModalOverlay />
       <ModalHeader>Mermaid ER図コードインポート</ModalHeader>
-      <ModalBody>
-        <VStack gap={2}>
-          <Text fontSize="sm" color="gray.600">
-            MermaidのER図コードを貼り付けてインポートできます
-          </Text>
-
-          <EditableMermaidHighlight
-            value={mermaidCode}
-            onChange={(value) => {
-              setMermaidCode(value);
-              setError(null);
-            }}
-            placeholder={`例:\n${exampleCode}`}
-            minHeight="300px"
-          />
-          {error && <ErrorAlert message={error} />}
-
-          <Text fontSize="xs" color="gray.500">
-            {HELP_TEXT}
-          </Text>
-        </VStack>
+      <ModalBody pb={2} flex={1} minH={0} overflow={{ base: "hidden", md: "auto" }}>
+        <MermaidEditorWithPreview
+          value={mermaidCode}
+          onChange={(value) => {
+            setMermaidCode(value);
+            setError(null);
+          }}
+          placeholder={`例:\n${exampleCode}`}
+          mermaid="er"
+          description={
+            <Text fontSize="sm" color="gray.600">
+              MermaidのER図コードを貼り付けてインポートできます
+            </Text>
+          }
+          footer={
+            <>
+              {error && <ErrorAlert message={error} />}
+              <Text fontSize="xs" color="gray.500">
+                {HELP_TEXT}
+              </Text>
+            </>
+          }
+        />
       </ModalBody>
       <ModalFooter>
         <Button onClick={handleClose}>キャンセル</Button>

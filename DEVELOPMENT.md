@@ -59,10 +59,15 @@ mermaid-editor/
 - React Flow の統合
 - ノード・エッジの状態管理
 
-#### MermaidHighlight (`components/mermaid/mermaid-highlight.tsx`)
+#### CodeEditor (`components/ui/code-editor.tsx`)
 
-- Mermaid コードの構文ハイライト
-- リアルタイム生成とプレビュー
+- CodeMirror 6 の薄い包み。Mermaid（flowchart / erDiagram）の色付け・補完・文法の赤線（mermaid.js の parse）
+- ダイアログからは遅延の包み `components/ui/lazy-code-editor.tsx` を通して読む（CodeMirror をページの最初の読み込みに入れない）
+
+#### MermaidPreview (`components/ui/mermaid-preview.tsx`)
+
+- Mermaid を mermaid.js で描いて見せる（コード生成・インポートのダイアログの右の列）
+- mermaid に触るのは `components/ui/mermaid-render.ts` の境界だけ
 
 #### EditableNode (`components/node/editable-node.tsx`)
 

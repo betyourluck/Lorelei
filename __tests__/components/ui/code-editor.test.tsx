@@ -159,6 +159,13 @@ describe("CodeEditor", () => {
     expect(screen.getByText("上書き")).toBeInTheDocument();
   });
 
+  test("悪意のあるコードは文字として出す (script を作らない)", () => {
+    const maliciousCode = '<script>alert("XSS")</script>';
+    const { container } = render(<CodeEditor value={maliciousCode} />);
+    expect(container.querySelector("script")).toBeNull();
+    expect(container.querySelector(".cm-content")).toHaveTextContent(maliciousCode);
+  });
+
   test("読むだけならフッタに挿入/上書きを出さない", () => {
     render(<CodeEditor value="flowchart TD" status readOnly />);
     expect(screen.queryByText("挿入")).toBeNull();

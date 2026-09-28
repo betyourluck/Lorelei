@@ -111,19 +111,18 @@ describe("ComponentName", () => {
 ### モッキング
 
 ```typescript
-// 外部ライブラリのモック
-vi.mock("prismjs", () => ({
-  highlight: vi.fn(),
-  languages: { mermaid: {} },
+// 依存を閉じ込めた自前の境界を静的に模擬する（動的 import の先を模擬すると途中で本物に差し替わる）。
+// 次の 2 つは __tests__/setup.ts で全体に模擬してある
+vi.mock("@/components/ui/mermaid-render", () => ({
+  renderMermaid: vi.fn(async (id: string) => `<svg id="${id}"></svg>`),
+  parseMermaid: vi.fn(async () => null),
 }));
 
-// React コンポーネントのモック
-vi.mock("react-simple-code-editor", () => ({
-  default: ({ value, onValueChange }: any) => (
-    <textarea
-      value={value}
-      onChange={(e) => onValueChange(e.target.value)}
-    />
+// ダイアログが読むエディタ（next/dynamic の遅延の包み）は textarea にする。
+// CodeEditor 自身のテストは @/components/ui/code-editor を直接読み、本物の CodeMirror を jsdom で動かす
+vi.mock("@/components/ui/lazy-code-editor", () => ({
+  LazyCodeEditor: ({ value, onChange }: { value: string; onChange?: (v: string) => void }) => (
+    <textarea data-testid="code-editor" value={value} onChange={(e) => onChange?.(e.target.value)} />
   ),
 }));
 ```
@@ -178,10 +177,9 @@ describe("parseMermaidCode", () => {
 ```typescript
 test("悪意のあるコードが安全に処理される", () => {
   const maliciousCode = '<script>alert("XSS")</script>';
-  const { container } = render(
-    <EditableMermaidHighlight value={maliciousCode} onChange={vi.fn()} />
-  );
+  const { container } = render(<CodeEditor value={maliciousCode} />);
   expect(container.querySelector("script")).toBeNull();
+  expect(container.querySelector(".cm-content")).toHaveTextContent(maliciousCode);
 });
 ```
 

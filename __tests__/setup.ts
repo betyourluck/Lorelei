@@ -30,6 +30,29 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
   disconnect: vi.fn(),
 }));
 
+// ダイアログが読むエディタ (遅延の包み) の模擬 (spec 10 P3)。CodeMirror と next/dynamic を通さず、textarea で打てるようにする。
+// CodeEditor 自身のテストは @/components/ui/code-editor を直接読むので本物を使う
+vi.mock("@/components/ui/lazy-code-editor", async () => {
+  const { createElement } = await import("react");
+  return {
+    LazyCodeEditor: (props: {
+      value: string;
+      onChange?: (value: string) => void;
+      placeholder?: string;
+      readOnly?: boolean;
+      "aria-label"?: string;
+    }) =>
+      createElement("textarea", {
+        "data-testid": "code-editor",
+        value: props.value,
+        placeholder: props.placeholder,
+        readOnly: props.readOnly,
+        "aria-label": props["aria-label"],
+        onChange: (e: { target: { value: string } }) => props.onChange?.(e.target.value),
+      }),
+  };
+});
+
 // jsdom の Range は寸法を持たない。CodeMirror が文字の位置を測る時 (rAF の中) に落ちないよう最小の形を置く (spec 10)
 if (typeof Range !== "undefined") {
   const emptyRects = () => Object.assign([], { item: () => null }) as unknown as DOMRectList;
