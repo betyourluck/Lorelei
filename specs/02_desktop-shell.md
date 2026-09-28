@@ -175,7 +175,7 @@ Document:
     source: string                      # 今の図の Mermaid (フォーク元の生成器の出力)
     layout: { type: "map<string, {x, y}>" }  # キー = Mermaid 上のノード ID (flowchart は安全化した変数名、ER はエンティティ名)。無いノードは自動配置
     origin: { enum: [new, ai, import] }
-    original_source: { type: string, nullable: true }  # ai / import で届いた原文。以後書き換えない。new は null
+    original_source: { type: string, nullable: true }  # ai / import で届いた原文。以後書き換えない。new は null （spec 08 で改定: update_diagram で置き換わる「最後に届けた原文」に。正は data_contract）
     created_at: RFC 3339
     updated_at: RFC 3339
 DocumentSummary:                        # 一覧用。source / layout / original_source を持たない

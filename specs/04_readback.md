@@ -31,6 +31,8 @@ spec 03 で MCP を GUI の中へ移したのは、この読み戻しのため�
 
 ### 3. 生成器を通すと、原文から落ちるものがある（`documents/` の実物を原文と比べた）
 
+> spec 08 で改定（2026-09-28）: `original_source` は「以後書き換えない」ではなく「AI・インポートが最後に届けた原文」（`update_diagram` で置き換わる）。向きと FK は spec 07 で残るようになった
+
 | 原文 | 今の `source` |
 |---|---|
 | `flowchart LR` | `flowchart TD`（向きが落ちる） |
@@ -66,6 +68,8 @@ spec 03 で MCP を GUI の中へ移したのは、この読み戻しのため�
 - 別案（採らない）: 読む前にフロントへ flush を頼み、終わりを待つ（イベント → 応答の command、時間切れつき）。確実だが、画面が固まっている時に待たされる経路が増える
 
 ### D2. ツール（2 本足し、1 本の戻り値を増やす）
+
+> spec 08 で改定（2026-09-28）: `open_in_editor` の戻り値に `updated_at` を足し、ノードが 0 の図を断る。`source` は `update_diagram` の後、GUI に載るまで届けた Mermaid そのもの。`original_source` は最後に届けた原文（new も `update_diagram` されると文字列）
 
 ```text
 list_diagrams() → { diagrams: [DiagramSummary] }
@@ -113,6 +117,8 @@ pub trait EditorPort: Send + Sync + 'static {
 - id は今の `Store` と同じく uuid の形だけ受け付ける（パスを外へ出さない）
 
 ### D4. 読み戻しの前に、現況 4 の不具合を突き止めて直す（利用者裁定 2026-09-25: spec 04 の P0 で直す）
+
+> spec 08 で改定（2026-09-28）: D4-2 の保険は「空の `source` への最初の書き込み」（`first_fill`）の時だけ効く（旧: 前の `source` に依らず拒む）。守るのは現況 4 の 1 件目の形で、それ以外は元から門が受け持つ
 
 読み戻しは `source` の正しさに乗っている。
 

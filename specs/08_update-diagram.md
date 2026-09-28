@@ -167,6 +167,17 @@ UpdateError   = KindMismatch { actual }        // → updated: false + reason (A
   開いていない図の `open=false`（画面が変わらず ● が付く）と `open=true`（開いて前に出る）、開いている図の `open=true`（前に出る）。種類の不一致・空の図・空文字。**意図して競合を起こす**: ノードを動かした直後（1 秒以内）に update / 別の図を押した直後に前の図を update / update と `open_in_editor` を並列に / 起動直後に前回の図を update — 結果を「未検証」か failures に書く。
   LORELEI.md のツール表と頼み方の例・読み戻しの注意の改定
 
+## P0 結果（2026-09-28）
+
+data_contract に凍結した（コードはまだ触らない）:
+
+- `McpServer.tools.update_diagram`（入力 4 つ・`writes`・断る 3 つ（reason）・エラー 3 つ・出力・`gui_effect`（`Reload / Open / FileOnly`）・`blind_spot`）、`open_in_editor.refuses`（ノード 0）と `output.updated_at`、
+  `McpServer.http.editor_port` の 4 つ目（`UpdateRequest` / `UpdateOutcome` / `UpdateError`）と `open` の戻り `{ id, updated_at }`、`McpServer.refusal_vs_error`（2 分類の規則）
+- `Document`: `original_source`（最後に届けた原文）・`updated_at`（何で進むか）・`normalize_pending`・`save_guard`（`first_fill` の時だけ）・`save_stale`（`STALE_BASE: {今の updated_at}` とフロントの受け方）・`save_normalize`・`update`・`store_lock`・`history`
+- `Diagram.source` / `original_source`、`GuiCommands.save_document`（`base_updated_at`）・`open_request`（`reload` / `layout` と `drain` の扱い）・`trash_document`（履歴は動かさない）・`documents_event`
+- grep（`以後書き換えない` / `届いた時の原文` / `生成器の出力` / `5 本` / `origin != new` / `前の source に依らず`）: spec 04 の現況 3・D2・D4 と spec 02 の `Document` に「spec 08 で改定」の注記、`Document.source` の注記。
+  残り（CLAUDE.md の「5 本」2 か所、`lorelei_mcp/src/lib.rs` の `include_original` の docstring と crate doc、LORELEI.md のツール表）は**ツールが実在する P1・P2 で直す**（今直すと嘘になる）
+
 ## 受け入れ条件
 
 1. `read_diagram` で読んだ図を直して `update_diagram(id, source, expected_updated_at)` で書くと、同じ id・同じ名前・同じ並びのまま中身が変わり、`read_diagram` で直した Mermaid が返る（開いていない図では届けた Mermaid そのもの、開いている図では 1 秒待つとエディタの書き方に揃ったもの）

@@ -1,6 +1,6 @@
 # Lorelei data contract — 実装より先にここが正。
 # 変更したら名前で全台帳を grep する (CLAUDE.md 掟)。
-# status: draft (spec 01 rev3 → spec 02 → spec 03, 2026-09-25)
+# status: draft (spec 01 rev3 → spec 02 → spec 03 → spec 08 P0, 2026-09-28)
 
 version: 0.1.0
 
@@ -165,12 +165,19 @@ McpServer:
     host_check: "rmcp の既定 allowed_hosts (loopback 3 種)。DNS rebinding 対策"
     origin_check: "http://127.0.0.1:{port} と http://localhost:{port} だけ。Origin ヘッダの無い要求 (CLI のクライアント) は通す"
     editor_port: >-
-      GUI の図の一覧への口 (lorelei_mcp::EditorPort)。lorelei_mcp は Tauri に依存しない。3 つ (spec 04 D3):
-      open(source, title?) → Ok(作った図の id) | Err(理由) / list() → DiagramSummary[] / read(id?) → Diagram (original_source は常に詰める。include_original で省くのはツールの層)
+      GUI の図の一覧への口 (lorelei_mcp::EditorPort)。lorelei_mcp は Tauri に依存しない。4 つ (spec 04 D3、spec 08 D4):
+      open(source, title?) → Ok({ id, updated_at }) | Err(理由) / list() → DiagramSummary[] / read(id?) → Diagram (original_source は常に詰める。include_original で省くのはツールの層) /
+      update(UpdateRequest) → Ok(UpdateOutcome) | Err(UpdateError)。UpdateRequest = { id, source, editor (flowchart | erDiagram。lorelei_mcp が変換で決めた種類), expected_updated_at, open (既定 false) }、
+      UpdateOutcome = { open: bool (載せ替え・開くを GUI へ渡した), updated_at (書いた後の値) }、
+      UpdateError = KindMismatch { actual } (→ updated: false + reason) | NotFound | Conflict { current_updated_at } | Other(String) (→ ツール結果のエラー)
   tool_errors: >-
     入力や規則の問題 (文法エラー・書き出し規則違反・png/pdf で output_path なし) は、プロトコルのエラーではなく
     ツール結果のエラー (isError: true, structuredContent: { error, line? }) で返す。呼ぶ側の AI が読んで直せるように
-  result_shape: "成功時は structuredContent に JSON (validate は ValidationResult、render は RenderResult、open_in_editor / list_diagrams / read_diagram は下の output)。render は preview (既定 true) の時 content に image/png を足す"
+  refusal_vs_error: >-
+    open_in_editor / update_diagram の断り方は 2 分類 (spec 08 D4): 届いた図そのものの問題 (GUI で開けない種類・ノードが 0・update では図の種類が Document.editor と違う) は
+    opened / updated: false + reason (AI は図を直すか別のツールを使う)。指した図の状態の問題 (無い id・ごみ箱・expected_updated_at が違う・書けない) はツール結果のエラー { error }。
+    文法エラー・空文字は to_editor の Err で、validate と同じツール結果のエラー { error, line? }
+  result_shape: "成功時は structuredContent に JSON (validate は ValidationResult、render は RenderResult、open_in_editor / list_diagrams / read_diagram / update_diagram は下の output)。render は preview (既定 true) の時 content に image/png を足す"
   tools:
     validate:
       input: { source: string }
@@ -188,12 +195,14 @@ McpServer:
       input:
         source: string
         title: { type: string, nullable: true }   # GUI の図の一覧での名前 (spec 02 D8)。省略・空白だけなら「AI の図 HH:MM:SS」。届いた図は新しい 1 件になり、開いている図は上書きしない
+      refuses: "ノードが 0 の図 (flowchart TD だけ等。to_editor は通る) は opened: false + reason「ノードの無い図は開けません」— エディタの取り込みが何もせず、前のキャンバスがその図として保存される穴 (spec 08 現況 4・D1)"
       output:
         opened: bool
         editor: { enum: [flowchart, erDiagram], nullable: true }
         dropped: "EditorCompat.dropped"
         reason: { type: string, nullable: true }   # opened=false の理由
         document_id: { type: string, format: uuid, nullable: true }   # 作った図の id (= Document.id = read_diagram の id)。opened=false なら null (spec 04 D2)
+        updated_at: { type: string, format: "RFC 3339", nullable: true }   # 作った図の updated_at。そのまま update_diagram の expected_updated_at に渡せる (揃え書きは first_fill で進めない)。opened=false なら null (spec 08 D2)
     list_diagrams:   # spec 04 D2。GUI の図の一覧を読む (Rust のファイルを読む。画面には問い合わせない, D1)
       input: {}
       output:
@@ -206,6 +215,33 @@ McpServer:
       errors:   # ツール結果のエラー { error }。ファイルのパスは載せない
         not_found: "id が uuid の形でない・その図が無い・ごみ箱に移した → 「図が見つかりません（id: …）」"
         no_open: "id を省いたのに last_opened が無い・指している図が無い → 「今開いている図がありません。id を指定するか、GUI で図を開いてください」"
+    update_diagram:  # spec 08 D1〜D3。既存の 1 件の中身を、届いた Mermaid で丸ごと差し替える (差分の適用はしない。AI は read_diagram で読んだ Mermaid を直して丸ごと送る)
+      input:
+        id: { type: string, format: uuid }                    # list_diagrams の id / open_in_editor の document_id
+        source: string                                        # flowchart か erDiagram。Document.editor と同じ種類でなければならない
+        expected_updated_at: { type: string, format: "RFC 3339" }   # 必須 (利用者裁定 2026-09-28)。read_diagram / list_diagrams / open_in_editor / 前の update_diagram が返した updated_at をそのまま渡す。時刻として同じ瞬間か比べる (表記の違いは吸収、丸めた値は別の瞬間 = Conflict)
+        open: { type: bool, default: false }                  # true なら GUI でその図を開いて窓を前に出す (開いている図でも前に出す)。false なら画面を変えない (開いている図は載せ替える)。既定 false は利用者裁定 2026-09-28
+      writes: "Document.update を見よ (source / original_source / updated_at / normalize_pending。title / editor / origin / created_at / saved_at / layout は変えない。書く前に Document.history へ 1 世代)"
+      refuses:   # updated: false + reason。ファイルは変えない
+        kind_mismatch: "届いた図の種類が Document.editor と違う → 「この図は flowchart です。erDiagram にするなら open_in_editor で新しい図を作ってください」"
+        not_editable: "GUI で開けない種類 → open_in_editor と同じ文言"
+        no_nodes: "ノードが 0 → 「ノードの無い図は開けません」"
+      errors:    # ツール結果のエラー { error }。ファイルのパスは載せない
+        not_found: "read_diagram と同じ「図が見つかりません（id: …）」"
+        conflict: "expected_updated_at がファイルの updated_at と違う → 「図が変わっています（updated_at: 今の値）。read_diagram で読み直してから update_diagram してください」。解釈できない値は入力のエラー"
+        other: "書けない等。Store のエラー文字列をそのまま"
+      output:
+        updated: bool
+        editor: { enum: [flowchart, erDiagram], nullable: true }
+        dropped: "EditorCompat.dropped"
+        reason: { type: string, nullable: true }               # updated=false の理由
+        open: bool                                             # 載せ替え・開くを GUI へ渡した (Rust が積んだ時点の判断。フロントが捨てた場合は分からない)。updated=false なら false
+        updated_at: { type: string, format: "RFC 3339", nullable: true }   # 書いた後の値。次の update_diagram の expected_updated_at にそのまま使える (揃え書きは進めない)。updated=false なら null
+      gui_effect: >-
+        Rust (deliver_update) が last_opened と open で決める (判断は純粋な関数): last_opened と一致 → Reload (OpenRequest { reload: true, layout, document } で載せ替え。open=true なら前に出す) /
+        一致せず open=true → Open (reload: false、layout 付きで開き、前に出す) / 一致せず open=false → FileOnly。書けた時はどの場合も GuiCommands.documents_event を出す (updated=false なら出さない)。
+        last_opened は図を開いている全区間で前の図を指す (spec 08 現況 3) ので、その間は FileOnly に倒れ、古いキャンバスの保存は Document.save_stale が受け持つ
+      blind_spot: "GUI で編集中の、まだファイルに書かれていない直近約 1 秒の変更 (自動保存の待ち) と、update の後 1 秒以内の編集 (揃え書きに混ざり updated_at を進めない) は止められない。Document.history で拾う (spec 08 D2)"
 
 DiagramSummary:   # MCP の出力の形 (snake_case)。GUI の Document / DocumentSummary から詰める (spec 04 D2・D3)
   fields:
@@ -223,23 +259,31 @@ Diagram:
   fields: "DiagramSummary の全項目 + source + original_source"
   source: >-
     string。今の図の Mermaid (エディタの生成器の出力。subgraph・style などは落ちている。向きと FK は spec 07 で残るようにした)。
-    空文字は「new の図: まだ一度も保存されていない」「ai / import の図: まだエディタに載っていない」(エラーにしない。注記の欄は設けない)
-  original_source: "include_original=false ならキーごと出さない。true なら ai / import は届いた原文、new は null"
+    空文字は「new の図: まだ一度も保存されていない」「ai / import の図: まだエディタに載っていない」(エラーにしない。注記の欄は設けない)。
+    update_diagram の後、GUI で開く (載せ替える) までは届けた Mermaid そのもの (省かれる要素も残ったまま。spec 08 D1)
+  original_source: "include_original=false ならキーごと出さない。true なら AI・インポートが最後に届けた原文 (update_diagram で置き換わる)。new の図は update_diagram されるまで null (spec 08 D1)"
 
 GuiCommands:
   description: GUI (Tauri) の custom command とイベント。フロント側は lib/desktop/ だけがこれを呼ぶ
   take_pending_open: "溜まっている OpenRequest の配列を返して空にする。フロントは準備でき次第と OPEN_EVENT のたびに呼ぶ"
   open_event: "lorelei://open-pending (本体を持たない合図)"
-  open_request: "{ source, payload: EditorPayload | null, dropped, error: string | null, document: DocumentSummary | null }。document は AI / インポートで届いた図のために作った新しい 1 件 (spec 02 D8・D10)。変換に失敗した時は作らず null"
+  open_request: >-
+    { source, payload: EditorPayload | null, dropped, error: string | null, document: DocumentSummary | null, reload: bool, layout: Layout | null }。
+    document は AI / インポートで届いた図のために作った新しい 1 件 (spec 02 D8・D10)、update_diagram では書き換え後のその 1 件。変換に失敗した時は作らず null。
+    reload (既定 false) と layout は spec 08 D3: update_diagram が開いている図を載せ替える要求は reload: true で、layout はその図の Document.layout (同じ ID のノードの位置を当てる)。
+    convert_source の戻り (保存した図を開く時) は reload: false・layout: null (フロントは doc.layout を使う)。
+    フロント (drain) は reload の要求を partitionOpens に入れず別に扱う: 今のページの種類と今の図の id が一致すれば載せ替え (beforeImport は今のと同じで、違いは flush せず cancel・layoutRef を要求の layout に・openingRef を消す・base を document.updated_at に。通知「AI が図を書き換えました」)、
+    今の図が無ければ (起動直後) 開くとして扱い、それ以外は捨てる。同じ回に別の図の「開く」が並んでも載せ替えを先に処理する。stash には積まない
   import_source: "(source) → ()。ツールバーのインポート。Document (origin: import) を作り、OpenRequest を溜めて OPEN_EVENT を出す"
   convert_source: "(source) → OpenRequest (document は null)。保存した図を開く時の変換。溜めない・イベントも出さない"
   list_documents: "() → DocumentSummary[] (saved_at 、無ければ created_at の新しい順。見る・自動保存・改名では動かない, spec 02 D12)"
   create_document: "(editor, title?) → Document。origin: new、source は空 (エディタの初期図で始まり、最初の自動保存で埋まる)"
   load_document: "(id) → Document"
-  save_document: "(id, source, layout) → DocumentSummary。自動保存 (D7)。title / editor / origin / original_source / saved_at は書き換えさせない。中身が同じなら書かない。source が空だった図の最初の書き込みは updated_at を進めない"
+  save_document: "(id, source, layout, base_updated_at) → DocumentSummary。自動保存 (D7)。title / editor / origin / original_source / saved_at は書き換えさせない。中身が同じなら書かない (normalize_pending を消す時は除く)。source が空だった図の最初の書き込みは updated_at を進めない。base_updated_at は Document.save_stale (spec 08 D2)"
   mark_document_saved: "(id) → DocumentSummary。利用者の「保存」(Ctrl+S, D12)。saved_at を今にする = 一覧の先頭へ動き、unsaved が消える"
   rename_document: "(id, title) → ()。並びも unsaved も動かさない"
-  trash_document: "(id) → ()。documents/ から trash/ へ移す。物理削除しない"
+  trash_document: "(id) → ()。documents/ から trash/ へ移す。物理削除しない。history/{id}.json は動かさない (Document.history)"
+  documents_event: "lorelei://documents-changed (本体は DocumentSummary)。update_diagram がファイルを書けた時に出す (spec 08 D3)。外枠はその 1 件だけを一覧で差し替える (setList(map)。一覧を丸ごと読み直さない — 読み直しは自動保存の 1 件差し替えと競合して ● が戻ることがある)"
   last_opened: "() → id | null。起動時に開く図 (DocumentState.last_opened)"
   set_last_opened: "(id) → ()"
   export_diagram: "(source, format: svg|png|pdf, fileStem) → 保存したパス | null (取り消し)。保存ダイアログは rfd。上書きの確認は OS のダイアログが行う"
@@ -278,14 +322,15 @@ Document:
     id: { type: string, format: uuid }        # uuid の形だけ受け付ける (パスを外へ出さない)
     title: string                             # 同名は許す (区別は id)
     editor: { enum: [flowchart, erDiagram] }
-    source: string                            # 今の図の Mermaid (フォーク元の生成器の出力)。origin: new の作成直後は空
+    source: string                            # 今の図の Mermaid (フォーク元の生成器の出力)。origin: new の作成直後は空。update_diagram の後は GUI に載るまで届けた Mermaid そのもの (spec 08 D1)
     layout: { type: "map<string, { x: float, y: float }>" }  # キー = Mermaid 上のノード ID (flowchart は getSafeVariableName した変数名、ER はエンティティ名)。無いノードは自動配置
-    origin: { enum: [new, ai, import] }
-    original_source: { type: string, nullable: true }  # ai / import で届いた原文。以後書き換えない。new は null
+    origin: { enum: [new, ai, import] }       # 来歴。update_diagram でも変えない (spec 08 裁定 4)
+    original_source: { type: string, nullable: true }  # AI・インポートが最後に届けた原文 (update_diagram で置き換わる, spec 08 D1)。new は update_diagram されるまで null
     created_at: { type: string, format: "RFC 3339" }
-    updated_at: { type: string, format: "RFC 3339" }   # 中身が最後に変わった時刻。自動保存で進む
+    updated_at: { type: string, format: "RFC 3339" }   # 中身が最後に変わった時刻。人の編集の自動保存と update_diagram で進む。first_fill と揃え書き (normalize_pending) では進まない
     saved_at: { type: string, format: "RFC 3339", nullable: true }   # 利用者が「保存」を押した時刻 (D12)。一覧の並びの鍵 (null なら created_at)
-  json_keys: camelCase   # ファイルと GUI の受け渡しはどちらも camelCase (originalSource / createdAt ...)
+    normalize_pending: { type: bool, default: false }  # update_diagram が立てる印 (spec 08 D1)。次の save はエディタの書き方に揃えるだけなので updated_at を進めず、印を消してファイルに書く (source / layout が同じでも印を消すために書く)。古いファイルに無ければ false
+  json_keys: camelCase   # ファイルと GUI の受け渡しはどちらも camelCase (originalSource / createdAt / normalizePending ...)
   default_titles:
     new: { flowchart: 無題のフローチャート, erDiagram: 無題の ER 図 }
     ai: "AI の図 HH:MM:SS"          # P4 で MCP の title が来たらそれを使う
@@ -294,8 +339,22 @@ Document:
   initial_sources:   # フォーク元のエディタの初期図を生成器にかけた出力 (一字一句。vitest で生成器と突き合わせる, spec 04 D4-2)
     flowchart: "flowchart TD\n    startNode[Start]\n"
     erDiagram: "erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }"
-  save_guard: "origin が ai / import の図に initial_sources と同じ source を書こうとしたら save_document が拒む (前の source に依らない)。new の図は対象外。拒んだ時のエラーは INITIAL_FIGURE_REJECTED で始まる"
+  save_guard: >-
+    origin が ai / import の図の「空の source への最初の書き込み」(first_fill) が initial_sources と同じなら save_document が拒む。new の図は対象外。拒んだ時のエラーは INITIAL_FIGURE_REJECTED で始まる。
+    spec 08 D1 で first_fill の時だけに絞った (旧: 前の source に依らず拒む)。守るのは spec 04 現況 4 の 1 件目の形だけで、update_diagram の後の揃え書き (source は非空) は掛からない —
+    AI が初期図と同じ図を update で送っても拒まれ続けない。文字列で初期図を事前に弾く案は採らない (初期図は空白の違いだけで同じペイロードになり、空振りする)
   save_gone: "save_document の相手の図が documents/ に無い (ごみ箱へ移した・消えた) 時のエラーは DOCUMENT_GONE で始まる。フロントはその書き込みを捨てる (書き直しても通らない。残すと「保存できなければ切り替えない」で図を移れなくなる)"
+  save_stale: >-
+    save_document は base_updated_at (フロントが読んだ版) を添える (spec 08 D2)。ファイルの updated_at と時刻として違えば「STALE_BASE: {今の updated_at}」で拒む (捨ててよい失敗)。
+    フロントは、今の updated_at が自分の base_updated_at と同じなら黙って捨てる (載せ替えが先に届いていて画面は新しい)。違えば通知「AI が図を書き換えたので開き直します」を出してその図を開き直す。
+    base は load_document・OpenRequest.document・各 save の戻り値の updated_at で更新する。mark_saved / rename / first_fill / 揃え書きでは updated_at が進まないので base は変わらない
+  save_normalize: "save_document は normalize_pending が立っていれば updated_at を進めず、印を消してファイルに書く (中身が同じでも)。first_fill とは重ならない (update は source を非空にする)。updated_at を進めない書き込みは first_fill か印の消える 1 回のどちらか 1 回だけ"
+  update: >-
+    update_diagram の書き込み (spec 08 D1)。documents/ にある図だけ (uuid の形でない・ごみ箱は NotFound)。expected_updated_at をファイルの updated_at と時刻として比べ、違えば Conflict (今の値を載せる)。
+    editor が Document.editor と違えば KindMismatch。書くのは source (届いた Mermaid そのまま。生成器を通さない・空にしない) / original_source (同じ文字列) / updated_at (今) / normalize_pending (true)。
+    title / editor / origin / created_at / saved_at / layout は変えない (一覧の並びは動かず、● が付く。同じ ID のノードは位置を保つ)。書く前に history へ 1 世代写す。比較と書き込みは store_lock の中
+  store_lock: "Store の save / update / mark_saved / rename / trash の load → write は、プロセスで 1 つの static Mutex の中で行う (Store は呼ぶたび作られる。MCP は spawn_blocking、Tauri の command は別スレッドで順序が無い。TOCTOU を作らない, spec 08 D2)"
+  history: "{app_data_dir}/history/{id}.json。update_diagram が書き換える前の Document を 1 世代だけ写す (次の update で上書き, spec 08 D5)。GUI は持たない (戻すのは人が手で)。ごみ箱へ移しても動かさない・消さない (空にする操作は無い)"
 
 DocumentSummary:
   description: 一覧用。source / layout / original_source を持たない
