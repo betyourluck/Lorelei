@@ -33,7 +33,7 @@ import { useEffect, useRef, useState } from "react";
 import { EDITOR_PHRASES_JA } from "./editor-phrases";
 import { countChars, overwriteSpan } from "./editor-typing";
 import type { MermaidKind } from "./mermaid-completion";
-import { mermaidCompletionSource, mermaidLinter } from "./mermaid-intellisense";
+import { mermaidCompletionSource, mermaidLinter, type LineWarning } from "./mermaid-intellisense";
 import { mermaidLanguage } from "./mermaid-language";
 
 export interface CodeEditorProps {
@@ -50,6 +50,10 @@ export interface CodeEditorProps {
   intellisense?: boolean;
   /** フッタ（行・列・行数・文字数・挿入/上書き）を出す。Insert の上書き切り替えもこれに連動する */
   status?: boolean;
+  /** 取り込むと消える行の印（黄色の警告, spec 11 D4）。intellisense の時だけ使う */
+  warnings?: (text: string) => LineWarning[];
+  /** 見出しの無いコードの時に補う見出し（赤線の検めにも通す, spec 11 D2） */
+  defaultHeader?: string;
   "aria-label"?: string;
 }
 
@@ -143,6 +147,8 @@ export const CodeEditor = ({
   mermaid,
   intellisense = false,
   status = false,
+  warnings,
+  defaultHeader,
   "aria-label": ariaLabel,
 }: CodeEditorProps) => {
   const host = useRef<HTMLDivElement>(null);
@@ -150,6 +156,9 @@ export const CodeEditor = ({
   // 最新の onChange を呼ぶ（作った時の関数のままにしない）
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  // 行の印の関数も最新を使う（関数が替わってもエディタを作り直さない）
+  const warningsRef = useRef(warnings);
+  warningsRef.current = warnings;
   const overwriteRef = useRef(false);
   const [overwrite, setOverwrite] = useState(false);
   const [info, setInfo] = useState<StatusInfo | null>(null);
@@ -202,7 +211,11 @@ export const CodeEditor = ({
           tooltipTheme,
           EditorState.phrases.of(EDITOR_PHRASES_JA),
           ...(intellisense
-            ? [autocompletion({ override: [mermaidCompletionSource(mermaid)] }), mermaidLinter(), lintGutter()]
+            ? [
+                autocompletion({ override: [mermaidCompletionSource(mermaid)] }),
+                mermaidLinter(() => warningsRef.current, defaultHeader),
+                lintGutter(),
+              ]
             : []),
           ...(status && !readOnly ? [overwriteHandler] : []),
           keymap.of([
@@ -249,7 +262,7 @@ export const CodeEditor = ({
     };
     // 作り直すのは設定が変わった時だけ。value・readOnly・placeholder は下の effect で差し替える
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [intellisense, mermaid, status]);
+  }, [intellisense, mermaid, status, defaultHeader]);
 
   // value を外から変えた時（コード生成で向きを変えた時）は、差し替えの印を付けて入れ替える
   useEffect(() => {

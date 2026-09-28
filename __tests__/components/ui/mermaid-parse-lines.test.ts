@@ -48,6 +48,10 @@ describe("prepareForParse + toParseIssue — 本物の mermaid の行と本文�
     expect(await issueLine("erDiagram\n  %% メモ\n  顧客 ||--o{ 注文 注文する")).toBe(3);
   });
 
+  test("frontmatter の後の誤り (spec 11 rev1、spec 10 の穴)", async () => {
+    expect(await issueLine("---\ntitle: 図\n---\nflowchart TD\n  A --> B\n  B --> --> C")).toBe(6);
+  });
+
   test("通る本文は通る (注釈を空行にしても意味を変えない)", async () => {
     expect(await issueLine("flowchart TD\n  %% メモ\n  A --> B")).toBe("ok");
   });

@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { MockInstance } from "vitest";
 import { describe, test, expect, vi, beforeEach, it } from "vitest";
@@ -101,8 +101,8 @@ describe("PanelContent", () => {
       const modalImportButton = importButtons[1]; // モーダル内のボタンは2番目
       await user.click(modalImportButton);
 
-      // onImportMermaidが呼ばれることを確認
-      expect(defaultProps.onImportMermaid).toHaveBeenCalledTimes(1);
+      // onImportMermaidが呼ばれることを確認 (取り込みは mermaid.js の解析で非同期, spec 11)
+      await waitFor(() => expect(defaultProps.onImportMermaid).toHaveBeenCalledTimes(1));
     });
 
     test("不正なMermaidコードでエラーが表示される", async () => {
@@ -123,8 +123,8 @@ describe("PanelContent", () => {
       const modalImportButton = importButtons[1]; // モーダル内のボタンは2番目
       await user.click(modalImportButton);
 
-      // エラーメッセージが表示されることを確認
-      expect(screen.getByText(/有効なMermaidコードが見つかりませんでした/)).toBeInTheDocument();
+      // エラーメッセージが表示されることを確認 (spec 11: 取り込みは mermaid.js の解析。読めないコードは文法の誤りとして行を示す)
+      expect(await screen.findByText(/Mermaid の文法の誤りで取り込めません/)).toBeInTheDocument();
       // onImportMermaidが呼ばれないことを確認
       expect(defaultProps.onImportMermaid).not.toHaveBeenCalled();
     });

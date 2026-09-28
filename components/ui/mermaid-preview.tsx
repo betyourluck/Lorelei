@@ -25,17 +25,20 @@ interface MermaidPreviewProps {
    * 描けない時は誤りの文を図の上に帯で重ねる
    */
   keepLast?: boolean;
+  /** 見出しの無いコードの時に補う見出し (取り込みと同じ補い, spec 11 D2) */
+  defaultHeader?: string;
 }
 
 /** Mermaid を mermaid.js で描いて見せる (spec 09 D3) */
-export const MermaidPreview: FC<MermaidPreviewProps> = ({ code, keepLast = false }) => {
+export const MermaidPreview: FC<MermaidPreviewProps> = ({ code, keepLast = false, defaultHeader }) => {
   const [state, setState] = useState<PreviewState>({ svg: null, error: null, loading: true });
 
   useEffect(() => {
     // コードが変わった後・消えた後 (StrictMode の二度走りを含む) に届いた結果は捨てる
     let stale = false;
     setState((s) => (keepLast ? { ...s, loading: true } : { svg: null, error: null, loading: true }));
-    renderMermaid(nextPreviewId(), code).then(
+    const id = nextPreviewId();
+    (defaultHeader ? renderMermaid(id, code, { defaultHeader }) : renderMermaid(id, code)).then(
       (svg) => {
         if (!stale) setState({ svg, error: null, loading: false });
       },
@@ -48,7 +51,7 @@ export const MermaidPreview: FC<MermaidPreviewProps> = ({ code, keepLast = false
     return () => {
       stale = true;
     };
-  }, [code, keepLast]);
+  }, [code, keepLast, defaultHeader]);
 
   const errorBox = state.error !== null && (
     <Box role="alert" p="md" color="danger" bg={state.svg ? "white" : undefined} borderBottomWidth={state.svg ? "1px" : 0}>

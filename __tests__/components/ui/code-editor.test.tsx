@@ -1,5 +1,5 @@
 import { insertBracket, startCompletion, completionStatus } from "@codemirror/autocomplete";
-import { diagnosticCount, forceLinting } from "@codemirror/lint";
+import { diagnosticCount, forceLinting, forEachDiagnostic } from "@codemirror/lint";
 import { EditorView } from "@codemirror/view";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
@@ -140,7 +140,26 @@ describe("CodeEditor", () => {
     const view = viewOf(container);
     act(() => forceLinting(view));
     await waitFor(() => expect(diagnosticCount(view.state)).toBe(1));
-    expect(mockParse).toHaveBeenCalledWith("flowchart TD\n  A --> -->");
+    expect(mockParse).toHaveBeenCalledWith("flowchart TD\n  A --> -->", { defaultHeader: undefined });
+  });
+
+  test("取り込むと消える行の印を黄色の警告として出す (spec 11 D4)", async () => {
+    const { container } = render(
+      <CodeEditor
+        value={"flowchart TD\n  A --> B\n  style A fill:#f00"}
+        mermaid="flowchart"
+        intellisense
+        warnings={(text) => (text.includes("style") ? [{ line: 3, message: "style 指定は取り込まれません" }] : [])}
+      />
+    );
+    const view = viewOf(container);
+    act(() => forceLinting(view));
+    await waitFor(() => expect(diagnosticCount(view.state)).toBe(1));
+    let found: { severity: string; from: number; message: string } | null = null;
+    forEachDiagnostic(view.state, (d, from) => {
+      found = { severity: d.severity, from, message: d.message };
+    });
+    expect(found).toEqual({ severity: "warning", from: view.state.doc.line(3).from, message: "style 指定は取り込まれません" });
   });
 
   test("intellisense が無ければ検めない", async () => {

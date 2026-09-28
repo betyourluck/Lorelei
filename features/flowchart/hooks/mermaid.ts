@@ -104,7 +104,8 @@ export const getReservedWords = (): Set<string> => {
  * @param label ノードラベル
  * @returns Mermaidの形状記法
  */
-export const formatMermaidShape = (shapeType: MermaidShapeType, label: string): string => {
+export const formatMermaidShape = (shapeType: MermaidShapeType, rawLabel: string): string => {
+  const label = quoteNodeLabel(rawLabel);
   switch (shapeType) {
     case "rectangle":
       return `[${label}]`;
@@ -121,6 +122,25 @@ export const formatMermaidShape = (shapeType: MermaidShapeType, label: string): 
     default:
       return `[${label}]`; // デフォルトは四角形
   }
+};
+
+/**
+ * 引用符で囲んだラベルの中の " を mermaid の実体参照にする (`\"` は mermaid では通るが " が消えて \ が残る, spec 11 P0)
+ */
+const ENTITY_HASH = new RegExp("#(?=[\\p{L}\\p{N}_]+;)", "gu");
+const escapeQuoted = (label: string): string =>
+  // mermaid は #語; を実体参照として読むので、その # は #35; にする
+  `"${label.replace(ENTITY_HASH, "#35;").replace(/"/g, "#quot;")}"`;
+
+/**
+ * ノードのラベル。括弧・縦棒・引用符は囲まないと mermaid の文法の誤りになるので、その時だけ囲む (spec 11 D5)。
+ * `#語;` を含む時も囲んで # を逃がす。空のラベルは空白 1 つを囲む (B[] ・ B[""] は誤り)。
+ * それ以外 (日本語・記号 : ; # % / ？ など) は今までどおりそのまま書く
+ */
+const HAS_ENTITY = new RegExp("#[\\p{L}\\p{N}_]+;", "u");
+const quoteNodeLabel = (label: string): string => {
+  if (label === "") return '" "';
+  return /[()[\]{}|"]/.test(label) || HAS_ENTITY.test(label) ? escapeQuoted(label) : label;
 };
 
 /**
@@ -145,7 +165,7 @@ const sanitizeMermaidLabel = (label: string): string => {
   }
 
   // 特殊文字が含まれる場合は引用符で囲む
-  return `"${label.replace(/"/g, '\\"')}"`;
+  return escapeQuoted(label);
 };
 
 /**

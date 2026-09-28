@@ -1,258 +1,127 @@
-import { screen, waitFor, within } from "@testing-library/react";
-import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { describe, test, expect, vi } from "vitest";
 import { render } from "@/__tests__/test-utils";
 import { ImportModal } from "@/features/flowchart/components/mermaid/import-modal";
-import type { ParsedMermaidData } from "@/features/flowchart/hooks/mermaid";
-import { parseMermaidCode } from "@/features/flowchart/hooks/mermaid";
-import type { MermaidShapeType, MermaidArrowType } from "@/features/flowchart/types/types";
 
-// utilsのモック
-vi.mock("@/features/flowchart/hooks/mermaid", () => ({
-  parseMermaidCode: vi.fn(),
-}));
+// 取り込みは mermaid.js の解析 (spec 11)。__tests__/setup.ts の境界の模擬は readMermaidDiagram だけ本物を返すので、本物の取り込みで確かめる
 
-const mockParseMermaidCode = vi.mocked(parseMermaidCode);
+/** エディタ (テストでは textarea に模擬) に本文を入れる。user.type は [ や { を特別な打鍵として読むので、値をまとめて入れる */
+const setCode = (code: string) => fireEvent.change(screen.getByTestId("code-editor"), { target: { value: code } });
 
 describe("ImportModal", () => {
-  const mockParsedData: ParsedMermaidData = {
-    nodes: [
-      {
-        id: "A",
-        variableName: "A",
-        label: "Start",
-        shapeType: "roundedRect" as MermaidShapeType,
-      },
-      {
-        id: "B",
-        variableName: "B",
-        label: "Process",
-        shapeType: "rect" as MermaidShapeType,
-      },
-    ],
-    edges: [
-      {
-        id: "A-B",
-        source: "A",
-        target: "B",
-        label: "",
-        arrowType: "simple" as MermaidArrowType,
-      },
-    ],
-  };
-
-  const mockProps = {
-    open: false,
-    onClose: vi.fn(),
-    onImport: vi.fn(),
-  };
-
-  beforeEach(() => {
-    mockParseMermaidCode.mockReturnValue(mockParsedData);
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
+  const props = () => ({ open: true, onClose: vi.fn(), onImport: vi.fn() });
 
   test("モーダルが開いている時にコンテンツが表示される", () => {
-    render(<ImportModal {...mockProps} open />);
+    render(<ImportModal {...props()} />);
 
     expect(screen.getByText("Mermaidコードインポート")).toBeInTheDocument();
-    expect(
-      screen.getByText("Mermaidのフローチャートコードを貼り付けてインポートできます")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Mermaidのフローチャートコードを貼り付けてインポートできます")).toBeInTheDocument();
     expect(screen.getByText("キャンセル")).toBeInTheDocument();
     expect(screen.getByText("インポート")).toBeInTheDocument();
     expect(screen.getByTestId("code-editor")).toBeInTheDocument();
-
-    // モーダルが適切に表示されていることを確認
-    const modal = screen.getByRole("dialog");
-    expect(modal).toBeInTheDocument();
-    expect(modal).toHaveAttribute("aria-modal", "true");
+    expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
   });
 
   test("モーダルが閉じている時にコンテンツが表示されない", () => {
-    render(<ImportModal {...mockProps} open={false} />);
+    render(<ImportModal {...props()} open={false} />);
 
     expect(screen.queryByText("Mermaidコードインポート")).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   test("キャンセルボタンクリック時にonCloseが呼ばれる", async () => {
-    const onClose = vi.fn();
-    const { user } = render(<ImportModal {...mockProps} open onClose={onClose} />);
-
-    const cancelButton = screen.getByText("キャンセル");
-    await user.click(cancelButton);
-
-    expect(onClose).toHaveBeenCalledTimes(1);
+    const p = props();
+    const { user } = render(<ImportModal {...p} />);
+    await user.click(screen.getByText("キャンセル"));
+    expect(p.onClose).toHaveBeenCalledTimes(1);
   });
 
   test("有効なMermaidコードでインポートが成功する", async () => {
-    const onImport = vi.fn();
-    const onClose = vi.fn();
-    const { user } = render(
-      <ImportModal {...mockProps} open onImport={onImport} onClose={onClose} />
-    );
+    const p = props();
+    const { user } = render(<ImportModal {...p} />);
+    setCode("flowchart TD\n  A[開始] --> B{判定}");
+    await user.click(screen.getByText("インポート"));
 
-    const codeInput = screen.getByTestId("code-editor");
-    const importButton = screen.getByText("インポート");
-
-    // Mermaidコードを入力
-    await user.type(codeInput, "flowchart TD\n  A --> B");
-
-    // インポートボタンをクリック
-    await user.click(importButton);
-
-    await waitFor(() => {
-      expect(mockParseMermaidCode).toHaveBeenCalledWith("flowchart TD\n  A --> B");
-      expect(onImport).toHaveBeenCalledWith(mockParsedData);
-      expect(onClose).toHaveBeenCalledTimes(1);
-    });
+    await waitFor(() => expect(p.onImport).toHaveBeenCalledTimes(1));
+    const data = p.onImport.mock.calls[0][0];
+    expect(data.nodes.map((n: { id: string; shapeType: string }) => [n.id, n.shapeType])).toEqual([
+      ["A", "rectangle"],
+      ["B", "diamond"],
+    ]);
+    expect(p.onClose).toHaveBeenCalledTimes(1);
   });
 
-  test("空のコードでインポートしようとするとエラーが表示される", async () => {
-    // パース結果が空のモックを設定
-    const emptyParsedData: ParsedMermaidData = { nodes: [], edges: [] };
-    mockParseMermaidCode.mockReturnValue(emptyParsedData);
+  test("ノードが 1 つも無い時はエラーが表示される", async () => {
+    const p = props();
+    const { user } = render(<ImportModal {...p} />);
+    setCode("flowchart TD");
+    await user.click(screen.getByText("インポート"));
 
-    const { user } = render(<ImportModal {...mockProps} open />);
-    const codeInput = screen.getByTestId("code-editor");
-    const importButton = screen.getByRole("button", { name: /インポート/i });
-
-    // 無効なコードを入力してボタンを有効化
-    await user.type(codeInput, "invalid code");
-
-    // インポートボタンをクリック
-    await user.click(importButton);
-
-    // エラーメッセージの表示を確認
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          "有効なMermaidコードが見つかりませんでした。ノードまたはエッジの定義を確認してください。"
-        )
-      ).toBeInTheDocument();
-    });
-
-    expect(mockProps.onImport).not.toHaveBeenCalled();
-    expect(mockProps.onClose).not.toHaveBeenCalled();
+    expect(await screen.findByText(/有効なMermaidコードが見つかりませんでした/)).toBeInTheDocument();
+    expect(p.onImport).not.toHaveBeenCalled();
+    expect(p.onClose).not.toHaveBeenCalled();
   });
 
-  test("パース結果が空の場合エラーが表示される", async () => {
-    const emptyParsedData: ParsedMermaidData = {
-      nodes: [],
-      edges: [],
-    };
-    mockParseMermaidCode.mockReturnValue(emptyParsedData);
+  test("文法の誤りは取り込まずに、誤りの行を示す (spec 11 D3)", async () => {
+    const p = props();
+    const { user } = render(<ImportModal {...p} />);
+    setCode("flowchart TD\n  A --> B\n  B --> --> C");
+    await user.click(screen.getByText("インポート"));
 
-    const { user } = render(<ImportModal {...mockProps} open />);
-
-    const codeInput = screen.getByTestId("code-editor");
-    const importButton = screen.getByText("インポート");
-
-    // 無効なMermaidコードを入力
-    await user.type(codeInput, "invalid code");
-    await user.click(importButton);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          "有効なMermaidコードが見つかりませんでした。ノードまたはエッジの定義を確認してください。"
-        )
-      ).toBeInTheDocument();
-    });
+    expect(await screen.findByText(/Mermaid の文法の誤りで取り込めません（3 行目）/)).toBeInTheDocument();
+    expect(p.onImport).not.toHaveBeenCalled();
   });
 
-  test("パース中にエラーが発生した場合エラーが表示される", async () => {
-    mockParseMermaidCode.mockImplementation(() => {
-      throw new Error("Parse error");
-    });
+  test("ER 図は取り込まない", async () => {
+    const p = props();
+    const { user } = render(<ImportModal {...p} />);
+    setCode("erDiagram\n  A ||--o{ B : r");
+    await user.click(screen.getByText("インポート"));
 
-    const { user } = render(<ImportModal {...mockProps} open />);
+    expect(await screen.findByText(/フローチャートではありません/)).toBeInTheDocument();
+    expect(p.onImport).not.toHaveBeenCalled();
+  });
 
-    const codeInput = screen.getByTestId("code-editor");
-    const importButton = screen.getByText("インポート");
+  test("見出しの無いコードも今どおり取り込める (spec 11 D2)", async () => {
+    const p = props();
+    const { user } = render(<ImportModal {...p} />);
+    setCode("A --> B");
+    await user.click(screen.getByText("インポート"));
 
-    // Mermaidコードを入力
-    await user.type(codeInput, "flowchart TD\n  A --> B");
-    await user.click(importButton);
-
-    await waitFor(() => {
-      expect(screen.getByText("Mermaidコードの解析中にエラーが発生しました")).toBeInTheDocument();
-    });
+    await waitFor(() => expect(p.onImport).toHaveBeenCalledTimes(1));
   });
 
   test("コード入力時にエラーがクリアされる", async () => {
-    // 最初は空の結果を返し、その後有効な結果を返すモックを設定
-    const emptyParsedData: ParsedMermaidData = { nodes: [], edges: [] };
-    mockParseMermaidCode.mockReturnValueOnce(emptyParsedData);
+    const { user } = render(<ImportModal {...props()} />);
+    setCode("flowchart TD");
+    await user.click(screen.getByText("インポート"));
+    expect(await screen.findByText(/有効なMermaidコードが見つかりませんでした/)).toBeInTheDocument();
 
-    const { user } = render(<ImportModal {...mockProps} open />);
-
-    const codeInput = screen.getByTestId("code-editor");
-    const importButton = screen.getByText("インポート");
-
-    // まず無効なコードを入力してエラーを発生させる
-    await user.type(codeInput, "invalid");
-    await user.click(importButton);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          "有効なMermaidコードが見つかりませんでした。ノードまたはエッジの定義を確認してください。"
-        )
-      ).toBeInTheDocument();
-    });
-
-    // コードを追加入力するとエラーが消える
-    await user.type(codeInput, " more text");
-
-    await waitFor(() => {
-      expect(
-        screen.queryByText(
-          "有効なMermaidコードが見つかりませんでした。ノードまたはエッジの定義を確認してください。"
-        )
-      ).not.toBeInTheDocument();
-    });
+    setCode("flowchart TD\n  A --> B");
+    expect(screen.queryByText(/有効なMermaidコードが見つかりませんでした/)).not.toBeInTheDocument();
   });
 
   test("インポートボタンは空のコードの時は無効化される", () => {
-    render(<ImportModal {...mockProps} open />);
-
-    const importButton = screen.getByText("インポート");
-    expect(importButton).toBeDisabled();
+    render(<ImportModal {...props()} />);
+    expect(screen.getByText("インポート")).toBeDisabled();
   });
 
   test("ヘルプテキストが表示される", () => {
-    render(<ImportModal {...mockProps} open />);
-
+    render(<ImportModal {...props()} />);
     expect(screen.getByText(/💡 対応しているノード形状/)).toBeInTheDocument();
   });
 
   test("例示用のプレースホルダーが表示される", () => {
-    render(<ImportModal {...mockProps} open />);
-
-    const codeInput = screen.getByTestId("code-editor");
-    expect(codeInput).toHaveAttribute("placeholder");
-    expect(codeInput.getAttribute("placeholder")).toContain("flowchart TD");
+    render(<ImportModal {...props()} />);
+    expect(screen.getByTestId("code-editor").getAttribute("placeholder")).toContain("flowchart TD");
   });
 
   test("モーダルを閉じる時にステートがリセットされる", async () => {
-    const onClose = vi.fn();
-    const { user } = render(<ImportModal {...mockProps} open onClose={onClose} />);
-
-    const codeInput = screen.getByTestId("code-editor");
-
-    // コードを入力
-    await user.type(codeInput, "some code");
-
-    // キャンセルボタンでモーダルを閉じる
-    const cancelButton = screen.getByText("キャンセル");
-    await user.click(cancelButton);
-
-    // handleCloseによってonCloseが1回呼ばれることを確認
-    expect(onClose).toHaveBeenCalled();
+    const p = props();
+    const { user } = render(<ImportModal {...p} />);
+    setCode("some code");
+    await user.click(screen.getByText("キャンセル"));
+    expect(p.onClose).toHaveBeenCalled();
   });
 });
 
@@ -288,5 +157,23 @@ describe("ImportModal のプレビュー", () => {
     await user.type(screen.getByTestId("code-editor"), "flowchart TD");
     await user.keyboard("{Escape}");
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+// spec 11 D4: 取り込むと消えるものの警告
+describe("ImportModal の警告", () => {
+  test("取り込むと消えるものを、取り込む前に要約で知らせる", async () => {
+    render(<ImportModal open onClose={vi.fn()} onImport={vi.fn()} />);
+    setCode("flowchart TD\n  subgraph S\n    A --> B\n  end\n  style A fill:#f00");
+
+    const status = await screen.findByRole("status", {}, { timeout: 3000 });
+    // 並びは名前の順 (style < subgraph。MCP の通知と同じ)
+    expect(status).toHaveTextContent("取り込むと消えるもの: style 指定 ×1、サブグラフ ×1");
+  });
+
+  test("消える書き方の行に印を付ける", () => {
+    render(<ImportModal open onClose={vi.fn()} onImport={vi.fn()} />);
+    setCode("flowchart TD\n  subgraph S\n    A --> B\n  end\n  style A fill:#f00");
+    expect(screen.getByTestId("code-editor")).toHaveAttribute("data-warnings", "2,5");
   });
 });

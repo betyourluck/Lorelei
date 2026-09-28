@@ -41,6 +41,7 @@ vi.mock("@/components/ui/lazy-code-editor", async () => {
       placeholder?: string;
       readOnly?: boolean;
       "aria-label"?: string;
+      warnings?: (text: string) => { line: number; message: string }[];
     }) =>
       createElement("textarea", {
         "data-testid": "code-editor",
@@ -48,6 +49,8 @@ vi.mock("@/components/ui/lazy-code-editor", async () => {
         placeholder: props.placeholder,
         readOnly: props.readOnly,
         "aria-label": props["aria-label"],
+        // 取り込むと消える行の印 (spec 11 D4) をテストから見えるようにする
+        "data-warnings": props.warnings ? props.warnings(props.value).map((w) => w.line).join(",") : undefined,
         onChange: (e: { target: { value: string } }) => props.onChange?.(e.target.value),
       }),
   };
@@ -75,11 +78,16 @@ if (typeof Range !== "undefined") {
 
 // mermaid の描画のモック。jsdom では本物の mermaid が描けない (SVG の寸法が測れない)。
 // 動的 import した mermaid を模擬するのではなく、境界のモジュールを静的に模擬する
-vi.mock("@/components/ui/mermaid-render", () => ({
-  renderMermaid: vi.fn(
-    async (id: string, code: string) =>
-      `<svg id="${id}" data-testid="mermaid-svg" data-code="${encodeURIComponent(code)}"></svg>`
-  ),
-  // 文法の検め (spec 10 D5)。既定は「通る」
-  parseMermaid: vi.fn(async () => null),
-}));
+vi.mock("@/components/ui/mermaid-render", async () => {
+  // 取り込みの解析 (spec 11) は本物を使う (jsdom でも mermaid の解析は動く。描画だけが動かない)
+  const actual = await vi.importActual<typeof import("@/components/ui/mermaid-render")>("@/components/ui/mermaid-render");
+  return {
+    renderMermaid: vi.fn(
+      async (id: string, code: string) =>
+        `<svg id="${id}" data-testid="mermaid-svg" data-code="${encodeURIComponent(code)}"></svg>`
+    ),
+    // 文法の検め (spec 10 D5)。既定は「通る」
+    parseMermaid: vi.fn(async () => null),
+    readMermaidDiagram: actual.readMermaidDiagram,
+  };
+});

@@ -15,8 +15,15 @@ import {
 } from "@yamada-ui/react";
 import { useState } from "react";
 import { MermaidEditorWithPreview } from "@/components/ui";
-import { parseMermaidCode } from "../../hooks/mermaid";
 import type { ParsedMermaidData } from "../../hooks/mermaid";
+import { flowchartDropWarnings } from "../../utils/drop-warnings";
+import { FLOWCHART_DEFAULT_HEADER, readFlowchartForImport } from "../../utils/import-flowchart";
+
+/** 取り込むと消えるもの (取り込みと同じ計算, spec 11 D4) */
+const readFlowchartDropped = async (code: string) => {
+  const result = await readFlowchartForImport(code);
+  return result.ok ? result.dropped : [];
+};
 
 interface ImportModalProps {
   open: boolean;
@@ -42,7 +49,13 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
     setError(null);
 
     try {
-      const parsedData = parseMermaidCode(mermaidCode);
+      // mermaid.js で解析して取り込む (spec 11 D1・D3)。文法の誤り・ほかの図は取り込まずに理由を出す
+      const result = await readFlowchartForImport(mermaidCode);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      const parsedData = result.data;
 
       if (parsedData.nodes.length === 0 && parsedData.edges.length === 0) {
         setError(
@@ -94,6 +107,9 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
           }}
           placeholder={`例:\n${exampleCode}`}
           mermaid="flowchart"
+          warnings={flowchartDropWarnings}
+          readDropped={readFlowchartDropped}
+          defaultHeader={FLOWCHART_DEFAULT_HEADER}
           description={
             <Text fontSize="sm" color="gray.600">
               Mermaidのフローチャートコードを貼り付けてインポートできます

@@ -15,8 +15,15 @@ import {
 } from "@yamada-ui/react";
 import { useState } from "react";
 import { MermaidEditorWithPreview } from "@/components/ui";
-import { convertMermaidToERData } from "../../utils/import-mermaid-to-er";
+import { erDropWarnings } from "../../utils/drop-warnings";
+import { readErForImport } from "../../utils/import-er";
 import type { ParsedMermaidERData } from "../../utils/import-mermaid-to-er";
+
+/** 取り込むと消えるもの (取り込みと同じ計算, spec 11 D4) */
+const readErDropped = async (code: string) => {
+  const result = await readErForImport(code);
+  return result.ok ? result.dropped : [];
+};
 
 /**
  * ER図インポートモーダルのプロパティ
@@ -59,7 +66,13 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
     setError(null);
 
     try {
-      const parsedData = convertMermaidToERData(mermaidCode);
+      // mermaid.js で解析して取り込む (spec 11 D1・D3)。文法の誤り・ほかの図は取り込まずに理由を出す
+      const result = await readErForImport(mermaidCode);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      const parsedData = result.data;
 
       if (parsedData.nodes.length === 0 && parsedData.edges.length === 0) {
         setError(
@@ -125,6 +138,8 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
           }}
           placeholder={`例:\n${exampleCode}`}
           mermaid="er"
+          warnings={erDropWarnings}
+          readDropped={readErDropped}
           description={
             <Text fontSize="sm" color="gray.600">
               MermaidのER図コードを貼り付けてインポートできます

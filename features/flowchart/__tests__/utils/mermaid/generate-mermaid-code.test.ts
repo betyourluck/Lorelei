@@ -237,8 +237,9 @@ describe("generateMermaidCode", () => {
       };
 
       const result = generateMermaidCode(flowData);
-      expect(result).toContain("node1[]");
-      expect(result).toContain("node2[]");
+      // 空のラベルは [" "] (node1[] は mermaid.js の文法の誤り, spec 11 D5)
+      expect(result).toContain('node1[" "]');
+      expect(result).toContain('node2[" "]');
     });
   });
 });
