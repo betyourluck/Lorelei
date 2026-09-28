@@ -29,3 +29,12 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
   unobserve: vi.fn(),
   disconnect: vi.fn(),
 }));
+
+// mermaid の描画のモック。jsdom では本物の mermaid が描けない (SVG の寸法が測れない)。
+// 動的 import した mermaid を模擬するのではなく、境界のモジュールを静的に模擬する
+vi.mock("@/components/ui/mermaid-render", () => ({
+  renderMermaid: vi.fn(
+    async (id: string, code: string) =>
+      `<svg id="${id}" data-testid="mermaid-svg" data-code="${encodeURIComponent(code)}"></svg>`
+  ),
+}));

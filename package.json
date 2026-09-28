@@ -43,6 +43,7 @@
     "@xyflow/react": "^12.8.2",
     "@yamada-ui/lucide": "^1.10.5",
     "@yamada-ui/react": "^1.7.7",
+    "mermaid": "11.17.2",
     "next": "14.1.0",
     "prismjs": "^1.30.0",
     "react": "^18",
