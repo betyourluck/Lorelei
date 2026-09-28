@@ -15,8 +15,12 @@ export interface OpenRequest {
   payload: { editor: EditorKind; data: unknown; dropped: DroppedItem[] } | null;
   dropped: DroppedItem[];
   error: string | null;
-  /** AI / インポートで届いた図のために Rust が作った新しい 1 件 (spec 02 D8・D10)。保存した図を開く時は null */
+  /** AI / インポートで届いた図のために Rust が作った新しい 1 件 (spec 02 D8・D10)、update_diagram では書き換え後のその 1 件。保存した図を開く時は null */
   document?: DocumentSummary | null;
+  /** update_diagram が開いている図を載せ替える要求 (spec 08 D3)。drain は partitionOpens に入れず別に扱う */
+  reload?: boolean;
+  /** update_diagram の要求に付く、その図の位置 (同じ ID のノードの位置を当てる)。保存した図を開く時は null */
+  layout?: Record<string, { x: number; y: number }> | null;
 }
 
 /** エディタの種類 → ページ。next.config の trailingSlash: true に合わせる */

@@ -12,6 +12,23 @@ type Doc = {
   createdAt: string;
   updatedAt: string;
   savedAt: string | null;
+  /** update_diagram が立て、次の save が消す印 (spec 08 D1) */
+  normalizePending: boolean;
+};
+
+/** src-tauri の OpenRequest (take_pending_open の中身)。テストが積む */
+export type PendingOpen = {
+  source: string;
+  payload: {
+    editor: "flowchart" | "erDiagram";
+    data: unknown;
+    dropped: { construct: string; count: number }[];
+  } | null;
+  dropped: { construct: string; count: number }[];
+  error: string | null;
+  document: ReturnType<ReturnType<typeof fakeBackend>["summary"]> | null;
+  reload: boolean;
+  layout: Record<string, { x: number; y: number }> | null;
 };
 
 export function fakeBackend() {
@@ -47,6 +64,7 @@ export function fakeBackend() {
       createdAt: t,
       updatedAt: t,
       savedAt: null,
+      normalizePending: false,
       ...extra,
     };
     docs.set(d.id, d);
@@ -61,6 +79,8 @@ export function fakeBackend() {
     state: "listening" as "listening" | "stopped" | "failed" | "blocked",
     detail: null as string | null,
   };
+
+  const pending: PendingOpen[] = [];
 
   const invoke = vi.fn(async (cmd: string, args: Record<string, unknown> = {}) => {
     switch (cmd) {
@@ -91,9 +111,13 @@ export function fakeBackend() {
         const d = docs.get(args.id as string);
         // src-tauri documents::DOCUMENT_GONE と同じ (ごみ箱へ移した図への書き込み)
         if (!d) throw "DOCUMENT_GONE: 図が一覧にありません";
+        // src-tauri documents::STALE_BASE と同じ (spec 08 D2): 古い版を添えた書き込みは届かせず、今の値を載せる
+        if (args.baseUpdatedAt !== d.updatedAt) throw `STALE_BASE: ${d.updatedAt}`;
         const firstFill = d.source === "";
+        const normalizing = d.normalizePending;
         Object.assign(d, { source: args.source, layout: args.layout });
-        if (!firstFill) d.updatedAt = now();
+        if (normalizing) d.normalizePending = false;
+        else if (!firstFill) d.updatedAt = now();
         return summary(d);
       }
       case "mark_document_saved": {
@@ -114,7 +138,7 @@ export function fakeBackend() {
         last = args.id as string;
         return undefined;
       case "take_pending_open":
-        return [];
+        return pending.splice(0);
       case "convert_source":
         return { source: args.source, payload: null, dropped: [], error: "fake", document: null };
       default:
@@ -122,12 +146,22 @@ export function fakeBackend() {
     }
   });
 
+  /** src-tauri Store::update と同じ (spec 08 D1): source / originalSource / updatedAt / normalizePending だけを書く */
+  const update = (id: string, source: string) => {
+    const d = docs.get(id)!;
+    Object.assign(d, { source, originalSource: source, updatedAt: now(), normalizePending: true });
+    return summary(d);
+  };
+
   return {
     invoke,
     mcp,
     docs,
     trashed,
     add,
+    summary,
+    update,
+    pending,
     setLast: (id: string | null) => {
       last = id;
     },

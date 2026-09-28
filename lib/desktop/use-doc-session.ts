@@ -12,7 +12,9 @@ import {
   expectedKeys,
   isDocumentGone,
   isInitialFigureRejected,
+  isStaleBase,
   onNodesChanged,
+  staleBaseCurrent,
   toSource,
   withLayout,
 } from "./doc-session";
@@ -31,6 +33,7 @@ import {
 } from "./documents";
 import type { EditorKind, OpenRequest } from "./open-requests";
 import { routeOf } from "./open-requests";
+import { DOCUMENTS_EVENT, listenPayload } from "./tauri";
 import { firstDrain, hasPendingOpens, queueOpen, setDocsBridge } from "./use-desktop-open";
 
 const AUTOSAVE_DELAY_MS = 1000;
@@ -125,18 +128,36 @@ export function useDocSession(
   pathKindRef.current = kindOf(pathname);
   const listRef = useRef(list);
   listRef.current = list;
+  /** 今の図の、フロントが読んだ版 (updated_at)。自動保存に添える (spec 08 D2)。開いた時・載せ替え・各保存の戻りで更新する */
+  const baseRef = useRef("");
+  /** open は描画のたびに作り直されるので、自動保存の失敗からは ref 経由で呼ぶ */
+  const openRef = useRef<(id: string) => Promise<void>>(async () => {});
 
   const autosaver = useMemo(
     () =>
       new Autosaver<Snapshot>(async (id, s) => {
         try {
-          const saved = await saveDocument(id, s.source, s.layout);
+          const saved = await saveDocument(id, s.source, s.layout, baseRef.current);
           setSaveError(null);
+          if (currentRef.current?.id === id) baseRef.current = saved.updatedAt;
           // 自動保存では並びを動かさない (D12)。● だけ更新する
           setList((l) => l.map((d) => (d.id === id ? saved : d)));
         } catch (e) {
           if (isDocumentGone(e)) {
             // ごみ箱へ移した図への書き込み。書き直しても通らないので捨てる (Autosaver が捨てる。図は切り替えられる)
+          } else if (isStaleBase(e)) {
+            // 古い版を添えた書き込み (走り出した古い保存・別の図を開く途中に来た update の後の保存) を Rust が止めた。捨てる。
+            // 今の updated_at が自分の base と同じなら、載せ替え (reload) が先に届いていて画面は既に新しい — 黙って捨てる。
+            // 違えば載せ替えは来ない (last_opened が古くて Rust が「開いていない」と見た) ので、開き直して AI の中身を出す (spec 08 D2)
+            if (currentRef.current?.id === id && staleBaseCurrent(e) !== baseRef.current) {
+              noticeRef.current({
+                status: "info",
+                title: "AI が図を書き換えたので開き直します",
+                isClosable: true,
+                duration: 5000,
+              });
+              void openRef.current(id);
+            }
           } else if (isInitialFigureRejected(e)) {
             // 門の漏れを Rust が止めた。この書き込みは捨てる (Autosaver が捨てる。図は切り替えられる)
             noticeRef.current({
@@ -151,7 +172,7 @@ export function useDocSession(
           }
           throw e;
         }
-      }, AUTOSAVE_DELAY_MS, (e) => isInitialFigureRejected(e) || isDocumentGone(e)),
+      }, AUTOSAVE_DELAY_MS, (e) => isInitialFigureRejected(e) || isDocumentGone(e) || isStaleBase(e)),
     []
   );
 
@@ -198,6 +219,7 @@ export function useDocSession(
       if (!(await leave()) || superseded()) return;
       const doc = await loadDocument(id);
       if (superseded()) return;
+      baseRef.current = doc.updatedAt;
       // AI・インポートで届いた図は、エディタに載って最初の自動保存が済むまで source が空。原文から開く
       // (空を「新規作成の直後」と見なすと初期図で準備済みになり、初期図で潰れる。spec 04 現況 4)
       const text = doc.source || doc.originalSource || "";
@@ -364,7 +386,6 @@ export function useDocSession(
   // 今の図と違う種類のページに居て、これから取り込む図も無い = 遅れて効いたページ移動で迷い込んだ。
   // 今の図を開き直してそのページへ戻る (spec 04 P0。保存は onNodesChanged の page で止まっている)
   // ページが変わった時だけ見る (open は描画のたびに作り直されるので、依存に入れると開き直し続ける)
-  const openRef = useRef(open);
   openRef.current = open;
   useEffect(() => {
     const doc = currentRef.current;
@@ -394,22 +415,54 @@ export function useDocSession(
         const doc = request.document;
         if (!doc || !request.payload) return;
         navSeq.current += 1; // 開いている途中の open() があれば止める
-        leaveNow();
+        // 今の図の載せ替え (update_diagram, spec 08 D3): 書きかけは flush せず捨てる (届いた中身の方が新しい。
+        // flush すると書き換えた後に古い書きかけが書かれる)。開いている途中の id も消す (後でその図をごみ箱へ移した時に誤らない)
+        const reloading = Boolean(request.reload) && currentRef.current?.id === doc.id;
+        if (reloading) {
+          autosaver.cancel();
+          readyRef.current = false;
+          openingRef.current = null;
+        } else {
+          leaveNow();
+        }
         becomeCurrent(doc);
         setUnopenable(false);
         expectedRef.current = expectedKeys(doc.editor, request.payload.data);
-        layoutRef.current = {};
+        // update_diagram の要求はその図の位置を持つ (同じ ID のノードは位置を保つ)。AI から届いた新しい図は持たない
+        layoutRef.current = request.layout ?? {};
+        baseRef.current = doc.updatedAt;
         awaitMountRef.current = false;
         hide();
+        if (reloading) {
+          notice({ status: "info", title: "AI が図を書き換えました", isClosable: true, duration: 5000 });
+        }
         void refreshList();
       },
       afterImport: () => {
         importedRef.current = true;
       },
       beforeLeave: leaveNow,
+      currentId: () => currentRef.current?.id ?? null,
     });
     return () => setDocsBridge(null);
   }, [autosaver, becomeCurrent, hide, notice, refreshList]);
+
+  // update_diagram がファイルを書けた合図 (spec 08 D3): その 1 件だけを一覧で差し替える (● と、開いていない図の書き換え)。
+  // 一覧を丸ごと読み直さない — 読み直しは自動保存の 1 件差し替えと競合して ● が戻ることがある
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let disposed = false;
+    void listenPayload<DocumentSummary>(DOCUMENTS_EVENT, (changed) => {
+      setList((l) => (l.some((d) => d.id === changed.id) ? l.map((d) => (d.id === changed.id ? changed : d)) : l));
+    }).then((u) => {
+      if (disposed) u();
+      else unlisten = u;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
 
   // 起動時: 届いている図 (AI) を先に取り込ませ、無ければ前回の図 → 一番新しい図 → 新規作成 (D9)
   useEffect(() => {

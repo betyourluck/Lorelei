@@ -23,15 +23,21 @@ export interface DocumentFull extends Omit<DocumentSummary, "unsaved"> {
   source: string;
   layout: Layout;
   originalSource: string | null;
+  /** update_diagram が立て、次の保存 (揃え書き) が消す印 (spec 08 D1)。Rust だけが見る */
+  normalizePending?: boolean;
 }
 
 export const listDocuments = (): Promise<DocumentSummary[]> => invoke("list_documents");
 export const createDocument = (editor: EditorKind, title?: string): Promise<DocumentFull> =>
   invoke("create_document", { editor, title: title ?? null });
 export const loadDocument = (id: string): Promise<DocumentFull> => invoke("load_document", { id });
-/** 自動保存 (D7)。並びは動かさない */
-export const saveDocument = (id: string, source: string, layout: Layout): Promise<DocumentSummary> =>
-  invoke("save_document", { id, source, layout });
+/** 自動保存 (D7)。並びは動かさない。baseUpdatedAt は読んだ版 — ファイルが進んでいれば STALE_BASE で拒まれる (spec 08 D2) */
+export const saveDocument = (
+  id: string,
+  source: string,
+  layout: Layout,
+  baseUpdatedAt: string
+): Promise<DocumentSummary> => invoke("save_document", { id, source, layout, baseUpdatedAt });
 /** 利用者の「保存」(D12)。一覧の先頭へ動き、● が消える */
 export const markDocumentSaved = (id: string): Promise<DocumentSummary> =>
   invoke("mark_document_saved", { id });

@@ -4,6 +4,8 @@ import type { OpenRequest } from "./open-requests";
 
 /** src-tauri の OPEN_EVENT と同じ名前 */
 export const OPEN_EVENT = "lorelei://open-pending";
+/** src-tauri の DOCUMENTS_EVENT と同じ名前。update_diagram がファイルを書けた合図 (本体は DocumentSummary, spec 08 D3) */
+export const DOCUMENTS_EVENT = "lorelei://documents-changed";
 
 export const isTauri = (): boolean =>
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -56,4 +58,13 @@ export const windowAction = async (action: WindowAction): Promise<void> => {
 export const listen = async (event: string, handler: () => void): Promise<() => void> => {
   const { listen } = await import("@tauri-apps/api/event");
   return listen(event, handler);
+};
+
+/** 本体 (payload) を持つイベント */
+export const listenPayload = async <T>(
+  event: string,
+  handler: (payload: T) => void
+): Promise<() => void> => {
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<T>(event, (e) => handler(e.payload));
 };

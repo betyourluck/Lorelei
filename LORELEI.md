@@ -47,9 +47,10 @@ MCP サーバーは **Lorelei の窓の中**で動きます（`127.0.0.1:39642/m
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `validate`       | 文法を検査する。GUI エディタで開けるか、開くと何が省かれるかも返す                                                        |
 | `render`         | SVG / PNG / PDF に描画する。png / pdf は `output_path`（絶対パス）に書き出す。描画結果の縮小 PNG も毎回画像で返す（不要なら `preview: false`） |
-| `open_in_editor` | 開いている Lorelei のエディタで開く（flowchart と erDiagram）。届いた図は左の図の一覧に新しい 1 件として足され、開いている図は上書きしない。`title` で一覧での名前を付けられる（省略すると「AI の図 HH:MM:SS」）。作った図の `document_id` を返す |
+| `open_in_editor` | 開いている Lorelei のエディタで開く（flowchart と erDiagram。ノードの無い図は開けない）。届いた図は左の図の一覧に新しい 1 件として足され、開いている図は上書きしない（既存の図を書き換えるのは `update_diagram`）。`title` で一覧での名前を付けられる（省略すると「AI の図 HH:MM:SS」）。作った図の `document_id` と `updated_at` を返す |
 | `list_diagrams`  | 図の一覧を返す（並びは GUI の一覧と同じ）。`open` が今開いている図、`unsaved` が最後の「保存」の後に変更がある図 |
-| `read_diagram`   | 人が GUI で直した今の図を Mermaid で読む。`id`（`list_diagrams` の id か `open_in_editor` の `document_id`）を省くと今開いている図。届いた時の原文は `include_original: true` で読める |
+| `read_diagram`   | 人が GUI で直した今の図を Mermaid で読む。`id`（`list_diagrams` の id か `open_in_editor` の `document_id`）を省くと今開いている図。AI・インポートが最後に届けた原文は `include_original: true` で読める |
+| `update_diagram` | 既存の図（`id`）の中身を、渡した Mermaid で丸ごと差し替える。名前・一覧の並び・同じ ID のノードの位置は保たれ、図の種類は変えられない。`expected_updated_at`（`read_diagram` 等が返した `updated_at`）は必須で、その後に人が直していれば書かずにエラーになる（読み直してから直す）。開いている図なら GUI の中身が載せ替わる。開いていない図はファイルだけ書き、`open: true` の時だけ開いて前に出す |
 
 ### GUI の図の一覧
 
@@ -57,13 +58,15 @@ MCP サーバーは **Lorelei の窓の中**で動きます（`127.0.0.1:39642/m
   ごみ箱のボタンは `%APPDATA%\jp.outcasts.lorelei\trash\` へ移すだけで、消しはしません
 - 編集は裏で自動保存されます（落ちても失いません）。一覧の並びは **「保存」（Ctrl+S）を押した時刻**で決まり、
   見たり編集したりしても動きません。最後の「保存」より後に変更がある図には ● が付きます
-- AI から届いた図とインポートした図は、届いた原文をそのまま残しています（エディタで表現できない要素が省かれても、原文は失いません）
+- AI から届いた図とインポートした図は、最後に届いた原文をそのまま残しています（エディタで表現できない要素が省かれても、原文は失いません）。
+  AI が `update_diagram` で書き換える前の中身は `%APPDATA%\jp.outcasts.lorelei\history\` に 1 世代だけ残ります（GUI から戻す手段はありません。手で開いて使ってください）
 
 頼み方の例:
 
 - 「この DB のスキーマから ER 図を Mermaid で書いて、Lorelei で検査してから `D:/out/schema.pdf` に書き出して」
 - 「`src/order.rs` の処理の流れをフローチャートにして、Lorelei のエディタで開いて」
 - 「Lorelei で直した図を読んで、`src/order.rs` の処理をその流れに合わせて」（今開いている図を `read_diagram` で読む）
+- 「Lorelei で開いている図に『検品』の工程を足して、同じ図に書き戻して」（`read_diagram` で読み、直して `update_diagram` で書き戻す）
 
 ### 読み戻しの注意
 
@@ -71,6 +74,14 @@ MCP サーバーは **Lorelei の窓の中**で動きます（`127.0.0.1:39642/m
 - `read_diagram` の Mermaid はエディタが書き出したものです。エディタで表現できない要素（subgraph・style・classDef など）は落ちています（図の向きと FK は残ります）。
   AI が送った原文は `include_original: true` で読めます
 - AI から届いてまだエディタに載っていない図は、`source` が空で返ります（GUI でその図を開くと埋まります）
+
+### 書き換え（`update_diagram`）の注意
+
+- 書き換えは丸ごと差し替えです。`read_diagram` で読んだ Mermaid を直して全体を渡してください（差分ではありません）
+- `expected_updated_at` は必須です。`read_diagram` / `list_diagrams` / `open_in_editor` / 前の `update_diagram` が返した `updated_at` をそのまま渡します。
+  その後に人が GUI で直していれば（ノードを動かしただけでも）書かずにエラーになるので、読み直してから直してください。AI が知らずに人の編集を消さないための仕組みです
+- 止められないのは、書き換えの直前と直後の約 1 秒の編集です（自動保存の待ち時間。書き換え前の中身は `history/` に残ります）
+- 開いていない図を書き換えると、GUI でその図を開くまで `read_diagram` は渡した Mermaid をそのまま返します（エディタで省かれる要素も残ったまま）
 
 ## 既知の制約
 

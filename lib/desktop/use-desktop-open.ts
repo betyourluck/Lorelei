@@ -42,6 +42,8 @@ export interface DocsBridge {
   afterImport(request: OpenRequest): void;
   /** 別のページのエディタへ移る直前。今の図の保存を始める (移った後のストアを古い図に書かないため) */
   beforeLeave(): void;
+  /** 今の図の id。まだ何も開いていなければ null (起動直後)。載せ替え (reload) の要求をこの図に当てるかの判定に使う (spec 08 D3) */
+  currentId(): string | null;
 }
 
 let resolveFirstDrain: () => void = () => {};
@@ -73,11 +75,43 @@ export function useDesktopOpen<T>(editor: EditorKind, onImport: (data: T) => voi
     let unlisten: (() => void) | undefined;
     let disposed = false;
 
+    const take = (r: OpenRequest) => {
+      bridge?.beforeImport(r);
+      onImportRef.current(r.payload!.data as T);
+      bridge?.afterImport(r);
+      if (r.dropped.length > 0) {
+        notice({
+          status: "warning",
+          title: "エディタで表現できない要素を省きました",
+          description: describeDropped(r.dropped),
+          isClosable: true,
+          duration: null,
+        });
+      }
+    };
+
     const drain = async () => {
       const incoming = await takePendingOpen();
       const all = [...stash, ...incoming];
       stash = [];
-      const { mine, others, failed } = partitionOpens(all, editor);
+      // 載せ替え (update_diagram の reload, spec 08 D3) は partitionOpens に入れず先に扱う。最後の 1 件だけを取り込む規則に
+      // 巻き込むと、同じ回に並んだ別の図の「開く」に負けて捨てられ、その beforeImport の flush が古い書きかけを AI の更新の上に書く。
+      // 今の図と一致すれば載せ替える (flush せず捨てるのは beforeImport の側)、今の図が無ければ (起動直後) 開くとして扱い、それ以外は捨てる
+      // (ファイルは書けている。古いキャンバスの保存は STALE_BASE が受け持つ)
+      const rest: OpenRequest[] = [];
+      for (const r of all) {
+        if (!r.reload || !r.payload) {
+          rest.push(r);
+          continue;
+        }
+        const current = bridge?.currentId() ?? null;
+        if (current === null) {
+          rest.push({ ...r, reload: false });
+          continue;
+        }
+        if (r.payload.editor === editor && r.document?.id === current) take(r);
+      }
+      const { mine, others, failed } = partitionOpens(rest, editor);
 
       for (const r of failed) {
         notice({
@@ -89,20 +123,7 @@ export function useDesktopOpen<T>(editor: EditorKind, onImport: (data: T) => voi
         });
       }
       const latest = mine.at(-1);
-      if (latest?.payload) {
-        bridge?.beforeImport(latest);
-        onImportRef.current(latest.payload.data as T);
-        bridge?.afterImport(latest);
-        if (latest.dropped.length > 0) {
-          notice({
-            status: "warning",
-            title: "エディタで表現できない要素を省きました",
-            description: describeDropped(latest.dropped),
-            isClosable: true,
-            duration: null,
-          });
-        }
-      }
+      if (latest?.payload) take(latest);
       const target = others.at(-1)?.payload?.editor;
       if (target) {
         bridge?.beforeLeave();

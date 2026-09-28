@@ -8,8 +8,10 @@ import {
   expectedKeys,
   isDocumentGone,
   isInitialFigureRejected,
+  isStaleBase,
   layoutReady,
   onNodesChanged,
+  staleBaseCurrent,
   toSource,
   withLayout,
 } from "@/lib/desktop/doc-session";
@@ -122,6 +124,18 @@ describe("onNodesChanged — ストアのノードが変わった時にするこ
     expect(onNodesChanged({ ...base, ready: false, imported: false, layout: {} }).settled).toBe(false);
   });
 
+  it("当てる位置が 1 つも無い載せ替え (全ノード改名) は、当てる回を飛ばして保存する (spec 08 D3)", () => {
+    // layout に古いキーしか無いと、当てる回で保存も表示も止まり時間切れに頼る (spec 08 査読 2-(7))
+    const base = { ready: false, imported: true, expected: ["会員"], page: "erDiagram" as const, editor: "erDiagram" as const, nodes };
+    expect(onNodesChanged({ ...base, layout: { 旧会員: { x: 1, y: 2 } } })).toEqual({
+      ready: true,
+      applyLayout: false,
+      save: true,
+      settled: true,
+    });
+    expect(onNodesChanged({ ...base, layout: { 会員: { x: 1, y: 2 }, 旧: { x: 0, y: 0 } } }).applyLayout).toBe(true);
+  });
+
   it("準備済みなら変化のたびに保存する", () => {
     expect(
       onNodesChanged({ ready: true, imported: true, expected: null, page: "erDiagram", editor: "erDiagram", nodes, layout: {} })
@@ -201,6 +215,13 @@ describe("Autosaver — 1 秒待って保存、切り替え・終了の前は fl
     expect(a.dirty).toBe(false);
     await a.flush();
     expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it("古い版を添えた書き込み (STALE_BASE) は捨ててよい失敗で、今の updated_at を取り出せる (spec 08 D2)", () => {
+    expect(isStaleBase("STALE_BASE: 2026-09-28T10:00:00.000001+09:00")).toBe(true);
+    expect(staleBaseCurrent("STALE_BASE: 2026-09-28T10:00:00.000001+09:00")).toBe("2026-09-28T10:00:00.000001+09:00");
+    expect(isStaleBase("DOCUMENT_GONE: 図が一覧にありません")).toBe(false);
+    expect(staleBaseCurrent("disk")).toBeNull();
   });
 
   it("ごみ箱へ移した図への書き込み (DOCUMENT_GONE) は捨ててよい失敗、他の失敗は捨てない", () => {

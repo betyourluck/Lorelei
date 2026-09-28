@@ -91,7 +91,8 @@ export const onNodesChanged = ({
   if (ready) return { ready: true, applyLayout: false, save: true, settled: true };
   if (!expected || !layoutReady({ imported, expected, editor, nodes }))
     return { ready: false, applyLayout: false, save: false, settled: false };
-  const applyLayout = Object.keys(layout).length > 0;
+  // 当てる位置が 1 つも無ければ (全ノードを改名した載せ替え) 当てる回を飛ばす — 当てても変化が起きず、保存と表示が止まる (spec 08 D3)
+  const applyLayout = expected.some((k) => k in layout);
   // 位置を当てる回はまだ見せない。当てた後の変化 (ready: true の回) で見せる (spec 05 D4)
   return { ready: true, applyLayout, save: !applyLayout, settled: !applyLayout };
 };
@@ -101,6 +102,15 @@ export const isInitialFigureRejected = (e: unknown): boolean => String(e).starts
 
 /** Rust の save_document の相手の図が一覧に無い (ごみ箱へ移した。src-tauri documents::DOCUMENT_GONE) */
 export const isDocumentGone = (e: unknown): boolean => String(e).startsWith("DOCUMENT_GONE");
+
+/** 古い版を添えた書き込みを Rust が拒んだ (src-tauri documents::STALE_BASE, spec 08 D2)。後ろに今の updated_at が載る */
+export const isStaleBase = (e: unknown): boolean => String(e).startsWith("STALE_BASE");
+
+/** STALE_BASE のエラーから今の updated_at を取り出す */
+export const staleBaseCurrent = (e: unknown): string | null => {
+  const m = /^STALE_BASE:\s*(\S+)/.exec(String(e));
+  return m ? m[1] : null;
+};
 
 /** 今の図の Mermaid (フォーク元の生成器の出力)。これが Document.source になる */
 export const toSource = (

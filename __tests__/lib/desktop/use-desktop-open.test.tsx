@@ -4,8 +4,9 @@ import { render, waitFor } from "@/__tests__/test-utils";
 import type { OpenRequest } from "@/lib/desktop/open-requests";
 import { queueOpen, setDocsBridge, useDesktopOpen } from "@/lib/desktop/use-desktop-open";
 
+let pendingFromBackend: OpenRequest[] = [];
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: async (cmd: string) => (cmd === "take_pending_open" ? [] : undefined),
+  invoke: async (cmd: string) => (cmd === "take_pending_open" ? pendingFromBackend.splice(0) : undefined),
 }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
 const push = vi.fn();
@@ -40,6 +41,8 @@ describe("useDesktopOpen と図の一覧の橋渡し (spec 02 P3)", () => {
   afterEach(() => {
     delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
     setDocsBridge(null);
+    pendingFromBackend = [];
+    push.mockClear();
   });
 
   it("別のページ宛ての図を回しただけでは「最初の取り込みが済んだ」にしない (起動時の競合)", async () => {
@@ -79,6 +82,47 @@ describe("useDesktopOpen と図の一覧の橋渡し (spec 02 P3)", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  // spec 08 D3: update_diagram の載せ替え (reload) は partitionOpens に入れず、今の図の id と一致する時だけ載せ替える
+  it("載せ替えの要求は、同じ回に別の図の「開く」が並んでいても先に取り込む", async () => {
+    // Claude Code はツールを並列に呼ぶ。最後の 1 件だけ取り込むと載せ替えが捨てられ、古いキャンバスの保存が AI の更新を潰す (査読 2-(4))
+    const onImport = vi.fn();
+    const calls: string[] = [];
+    setDocsBridge({
+      beforeImport: (r) => calls.push(`before ${r.document?.id} reload=${Boolean(r.reload)}`),
+      afterImport: () => calls.push("after"),
+      beforeLeave: () => {},
+      currentId: () => "d1",
+    });
+    const reloadData = { nodes: [{ variableName: "受付" }], edges: [] };
+    const otherData = { nodes: [{ variableName: "発送" }], edges: [] };
+    queueOpen({ ...request, reload: true, layout: { 受付: { x: 1, y: 2 } }, payload: { editor: "flowchart", data: reloadData, dropped: [] } });
+    // queueOpen は 1 件しか預からないので、2 件目は take_pending_open の側に置く
+    pendingFromBackend = [
+      { ...request, document: { ...request.document!, id: "d2" }, payload: { editor: "flowchart", data: otherData, dropped: [] } },
+    ];
+    render(<Editor onImport={onImport} />);
+    await waitFor(() => expect(onImport).toHaveBeenCalledTimes(2));
+    expect(onImport.mock.calls.map(([d]) => d)).toEqual([reloadData, otherData]);
+    expect(calls).toEqual(["before d1 reload=true", "after", "before d2 reload=false", "after"]);
+  });
+
+  it("載せ替えの要求は、今の図と id が違えば捨て、今の図が無ければ開くとして扱う", async () => {
+    const onImport = vi.fn();
+    setDocsBridge({ beforeImport: () => {}, afterImport: () => {}, beforeLeave: () => {}, currentId: () => "other" });
+    queueOpen({ ...request, reload: true, layout: {} });
+    const first = render(<Editor onImport={onImport} />);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(onImport).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+    first.unmount();
+
+    // 起動直後 (今の図が無い): 前回の last_opened に来た update の載せ替えは、その図を開く
+    setDocsBridge({ beforeImport: () => {}, afterImport: () => {}, beforeLeave: () => {}, currentId: () => null });
+    queueOpen({ ...request, reload: true, layout: {} });
+    render(<Editor onImport={onImport} />);
+    await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
+  });
+
   it("開発モード (StrictMode: effect が 2 回走る) でも、届いた図を取り込む", async () => {
     // 実機で観測 (2026-09-24): ER 図のページで AI のフローチャートを受けると、ページは移るが図が載らず保存もされなかった
     const onImport = vi.fn();
@@ -91,6 +135,7 @@ describe("useDesktopOpen と図の一覧の橋渡し (spec 02 P3)", () => {
         calls.push("after");
       },
       beforeLeave: () => {},
+      currentId: () => null,
     });
     queueOpen(request);
     render(

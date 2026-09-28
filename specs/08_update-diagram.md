@@ -191,6 +191,35 @@ data_contract に凍結した（コードはまだ触らない）:
 - CLAUDE.md の「5 本」2 か所を 6 本に。`lib.rs` の `include_original` の docstring も直した（P0 の grep の残り）。LORELEI.md は P2 で
 - `cargo fmt` の差分は変更前から `lib.rs`・`tests/http.rs` にあった（fmt は完了の条件に無い）。揃えて整形はしていない
 
+## P2 結果（2026-09-28）
+
+**Rust（`32085cf`）**
+
+- `documents.rs`: プロセスで 1 つの `static Mutex` で save / update / mark_saved / rename / trash の load → write を囲む。`Document.normalize_pending`。
+  `save(id, source, layout, base_updated_at)` は、ファイルの `updated_at` と時刻として違えば `STALE_BASE: {今の値}`、印が立っていれば `updated_at` を進めず印を消してファイルに書く（中身が同じでも）、
+  初期図の保険は `first_fill` の時だけ。`update(id, source, editor, expected_updated_at)` は `NotFound` / `KindMismatch` / `Conflict` を返し、書く前に `history/{id}.json` へ 1 世代。
+  時刻の比較は `chrono::DateTime::parse_from_rfc3339`（UTC に直した同じ瞬間は一致、丸めた値は不一致 — テストで固定）
+- `lib.rs`: `OpenRequest.reload` / `layout`、`update_effect(is_open, open) → (Reload | Open | FileOnly, 前に出す)`（純粋）、`deliver_update`（書けたらどの場合も `lorelei://documents-changed` に `DocumentSummary`）、`GuiEditor::update`
+- テスト（Red → Green）: `documents` 4 本（書く欄と書かない欄と history・種類 / 時刻 / 無い id・`STALE_BASE`・揃え書きの印）、`lib` 2 本（判断の 4 通り・載せ替え / ファイルだけ / 開く / 断った時）。
+  既存の保険のテストは規則の変更に合わせて書き直した。src-tauri 45 本緑、clippy 警告 0
+
+**フロント（`lib/desktop`）**
+
+- `tauri.ts`: `DOCUMENTS_EVENT`・`listenPayload`。`open-requests.ts`: `OpenRequest.reload` / `layout`。`documents.ts`: `saveDocument(..., baseUpdatedAt)`・`DocumentFull.normalizePending`
+- `doc-session.ts`: `isStaleBase` / `staleBaseCurrent`、`applyLayout` は `expected` と `layout` のキーの交わりが空でない時だけ
+- `use-desktop-open.ts`: `DocsBridge.currentId()`。`drain` は `reload` の要求を `partitionOpens` に入れず先に扱う — 今のページの種類と今の図の id が一致すれば載せ替え、今の図が無ければ（起動直後）開くとして扱い、それ以外は捨てる
+- `use-doc-session.ts`: `baseRef`（開いた時・載せ替え・各保存の戻りで更新）を自動保存に添える。`STALE_BASE` は捨ててよい失敗で、今の `updated_at` が自分の `base` と同じなら黙って捨て、違えば通知「AI が図を書き換えたので開き直します」を出して開き直す。
+  載せ替えの `beforeImport` は flush せず `cancel`、`layoutRef` を要求の位置に、`openingRef` を消し、通知「AI が図を書き換えました」。`documents-changed` はその 1 件だけを一覧で差し替える
+- テスト（Red → Green）: `doc-session.test.ts` 2 本（交わりが空の載せ替え・`STALE_BASE` の取り出し）、`use-desktop-open.test.tsx` 2 本（同じ回に「開く」が並ぶ・id 違いは捨て今の図が無ければ開く）、
+  **`update-diagram.test.tsx` 2 本（外枠 + 本物の `FlowEditor`）** — 載せ替えで同じ ID の位置を保ち揃え書きは今の版で 1 回だけ `updated_at` が進まない / 載せ替えが来ない書き換えは ● を付け、古い版の自動保存を `STALE_BASE` で捨てて開き直す。
+  `fake-backend` に `base_updated_at` / `normalize_pending` / `take_pending_open` の中身 / `update` を足した。`lib/desktop` 11 ファイル 82 本緑、型検査・ESLint 通過
+- **テストで分かった罠 2 つ**（failures に書く候補）: (1) `@tauri-apps/api/event` / `window` / `core` を `vi.mock` した動的 import は、同じテストの途中で模擬が本物に差し替わることがある（`direction-save.test.tsx` の未処理エラー 14 件も同じ）。
+  外枠のテストでは `@/lib/desktop/tauri` を `vi.hoisted` + `importOriginal` で静的に模擬する。(2) 図を開き終えた判定を「向きのボタンが出た」にすると、開いた直後の自動保存（1 秒後）が届く前に書き換えてしまい、その保存が `STALE_BASE` になる（設計どおりだが試したい形ではない）。最初の保存を待ってから書き換える
+- フォーク元の `parseMermaidCode`（テストの変換に使う）は `A --> B --> C` の連鎖を扱えない（Rust の `to_editor` は扱う）。テストの入力は辺を 1 本ずつ書く
+- LORELEI.md: ツール表に `update_diagram`、頼み方の例、「書き換えの注意」、`history/`。spec 04 の未検証（●）に候補を書き戻した
+- Prettier: 変更前から整形されていなかったファイル（`doc-session.ts` / `use-doc-session.ts` / 既存テスト 2 本）はそのまま。変更前に整っていた 3 ファイルは整えた
+- 全件: vitest 58 ファイル 592 本すべて緑（今回は ArrowTypeSelector も時間切れにならなかった）。未処理エラー 163 件は jsdom の `DOMMatrixReadOnly`（xyflow）と動的 import の競合による本物の Tauri API 呼び出しで、変更前からある種類
+
 ## 受け入れ条件
 
 1. `read_diagram` で読んだ図を直して `update_diagram(id, source, expected_updated_at)` で書くと、同じ id・同じ名前・同じ並びのまま中身が変わり、`read_diagram` で直した Mermaid が返る（開いていない図では届けた Mermaid そのもの、開いている図では 1 秒待つとエディタの書き方に揃ったもの）
