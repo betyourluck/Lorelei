@@ -34,6 +34,9 @@
   タイムアウト 5,000ms を超えるテスト（全件を並列に走らせた時の負荷による）。基準値の 1 回はたまたま時間内に収まっていた。
 - **処方**: 変更の前後の比較は、**変更を退避した状態で同じ条件で複数回**走らせて取る。落ちたテストが変更前と同じ顔ぶれなら、
   変更によるものではない。
+  **2026-09-29 追記**: 顔ぶれは固定ではなく、5 秒の際のテストが順に落ちる（ArrowTypeSelector を 15 秒にしたら、次は PanelContent のインポートが 5.1 秒で落ちた）。
+  1 件ずつ上げると際限がないので、`vitest.config.ts` の既定の上限（`testTimeout`）を 15 秒にした。あわせて未処理のエラーを無くし（#14・d3-drag・`DOMMatrixReadOnly`）、
+  **`vitest run` は 2 回続けて exit 0**（67 ファイル・642 件）。以後は「全件緑かつ exit 0」を基準にできる
 - **一般化**: 時間に依存するテストがある場で、1 回の緑を基準値にすると、その後の赤を全部自分の変更のせいにするか、
   逆に「元から不安定」で片付ける根拠も持てない。基準値は回数と条件つきで記録する。
 
@@ -172,7 +175,11 @@
 - **真因**: 突き止めていない。`lib/desktop/tauri.ts` の `await import("@tauri-apps/api/event")`（動的 import）に対する vitest の模擬が、同時に走る複数の import の間で本物に置き換わる競合と見られる。
   先に 1 回 import して温めても変わらなかった
 - **処方**: 外枠を描くテストでは、`@tauri-apps/api/*` ではなく**自前の `@/lib/desktop/tauri` を `vi.hoisted` + `importOriginal` で静的に模擬する**（`listen` / `listenPayload` / `invoke` / `windowAction` / `onCloseRequested`）。
-  `update-diagram.test.tsx` の形。動的 import を挟まないので競合が起きない
+  `update-diagram.test.tsx` の形。動的 import を挟まないので競合が起きない。
+  **2026-09-29**: 同じ処方を `document-list` / `mcp-settings` / `toolbar` / `direction-save` / `use-desktop-open` / `desktop-shell` のテストにも当てた
+  （`listen` / `listenPayload` / `onCloseRequested` / `windowAction` を境界で模擬。`desktop-shell` は窓の操作を `win` につなぐ）。この型の未処理のエラー 111 件が 0 になった。
+  同じ時に残りの 2 種類も無くした: jsdom に無い `DOMMatrixReadOnly`（xyflow が拡大率 `m22` だけ読む。setup で補う）と、ノードの中のボタンの mousedown が d3-drag に届いて
+  `event.view` が null で落ちる件（user-event はイベントに `view: null` を**自分の持ち物として**書くので、プロトタイプを補っても効かない。メニューに xyflow の `nodrag` を付けた）
 - **一般化**: 動的 import の先を模擬するより、**自分の境界モジュール（依存を閉じ込めた薄い包み）を模擬する**方が確実で、テストも自分の契約（イベント名・引数）で書ける。
   「同じ関数なのに呼び手によって模擬が効いたり効かなかったりする」は、モジュールの同一性ではなく時間の競合を疑う
 

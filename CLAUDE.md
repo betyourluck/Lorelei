@@ -92,6 +92,6 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   キーワード境界は ASCII）に揃えてある。経緯は `vendor/merman-core/LORELEI_PATCH.md`
 - 同梱フォントのライセンス文は `crates/lorelei_core/fonts/OFL.txt`（google/fonts の ofl/notosansjp から取得）。
   配布物の `licenses/` に同梱し、About（タイトルバーの「?」。spec 02 でネイティブのメニューを撤去）に一覧を出す
-- フォーク元の vitest は、この環境では変更と無関係に 2〜3 件が時間切れで落ちる（failures #3）。
-  「全件緑」を完了の条件にせず、落ちたテストが変更前と同じ顔ぶれかで判断する
+- vitest は 2026-09-29 から **「全件緑かつ exit 0（未処理のエラー 0）」を基準にできる**。この環境では全件を並列に走らせると 5 秒の際のテストが順に時間切れになるので、
+  既定の上限を 15 秒にしてある（failures #3）。デスクトップのテストは境界 `@/lib/desktop/tauri` を静的に模擬する（`@tauri-apps/api/*` だけの模擬は未処理のエラーを出す, failures #14）
 - 同梱フォントは `scripts/build-fonts.py` で Noto Sans JP の可変フォントから切り出す（手順と理由はスクリプト冒頭）
