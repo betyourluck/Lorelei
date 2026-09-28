@@ -154,4 +154,35 @@ describe("update_diagram の載せ替えと楽観ロック (spec 08)", { timeout
       backend.calls("save_document").some((a) => String(a?.source).startsWith("flowchart RL"))
     ).toBe(true);
   });
+
+  it("起動直後 (今の図が無い) に前回の図への載せ替えが届いていれば、その図を新しい中身で開く", async () => {
+    // 実機で観測 (2026-09-28): 題名と ● は届いた図なのに、キャンバスは初期図のまま。外枠が付く前の最初の描画のエディタが
+    // take_pending_open で要求を取り込み、外枠付きのエディタに作り直された時に中身が捨てられていた
+    const next = "flowchart TD\n  受注 --> 起動直後\n";
+    const doc = backend.add("flowchart", "受注の流れ", {
+      origin: "ai",
+      source: next,
+      originalSource: next,
+      normalizePending: true,
+      layout: { 受注: { x: 0, y: 0 } },
+    });
+    backend.setLast(doc.id);
+    backend.pending.push({
+      ...convert(next),
+      document: backend.summary(doc),
+      reload: true,
+      layout: doc.layout,
+    });
+    shell();
+    await screen.findByText("起動直後", {}, { timeout: 8000 });
+    // 揃え書きが出て印が消え、updated_at は進まない
+    await waitFor(() => expect(backend.docs.get(doc.id)!.normalizePending).toBe(false), {
+      timeout: 8000,
+    });
+    const after = backend.docs.get(doc.id)!;
+    // 位置を当てた後の変化でもう 1 回保存が出ることがある (中身が同じなら Rust は書かない)。進んでいないことを見る
+    expect(backend.calls("save_document").length).toBeGreaterThan(0);
+    expect(after.updatedAt).toBe(doc.updatedAt);
+    expect(after.source).toContain("起動直後");
+  });
 });

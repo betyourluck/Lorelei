@@ -55,6 +55,8 @@ describe("useDesktopOpen と図の一覧の橋渡し (spec 02 P3)", () => {
       Promise.race([mod.firstDrain.then(() => true), new Promise((r) => setTimeout(() => r(false), 200))]);
     const er: OpenRequest = { ...request, payload: { ...request.payload!, editor: "erDiagram" } };
     mod.queueOpen(er);
+    // 橋渡しが立つまで取り込まない (spec 08 P3) ので、外枠の代わりに最小の橋渡しを置く
+    mod.setDocsBridge({ beforeImport: () => {}, afterImport: () => {}, beforeLeave: () => {}, currentId: () => null });
     const At = ({ editor }: { editor: "flowchart" | "erDiagram" }) => {
       mod.useDesktopOpen(editor, vi.fn());
       return null;
@@ -71,6 +73,7 @@ describe("useDesktopOpen と図の一覧の橋渡し (spec 02 P3)", () => {
     // 後から取り込まれ、ページも ER 図へ移り、ER 図のノードがフローの図として保存された
     push.mockClear();
     const onImport = vi.fn();
+    setDocsBridge({ beforeImport: () => {}, afterImport: () => {}, beforeLeave: () => {}, currentId: () => null });
     const erData = { nodes: [{ name: "部署" }], edges: [] };
     const flowData = { nodes: [{ variableName: "受付" }], edges: [] };
     queueOpen({ ...request, document: null, payload: { editor: "erDiagram", data: erData, dropped: [] } });

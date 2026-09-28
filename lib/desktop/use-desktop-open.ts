@@ -56,9 +56,18 @@ export const firstDrain: Promise<void> = new Promise((r) => {
 });
 
 let bridge: DocsBridge | null = null;
+let bridgeWaiters: (() => void)[] = [];
 export const setDocsBridge = (b: DocsBridge | null): void => {
   bridge = b;
+  if (b) {
+    const waiters = bridgeWaiters;
+    bridgeWaiters = [];
+    for (const wake of waiters) wake();
+  }
 };
+/** 橋渡し (外枠) が立つまで待つ。立っていれば待たない */
+const bridgeReady = (): Promise<void> =>
+  bridge ? Promise.resolve() : new Promise((resolve) => bridgeWaiters.push(resolve));
 
 /**
  * MCP の open_in_editor で届いた図を、このページのエディタへ載せる。
@@ -91,6 +100,11 @@ export function useDesktopOpen<T>(editor: EditorKind, onImport: (data: T) => voi
     };
 
     const drain = async () => {
+      // 外枠 (橋渡し) が立つまで取り込まない。DesktopShell は最初の描画では Web 版と同じ木を出し、マウント後に外枠付きの木へ
+      // 切り替えるので、最初の描画のエディタが take_pending_open で要求を取り込むと、外枠付きのエディタに作り直された時に
+      // 中身が捨てられる (題名は届いた図・キャンバスは初期図。2026-09-28 実機で観測、spec 08 P3)。待つ間に作り直されていたら何もしない
+      await bridgeReady();
+      if (disposed) return false;
       const incoming = await takePendingOpen();
       const all = [...stash, ...incoming];
       stash = [];
