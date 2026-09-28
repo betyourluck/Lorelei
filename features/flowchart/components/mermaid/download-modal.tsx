@@ -4,7 +4,7 @@ import { DownloadIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import { Modal, ModalHeader, ModalBody, ModalCloseButton, HStack, Text, Button } from "@yamada-ui/react";
 import { useCallback, useState, useMemo } from "react";
-import { CopyButton, MermaidHighlight } from "@/components/ui";
+import { MermaidCodeWithPreview } from "@/components/ui";
 import { ExportButtons } from "@/lib/desktop";
 import type { FlowData } from "../../hooks/flow-helpers";
 import { generateMermaidCode } from "../../hooks/mermaid";
@@ -47,7 +47,7 @@ export const DownloadModal: FC<DownloadModalProps> = ({
   }, [currentMermaidCode]);
 
   return (
-    <Modal open={open} onClose={onClose} size="2xl">
+    <Modal open={open} onClose={onClose} maxW="90vw" h="85vh">
       <ModalHeader>
         <HStack
           justify={{ base: "space-between", md: "flex-start" }}
@@ -71,9 +71,8 @@ export const DownloadModal: FC<DownloadModalProps> = ({
         </HStack>
       </ModalHeader>
       <ModalCloseButton />
-      <ModalBody pb={6} position="relative">
-        <CopyButton value={currentMermaidCode} position="absolute" top={2} right={6} zIndex={1} />
-        <MermaidHighlight code={currentMermaidCode} />
+      <ModalBody pb={6} flex={1} minH={0} overflow={{ base: "hidden", md: "auto" }}>
+        <MermaidCodeWithPreview code={currentMermaidCode} />
       </ModalBody>
     </Modal>
   );

@@ -1,7 +1,8 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import type { HTMLAttributes } from "react";
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render } from "@/__tests__/test-utils";
+import { renderMermaid } from "@/components/ui/mermaid-render";
 import { DownloadModal } from "@/features/flowchart/components/mermaid/download-modal";
 import type { FlowData } from "@/features/flowchart/hooks/flow-helpers";
 import { generateMermaidCode } from "@/features/flowchart/hooks/mermaid";
@@ -141,6 +142,43 @@ describe("DownloadModal", () => {
     }).not.toThrow();
 
     expect(screen.getByText("生成されたMermaidコード")).toBeInTheDocument();
+  });
+});
+
+// spec 09: 左にコード、右にプレビュー
+describe("DownloadModal のプレビュー", () => {
+  const mockRender = vi.mocked(renderMermaid);
+
+  afterEach(() => {
+    mockRender.mockClear();
+    // 後ろの describe は上の beforeEach の戻り値に頼っているので、それに戻す
+    mockGenerateMermaidCode.mockReset();
+    mockGenerateMermaidCode.mockReturnValue("flowchart TD\n  A --> B");
+  });
+
+  test("コードの列とプレビューの列が並び、プレビューに生成したコードが渡る", async () => {
+    mockGenerateMermaidCode.mockReturnValue("flowchart TD\n  A --> B");
+    render(<DownloadModal open onClose={vi.fn()} flowData={{ nodes: [], edges: [] }} />);
+
+    const codeColumn = screen.getByRole("region", { name: "Mermaid コード" });
+    const previewColumn = screen.getByRole("region", { name: "プレビュー" });
+    expect(within(codeColumn).getByTestId("copy-button")).toBeInTheDocument();
+    expect(within(codeColumn).getByTestId("mermaid-highlight")).toBeInTheDocument();
+    const svg = await within(previewColumn).findByTestId("mermaid-svg");
+    expect(decodeURIComponent(svg.getAttribute("data-code") ?? "")).toBe("flowchart TD\n  A --> B");
+  });
+
+  test("向きを変えるとプレビューに新しいコードが渡る", async () => {
+    mockGenerateMermaidCode.mockImplementation((_data, direction) => `flowchart ${direction}`);
+    const { user } = render(
+      <DownloadModal open onClose={vi.fn()} flowData={{ nodes: [], edges: [] }} />
+    );
+    await waitFor(() => expect(mockRender).toHaveBeenLastCalledWith(expect.any(String), "flowchart TD"));
+
+    await user.click(screen.getByRole("button", { name: "図の向き: TD" }));
+    await user.click(await screen.findByRole("menuitem", { name: "LR" }));
+
+    await waitFor(() => expect(mockRender).toHaveBeenLastCalledWith(expect.any(String), "flowchart LR"));
   });
 });
 

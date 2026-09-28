@@ -9,7 +9,7 @@ import {
   Button,
 } from "@yamada-ui/react";
 import type { FC } from "react";
-import { CopyButton, MermaidHighlight } from "@/components/ui";
+import { MermaidCodeWithPreview } from "@/components/ui";
 import { ExportButtons } from "@/lib/desktop";
 
 export interface ERDiagramMermaidModalProps {
@@ -26,7 +26,7 @@ export const ERDiagramMermaidModal: FC<ERDiagramMermaidModalProps> = ({
   onDownload,
 }) => {
   return (
-    <Modal open={open} onClose={onClose} size="2xl">
+    <Modal open={open} onClose={onClose} maxW="90vw" h="85vh">
       <ModalHeader>
         <HStack
           justify={{ base: "space-between", md: "flex-start" }}
@@ -48,9 +48,8 @@ export const ERDiagramMermaidModal: FC<ERDiagramMermaidModalProps> = ({
         </HStack>
       </ModalHeader>
       <ModalCloseButton />
-      <ModalBody pb={6} position="relative">
-        <CopyButton value={code} position="absolute" top={2} right={6} zIndex={1} />
-        <MermaidHighlight code={code} />
+      <ModalBody pb={6} flex={1} minH={0} overflow={{ base: "hidden", md: "auto" }}>
+        <MermaidCodeWithPreview code={code} />
       </ModalBody>
     </Modal>
   );
