@@ -24,10 +24,11 @@ export const TableMenu = ({ name, onDelete }: TableMenuProps) => {
         icon={<GripIcon fontSize="2xl" />}
         variant="ghost"
         aria-label={label}
-        // ノードの選択・ドラッグと干渉させない
+        // ノードの選択・ドラッグと干渉させない (nodrag は xyflow がドラッグを始めない印)
+        className="nodrag"
         onPointerDown={(e) => e.stopPropagation()}
       />
-      <MenuList>
+      <MenuList className="nodrag">
         <MenuItem color="danger" icon={<TrashIcon fontSize="xl" color="danger" />} onClick={onDelete}>
           削除
         </MenuItem>

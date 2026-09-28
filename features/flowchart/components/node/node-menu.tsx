@@ -31,9 +31,11 @@ export const NodeMenu = ({
         icon={<GripIcon fontSize="2xl" />}
         variant="ghost"
         aria-label="ノードの操作メニューを開く"
+        // メニューを押してもノードのドラッグを始めない (nodrag は xyflow がドラッグを始めない印)
+        className="nodrag"
       />
 
-      <MenuList>
+      <MenuList className="nodrag">
         <MenuItem icon={<SquarePenIcon fontSize="xl" />} onClick={onEdit}>
           ラベル編集
         </MenuItem>

@@ -53,6 +53,19 @@ vi.mock("@/components/ui/lazy-code-editor", async () => {
   };
 });
 
+// jsdom に DOMMatrixReadOnly は無い。xyflow はノードの寸法を測る時にビューポートの transform から拡大率 (m22) だけを読む
+// (@xyflow/system の updateNodeInternals)。無いと未処理のエラーになるので、transform の matrix(...) から読む最小の形を置く
+if (typeof window !== "undefined" && !("DOMMatrixReadOnly" in window)) {
+  class DOMMatrixReadOnlyStub {
+    m22 = 1;
+    constructor(transform?: string) {
+      const m = /matrix\(([^)]+)\)/.exec(transform ?? "");
+      if (m) this.m22 = Number(m[1].split(",")[3]) || 1;
+    }
+  }
+  Object.defineProperty(window, "DOMMatrixReadOnly", { writable: true, value: DOMMatrixReadOnlyStub });
+}
+
 // jsdom の Range は寸法を持たない。CodeMirror が文字の位置を測る時 (rAF の中) に落ちないよう最小の形を置く (spec 10)
 if (typeof Range !== "undefined") {
   const emptyRects = () => Object.assign([], { item: () => null }) as unknown as DOMRectList;

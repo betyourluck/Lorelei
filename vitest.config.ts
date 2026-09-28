@@ -10,6 +10,9 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["__tests__/setup.ts"],
+    // この環境では全件を並列に走らせると、変更と無関係に 5 秒の際のテストが順に時間切れになる (failures #3)。
+    // 1 件ずつ上限を上げると際限がないので、既定を 15 秒にする
+    testTimeout: 15000,
     include: [
       "__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}",
       "features/**/__tests__/**/*.{test,spec}.{js,ts,jsx,tsx}",

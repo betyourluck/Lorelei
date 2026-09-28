@@ -1,3 +1,4 @@
+import { act } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, test, vi } from "vitest";
 import { render, screen, waitFor } from "../../../__tests__/test-utils";
@@ -40,7 +41,9 @@ describe("ER 図のテーブル削除", { timeout: 15000 }, () => {
   test("テーブル名の入力欄で Backspace を押しても、文字が消えるだけで確認は出ない (spec 06 D4)", async () => {
     const { user } = editor();
     const input = await screen.findByDisplayValue("ユーザー");
-    await user.click(input);
+    // クリックだと mousedown がノードのドラッグ (d3-drag) に届き、user-event の view: null で未処理のエラーになる。
+    // 確かめたいのは入力欄での Backspace なので、焦点だけを当てる
+    act(() => input.focus());
     await user.keyboard("{End}{Backspace}");
     expect(screen.getByDisplayValue("ユーザ")).toBeInTheDocument();
     expect(screen.queryByText(/を削除しますか？/)).toBeNull();
