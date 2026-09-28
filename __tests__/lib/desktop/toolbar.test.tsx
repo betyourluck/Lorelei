@@ -21,6 +21,14 @@ vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ onCloseRequested: async () => () => {} }),
 }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
+// 境界の窓・イベントは静的に模擬する (動的 import の @tauri-apps/api/* が途中で本物になり、空の __TAURI_INTERNALS__ を読んで未処理のエラーを出す, failures #14)
+vi.mock("@/lib/desktop/tauri", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/desktop/tauri")>()),
+  listen: async () => () => {},
+  listenPayload: async () => () => {},
+  onCloseRequested: async () => () => {},
+  windowAction: async () => {},
+}));
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...a: [string, Record<string, unknown>]) => invoke(...a),
 }));

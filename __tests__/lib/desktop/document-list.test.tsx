@@ -17,6 +17,14 @@ vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ onCloseRequested: async () => () => {} }),
 }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
+// 境界の窓・イベントは静的に模擬する (動的 import の @tauri-apps/api/* が途中で本物になり、空の __TAURI_INTERNALS__ を読んで未処理のエラーを出す, failures #14)
+vi.mock("@/lib/desktop/tauri", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/desktop/tauri")>()),
+  listen: async () => () => {},
+  listenPayload: async () => () => {},
+  onCloseRequested: async () => () => {},
+  windowAction: async () => {},
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), usePathname: () => pathname }));
 
 /** フォーク元のパネルの代わり: 作り直されるたびに操作を登録する (= エディタが作り直された合図, spec 02 D9) */

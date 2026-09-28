@@ -25,6 +25,17 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...a: [string, Record<string, unknown>]) => invoke(...a),
 }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => {} }));
+// 境界の窓・イベントは静的に模擬し、窓の操作は win につなぐ (動的 import の @tauri-apps/api/* が途中で本物になり、
+// 空の __TAURI_INTERNALS__ を読んで未処理のエラーを出す, failures #14)
+vi.mock("@/lib/desktop/tauri", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/desktop/tauri")>()),
+  listen: async () => () => {},
+  listenPayload: async () => () => {},
+  onCloseRequested: () => win.onCloseRequested(),
+  windowAction: async (action: string) => {
+    await (win as unknown as Record<string, (() => unknown) | undefined>)[action]?.();
+  },
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => "/" }));
 
 const setTauri = (on: boolean) => {
