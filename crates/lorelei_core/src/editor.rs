@@ -267,7 +267,9 @@ fn flowchart(model: &Value) -> Result<EditorPayload, CoreError> {
     }
 
     let mut edges = Vec::new();
-    let mut seen: HashMap<(String, String), usize> = HashMap::new();
+    // ID は {source}-{target}。ID に - を含むノードがあるとぶつかりうるので、使った ID を持ち、空くまで番号を足す
+    // (spec 11 で見つけた穴。TS の取り込み from-mermaid.ts と同じ)
+    let mut used: HashSet<String> = HashSet::new();
     for e in arr(model, "edges") {
         let source = e
             .get("from")
@@ -287,15 +289,14 @@ fn flowchart(model: &Value) -> Result<EditorPayload, CoreError> {
         let length = e.get("length").and_then(Value::as_u64).unwrap_or(1);
         drops.add("edge_length", usize::from(length > 1));
 
-        let n = seen
-            .entry((source.to_string(), target.to_string()))
-            .or_default();
-        *n += 1;
-        let id = if *n == 1 {
-            format!("{source}-{target}")
-        } else {
-            format!("{source}-{target}-{n}")
-        };
+        let base = format!("{source}-{target}");
+        let mut id = base.clone();
+        let mut n = 2;
+        while used.contains(&id) {
+            id = format!("{base}-{n}");
+            n += 1;
+        }
+        used.insert(id.clone());
         edges.push(FlowEdge {
             id,
             source: source.to_string(),
@@ -372,9 +373,20 @@ fn er(model: &Value) -> Result<EditorPayload, CoreError> {
             .unwrap_or(usize::MAX)
     });
 
+    // subgraph を関係の行き先にすると、関係はその subgraph の id を指し、同じ名前のテーブルも現れうる。
+    // テーブルにせず、それを指す関係を落として数える (spec 11 で見つけた穴。以前は形の誤りで止まった。TS の取り込みと同じ)
+    let subgraph_ids: HashSet<&str> = arr(model, "subgraphs")
+        .iter()
+        .filter_map(|s| s.get("id").and_then(Value::as_str))
+        .collect();
+    drops.add("subgraph", subgraph_ids.len());
+
     let mut name_of_id = HashMap::new();
     let mut nodes = Vec::new();
     for (name, e) in ordered {
+        if subgraph_ids.contains(name.as_str()) {
+            continue;
+        }
         name_of_id.insert(str_of(e, "id").to_string(), name.clone());
         drops.add("alias", usize::from(non_empty(e, "alias")));
         let classes = str_of(e, "cssClasses")
@@ -404,14 +416,20 @@ fn er(model: &Value) -> Result<EditorPayload, CoreError> {
     }
 
     let mut edges = Vec::new();
-    for (i, r) in arr(model, "relationships").iter().enumerate() {
-        let lookup = |key: &str| {
+    for r in arr(model, "relationships") {
+        let (a, b) = (str_of(r, "entityA"), str_of(r, "entityB"));
+        if subgraph_ids.contains(a) || subgraph_ids.contains(b) {
+            drops.add("edge_to_subgraph", 1);
+            continue;
+        }
+        let lookup = |id: &str| {
             name_of_id
-                .get(str_of(r, key))
+                .get(id)
                 .cloned()
                 .ok_or_else(|| shape_error("relationships の entity id"))
         };
-        let (source, target) = (lookup("entityA")?, lookup("entityB")?);
+        let (source, target) = (lookup(a)?, lookup(b)?);
+        let i = edges.len();
         let spec = r.get("relSpec").ok_or_else(|| shape_error("relSpec"))?;
         if str_of(spec, "relType") == "NON_IDENTIFYING" {
             drops.add("non_identifying", 1);

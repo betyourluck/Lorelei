@@ -352,3 +352,29 @@ fn ascii_keyword_boundaries_are_kept_before_unicode_like_mermaid_js() {
     assert_eq!(node_ids(&data), ["開始", "B"]);
     assert!(dropped.is_empty(), "{dropped:?}");
 }
+
+// ---------- spec 11 で見つけた穴 (TS の取り込みの査読 2・8 と同じ入力) ----------
+
+/// ER 図の subgraph を関係の行き先にしても止まらず、TS の取り込み (erFromMermaid) と同じく落として知らせる
+#[test]
+fn er_subgraph_is_reported_like_the_ts_import() {
+    let (data, dropped) =
+        er("erDiagram\n  subgraph G[グループ]\n    A\n  end\n  B ||--o{ G : r\n  A ||--o{ B : s\n");
+    let names: Vec<_> = data.nodes.iter().map(|n| n.name.as_str()).collect();
+    assert_eq!(names, ["A", "B"]);
+    let pairs: Vec<_> = data
+        .edges
+        .iter()
+        .map(|e| (e.source.as_str(), e.target.as_str()))
+        .collect();
+    assert_eq!(pairs, [("A", "B")]);
+    assert_eq!(dropped, [d("edge_to_subgraph", 1), d("subgraph", 1)]);
+}
+
+/// 線の ID は `-` を含むノード ID でもぶつからない (TS の取り込みと同じく、空くまで番号を足す)
+#[test]
+fn edge_ids_stay_unique_with_dashed_node_ids() {
+    let (data, _) = flow("flowchart TD\n  a-b --> c\n  a --> b-c\n");
+    let ids: Vec<_> = data.edges.iter().map(|e| e.id.as_str()).collect();
+    assert_eq!(ids, ["a-b-c", "a-b-c-2"]);
+}
