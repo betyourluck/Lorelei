@@ -265,7 +265,7 @@ Diagram:
 
 GuiCommands:
   description: GUI (Tauri) の custom command とイベント。フロント側は lib/desktop/ だけがこれを呼ぶ
-  take_pending_open: "溜まっている OpenRequest の配列を返して空にする。フロントは準備でき次第と OPEN_EVENT のたびに呼ぶ"
+  take_pending_open: "溜まっている OpenRequest の配列を返して空にする。フロントは準備でき次第と OPEN_EVENT のたびに呼ぶ。ただし外枠 (DocsBridge) が立つまでは呼ばない — 最初の描画 (Web 版と同じ木) のエディタが取り込むと、外枠付きのエディタに作り直された時に中身が捨てられる (failures #13, spec 08 P3)"
   open_event: "lorelei://open-pending (本体を持たない合図)"
   open_request: >-
     { source, payload: EditorPayload | null, dropped, error: string | null, document: DocumentSummary | null, reload: bool, layout: Layout | null }。

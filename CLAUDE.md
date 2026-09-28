@@ -59,7 +59,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
-- 2026-09-28: [spec 08](specs/08_update-diagram.md) rev2 承認（AI が既存の図を書き換える `update_diagram`。AI と GUI の書き手 2 つに楽観ロック、開いている図は載せ替え、初期図の保険は `first_fill` の時だけに）。P0 から
+- 2026-09-28: [spec 08](specs/08_update-diagram.md) **Done** — rev2（AI が既存の図を書き換える `update_diagram`。AI は `expected_updated_at`、GUI の自動保存は `base_updated_at` の楽観ロック、
+  開いている図は載せ替え、揃え書きは `normalize_pending` で `updated_at` を進めない、初期図の保険は `first_fill` の時だけ、書き換え前は `history/` に 1 世代）。P0〜P3 着地（P3 は `tauri dev`。配布ビルドでの往復と起動直後の画面の目視は未確認のまま閉じた — spec 08「P3 結果」）。
+  P3 で起動直後の載せ替えが捨てられる不具合（failures #13。spec 04 現況 4 の 2 件目と同じ顔）を直した。テストの罠は failures #14
 - 2026-09-27: [spec 07](specs/07_direction-and-fk.md) **Done** — rev1（図の向き TD/LR/RL/BT と ER 図の FK をエディタで扱い、MCP の取り込み・保存・読み戻しで落とさない）。
   フォーク元の改善のコミットは spec 07「P1 結果」。古い向きでの書き戻しが 2 回あり、原因は未解明（spec 07「P3 結果」）
 - 2026-09-26: [spec 06](specs/06_confirm-delete.md) **Done** — rev1（ER 図のテーブルを「⋮⋮」メニューから消せるようにし、テーブル・ノードの削除（ボタンも Backspace も）に確認を入れる）。
