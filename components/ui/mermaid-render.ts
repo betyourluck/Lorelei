@@ -1,4 +1,5 @@
 import type { Mermaid } from "mermaid";
+import { prepareForParse, toParseIssue, type ParseIssue } from "./mermaid-parse-issue";
 
 /**
  * mermaid.js に触るのはこのモジュールだけ (spec 09 D3)。
@@ -37,4 +38,19 @@ export const renderMermaid = async (id: string, code: string): Promise<string> =
   const mermaid = await loadMermaid();
   const { svg } = await mermaid.render(id, code);
   return svg;
+};
+
+/**
+ * Mermaid の文法を検める (spec 10 D5)。通れば null、誤りなら位置つきの 1 件。
+ * 行は利用者の見ている本文の行に直して返す (mermaid は注釈と先頭の空白を消してから数える)
+ */
+export const parseMermaid = async (code: string): Promise<ParseIssue | null> => {
+  const mermaid = await loadMermaid();
+  const { text, lineOffset } = prepareForParse(code);
+  try {
+    await mermaid.parse(text);
+    return null;
+  } catch (e) {
+    return toParseIssue(e, lineOffset);
+  }
 };

@@ -37,6 +37,14 @@
     "build-storybook": "storybook build -o docs/storybook"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "6",
+    "@codemirror/commands": "6",
+    "@codemirror/language": "6",
+    "@codemirror/lint": "6",
+    "@codemirror/search": "6",
+    "@codemirror/state": "6",
+    "@codemirror/view": "6",
+    "@lezer/highlight": "1",
     "@tanstack/react-table": "^8.21.3",
     "@tauri-apps/api": "2",
     "@types/react-syntax-highlighter": "^15.5.13",

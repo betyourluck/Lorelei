@@ -30,6 +30,13 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
   disconnect: vi.fn(),
 }));
 
+// jsdom の Range は寸法を持たない。CodeMirror が文字の位置を測る時 (rAF の中) に落ちないよう最小の形を置く (spec 10)
+if (typeof Range !== "undefined") {
+  const emptyRects = () => Object.assign([], { item: () => null }) as unknown as DOMRectList;
+  Range.prototype.getClientRects ??= emptyRects;
+  Range.prototype.getBoundingClientRect ??= () => new DOMRect();
+}
+
 // mermaid の描画のモック。jsdom では本物の mermaid が描けない (SVG の寸法が測れない)。
 // 動的 import した mermaid を模擬するのではなく、境界のモジュールを静的に模擬する
 vi.mock("@/components/ui/mermaid-render", () => ({
@@ -37,4 +44,6 @@ vi.mock("@/components/ui/mermaid-render", () => ({
     async (id: string, code: string) =>
       `<svg id="${id}" data-testid="mermaid-svg" data-code="${encodeURIComponent(code)}"></svg>`
   ),
+  // 文法の検め (spec 10 D5)。既定は「通る」
+  parseMermaid: vi.fn(async () => null),
 }));
