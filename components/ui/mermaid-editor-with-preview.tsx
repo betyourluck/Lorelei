@@ -18,8 +18,8 @@ interface MermaidEditorWithPreviewProps {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
-  /** どのダイアログか（補完の 1 行目を絞る） */
-  mermaid: "flowchart" | "er";
+  /** どのダイアログか（補完の 1 行目を絞る）。両方を受けるダイアログ（デスクトップのインポート）では付けない */
+  mermaid?: "flowchart" | "er";
   /** エディタの上に出す説明 */
   description: ReactNode;
   /** エディタの下に出すもの（エラー・ヘルプ） */
