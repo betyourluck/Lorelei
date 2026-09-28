@@ -28,7 +28,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   CSP は style-src の自動ハッシュ追記を止めている
 - **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは spec 01 の 4 ファイル・8 行 + spec 02 の 5 ファイル・12 行（`app/layout.tsx` の外枠、エディタ 2 つの高さ、パネル 2 つの `useDesktopActions`。重なりを除いて計 7 ファイル）+ spec 04 P0 でエディタ 2 つの初期図を export（`initialFlowNodes` / `initialERNodes`。初期図の突き合わせ用。ファイルは既存の 7 つに含まれる）+ spec 07 P2 でパネル 2 つの `useDesktopActions` に向き（`direction` / `setDirection`）を足した（同じ 2 ファイル）
 - **フロント（`app/` `features/` `components/`）**: フォーク元のコード。直してよい（下の掟の「フォーク元は必要なら直してよい」）。
-  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」に一覧がある。PR を出すかは利用者が決める
+  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」に一覧がある。PR を出すかは利用者が決める
 
 ## 掟（Mandate）
 
@@ -59,6 +59,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
+- 2026-09-29: [spec 10](specs/10_codemirror-editor.md) **Done** — rev1（インポートとコード生成のエディタを **CodeMirror 6**（Kataribe と同じ設定の React の薄い包み）にし、
+  Mermaid の補完と文法の赤線（mermaid.parse）を入れ、インポートも 90%×85% で右にプレビュー）。エディタは `lazy-code-editor` を通してダイアログを開く時に読む。
+  古い色付けの部品と依存 5 つを撤去。P0〜P4 着地（P4 は配布ビルド）。PowerShell からの pnpm・git の罠は failures #16
 - 2026-09-28: [spec 09](specs/09_code-preview.md) **Done** — rev2（「コード生成」のダイアログを 90%×85% に広げ、左にコード・右に mermaid.js で描いたプレビュー。
   mermaid は **11.17.2 に固定**（書き出しの merman と同じ版。12 は既定の配置が ELK・配色が neo に変わる）、ダイアログを開くまで読み込まない。プレビューと書き出しは描き手が違い一致しない — LORELEI.md 既知の制約）。
   P0〜P2 着地（P2 は配布ビルド）。**`tauri dev` を動かしたまま `next build` / `tauri build` を走らせると `.next` を共有して dev が壊れる**（failures #15）

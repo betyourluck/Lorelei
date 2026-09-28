@@ -150,7 +150,23 @@ MermaidPreview:
   initialize: { startOnLoad: false, securityLevel: strict, theme: default, suppressErrorRendering: true }   # htmlLabels は既定 (true) のまま (裁定 2026-09-28)。書き出しの RenderConfigOverrides とは違う
   render_id: "mermaid-preview-<連番>。描くたびに新しくする (mermaid は同じ id の要素を最初に消す)"
   states: [loading, done, error]   # error は mermaid の例外の文をそのまま出す
+  keep_last: "keepLast (spec 10 D6、インポートだけ): 描いている間・描けない時も最後に描けた図を残し、誤りは図の上に帯で重ねる"
   differs_from_export: "書き出し (SVG / PNG / PDF) は merman。描き手・書体・ラベルの描き方が違うので一致しない (LORELEI.md 既知の制約)"
+
+CodeEditor:
+  description: Mermaid を書く・読むエディタ (spec 10)。CodeMirror 6 の薄い包みで、Kataribe の CodeEditor.vue を React に写した。フォーク元の改善 (Web 版でも動く)
+  files:
+    component: "components/ui/code-editor.tsx (CodeMirror を import する。ダイアログからは直接読まない)"
+    lazy: "components/ui/lazy-code-editor.tsx の LazyCodeEditor (next/dynamic、ssr: false)。ダイアログが読むのはこれだけ = CodeMirror はエディタを描く時に初めて読む"
+  props: { value: string, onChange: "利用者の打鍵の時だけ (value を外から変えた時は出さない)", readOnly: bool, placeholder: string, height: "CSS 値、既定 100%", mermaid: "flowchart | er (補完の 1 行目を絞る)", intellisense: "補完と文法の赤線 (インポートだけ)", status: "フッタ (行・列・行数・文字数・挿入/上書き)" }
+  used_by:
+    import: "インポートのダイアログ (フローチャート・ER 図): 編集・intellisense・status。右に MermaidPreview (400ms 止まったら描く、keepLast)。本文がある時は Esc で閉じない"
+    code_generation: "コード生成のダイアログ: readOnly (行番号・検索だけ)"
+  language: "components/ui/mermaid-language.ts の StreamLanguage (flowchart / graph / erDiagram)。closeBrackets は ( [ \" だけ ({ は ER の多重度を壊すので閉じない)。コメントは %%"
+  completion: "components/ui/mermaid-completion.ts の mermaidCandidates(text, pos, kind) → { options, from, typed, validFor, auto }。置換範囲と validFor は同じ [\\p{L}\\p{N}_] (IME の確定で二重に挿さらない)。多重度はエディタが扱える 7 組 (erDiagram の cardinality)"
+  lint: "mermaid-render.ts の parseMermaid(code) → ParseIssue | null { line (1 始まり, 本文の行), fromColumn, toColumn, message }。mermaid が注釈と先頭の空行を消して数える行を prepareForParse / toParseIssue で本文の行に直す。500ms 遅延"
+  escape: "CodeMirror が使った Esc (補完・検索を閉じる) は包みで伝播を止める (Yamada のダイアログは defaultPrevented を見ずに閉じるため)"
+  phrases: "components/ui/editor-phrases.ts の EDITOR_PHRASES_JA。search・lint・autocomplete・view・commands・language が phrase() で引く文言の和訳。テストが 6 つの dist からキーを抜いて照合する"
 
 RenderConfigOverrides:
   description: 入力の %%{init}%% より優先して Lorelei が固定する設定

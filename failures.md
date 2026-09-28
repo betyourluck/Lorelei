@@ -192,3 +192,13 @@
 - **一般化**: 作業の途中で走らせる「確かめのビルド」は、**動いている開発サーバーと書き先を共有していないか**を先に見る（Next は distDir を dev と build で共有しうる）。
   設定の枝（`isTauri && NODE_ENV === "production"`）に入ったつもりでも、書き先は実際に出来たファイルの時刻で確かめる。
   借りた環境の振る舞い（CSP の自動追記）を真似る時は、その環境が**黙って足しているもの**まで数える
+
+## #16 PowerShell から corepack の pnpm と git に渡した引数が、黙って別の意味になった（2026-09-28, spec 09・10）
+
+- **症状**: (1) `corepack pnpm@9 add "@codemirror/state@^6"` が package.json に `"6"` と書いた（`^` が消えた）。
+  (2) `git commit -q -F - @'…'@`（PowerShell のヒアドキュメント）でコミットが作られず、`error: pathspec '…' did not match` が出た。直前の `git add` と合わせて全ファイルがステージに乗った状態で残った
+- **真因**: (1) corepack の `pnpm` は Windows では `.cmd` の shim で、cmd.exe が `^` をエスケープ文字として食う。`"6"` は semver で `6.x` と同じなので今回は無害だったが、
+  `^1.30.0` を渡せば**完全固定の `1.30.0`** に化ける（範囲が黙って変わる）。(2) PowerShell のヒアドキュメントは stdin ではなく**引数**として渡る。`-F -` は stdin を読むので、本文はパス指定と解釈された
+- **処方**: (1) 版の範囲は、足した後に package.json を読んで確かめる（範囲が要るなら手で直す）。`--ignore-scripts` は `pnpm remove` では通らないので `--config.ignore-scripts=true` を使う。
+  (2) コミットの本文はファイルに書いて `git commit -F <ファイル>` で渡す（spec 09 以降の形）。失敗したら `git reset` でステージを戻してからやり直す
+- **一般化**: シェルを跨ぐ引数（PowerShell → cmd の shim → 本体）は、**特殊文字と「stdin か引数か」が層ごとに解釈し直される**。書いた結果（package.json・コミット）を読み戻して確かめるまで、渡したつもりの値を信じない
