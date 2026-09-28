@@ -175,3 +175,20 @@
   `update-diagram.test.tsx` の形。動的 import を挟まないので競合が起きない
 - **一般化**: 動的 import の先を模擬するより、**自分の境界モジュール（依存を閉じ込めた薄い包み）を模擬する**方が確実で、テストも自分の契約（イベント名・引数）で書ける。
   「同じ関数なのに呼び手によって模擬が効いたり効かなかったりする」は、モジュールの同一性ではなく時間の競合を疑う
+
+## #15 `tauri dev` を動かしたまま本番ビルドを走らせ、動いている `next dev` を壊した / CSP の真似が半分だった（2026-09-28, spec 09 P0〜P2）
+
+- **症状**: (1) P0 で静的書き出しを「今の CSP」で配ったら、Next のアプリ自体が起動しなかった（inline script が CSP で止まる）。
+  (2) P0 の `next build`（`TAURI_ENV_PLATFORM` 付き）と P2 の `tauri build --no-bundle` の後、動いていた `tauri dev` の `next dev`（localhost:3000）でチャンクが軒並み 404 になり、
+  ボタンを押しても何も起きなくなった。tsc も `.next/types/app/poc-mermaid`（消した PoC のページの型）で落ちた。
+  (3) 1 回目の `tauri build` が `Cannot find module for page: /_document`（PageNotFoundError）で落ちた
+- **真因**: (1) Tauri は配る HTML の inline script のハッシュを `script-src` に自動で足す（止めているのは style-src だけ, #2）。自前の配信はそれをしていなかった。
+  (2) `.next` に本番ビルドの `BUILD_ID`・`export-marker.json`（1 回目の `tauri build` の時刻）と PoC の型が残っていた = **どちらのビルドも `next dev` と同じ `.next` に書いた**。
+  `next.config.mjs` は Tauri の本番なら distDir を `out` にするつもりの枝を持つが、そこに入っていない。Next の bin は `NODE_ENV` が空なら production にしてから動くので、**入らない理由は突き止めていない**。
+  静的書き出しは distDir と別に `out/` へ出る。(3) P0 のビルドが残した `out/` を消して作り直したら通った（1 回の観測。2 回目のビルドの書き先は確かめていない）
+- **処方**: (1) CSP を真似て配る時は、HTML の inline script ごとに `'sha256-…'` を `script-src` へ足す（spec 09 P0 は node の小さな配信スクリプトでそうした）。確かめの本番は配布ビルドの exe。
+  (2) **`tauri dev` を動かしている間は `next build` / `tauri build` を走らせない**。走らせたら `tauri dev` を止め、`.next` を消してから起動し直す。
+  (3) `/_document` の PageNotFoundError が出たら、`out/` を消して作り直す
+- **一般化**: 作業の途中で走らせる「確かめのビルド」は、**動いている開発サーバーと書き先を共有していないか**を先に見る（Next は distDir を dev と build で共有しうる）。
+  設定の枝（`isTauri && NODE_ENV === "production"`）に入ったつもりでも、書き先は実際に出来たファイルの時刻で確かめる。
+  借りた環境の振る舞い（CSP の自動追記）を真似る時は、その環境が**黙って足しているもの**まで数える

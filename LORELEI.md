@@ -92,6 +92,10 @@ MCP サーバーは **Lorelei の窓の中**で動きます（`127.0.0.1:39642/m
 - Mermaid の描画には [merman](https://github.com/Latias94/merman) を使っています。日本語などのノード ID を受け付けるよう修正した版を
   同梱しています（[vendor/merman-core/LORELEI_PATCH.md](vendor/merman-core/LORELEI_PATCH.md)。修正は上流にマージ済み: Latias94/merman#146。
   crates.io に新しい版が出たら同梱をやめます）
+- 「コード生成」のダイアログの右のプレビューは [mermaid.js](https://github.com/mermaid-js/mermaid) 11.17.2 で描いています。
+  SVG / PNG / PDF の書き出しは merman（Rust）で描くので、**描き手が違います**。同じ 11.17.2 系ですが、配置・字形（プレビューは OS の書体、
+  書き出しは同梱の Noto Sans JP）・ラベルの描き方（プレビューは mermaid.js の既定の HTML ラベル、書き出しは `htmlLabels: false`）が
+  完全には一致しません。プレビューは「Mermaid としてどう描かれるか」の目安で、保存した画像そのものの写しではありません
 
 ## ライセンス
 

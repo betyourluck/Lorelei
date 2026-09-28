@@ -143,6 +143,15 @@ DesktopActions:
     setDirection: "(EditorDirection) => void。ツールバーの切り替えから向きを変える (spec 07 D3)"
   autosave: "外枠は向きの変化でも自動保存する (ノード・辺が変わらなくても。spec 07 D3)"
 
+MermaidPreview:
+  description: コード生成のモーダルの右の列で、生成した Mermaid を mermaid.js で描く (spec 09 D3)。フォーク元の改善 (Web 版でも動く、Tauri に依らない)
+  library: "npm mermaid 11.17.2 (版を固定。書き出しの merman が追従する版と同じ。12 は merman が追従してから, spec 09 D1)"
+  boundary: "components/ui/mermaid-render.ts の renderMermaid(id, code) → Promise<string (SVG)> だけが mermaid に触る。最初に描く時に動的 import し、initialize は 1 回"
+  initialize: { startOnLoad: false, securityLevel: strict, theme: default, suppressErrorRendering: true }   # htmlLabels は既定 (true) のまま (裁定 2026-09-28)。書き出しの RenderConfigOverrides とは違う
+  render_id: "mermaid-preview-<連番>。描くたびに新しくする (mermaid は同じ id の要素を最初に消す)"
+  states: [loading, done, error]   # error は mermaid の例外の文をそのまま出す
+  differs_from_export: "書き出し (SVG / PNG / PDF) は merman。描き手・書体・ラベルの描き方が違うので一致しない (LORELEI.md 既知の制約)"
+
 RenderConfigOverrides:
   description: 入力の %%{init}%% より優先して Lorelei が固定する設定
   htmlLabels: false            # 最上位と flowchart.htmlLabels。true だと resvg-safe の代替テキストが折り返しを失う (P0-2)
