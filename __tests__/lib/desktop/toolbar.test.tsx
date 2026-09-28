@@ -111,13 +111,29 @@ describe("ツールバー (spec 02 P2)", { timeout: 15000 }, () => {
   it("インポートは外枠のダイアログで受け、原文を Rust の変換へ渡す (D10。フォーク元のパーサーは通さない)", async () => {
     const { user } = render(<DesktopShell>x</DesktopShell>);
     await user.click(await screen.findByRole("button", { name: "インポート" }));
-    const box = await screen.findByRole("textbox", { name: "Mermaid" });
+    const box = await screen.findByRole("textbox", { name: "Mermaid コード" });
     await user.click(box);
     await user.paste("flowchart LR\n  A --> B");
     await user.click(screen.getByRole("button", { name: "取り込む" }));
     await waitFor(() =>
       expect(invoke).toHaveBeenCalledWith("import_source", { source: "flowchart LR\n  A --> B" })
     );
+  });
+
+  // spec 11 D7: デスクトップのインポートもフォーク元と同じ本文 (大きなダイアログ・エディタ・右のプレビュー・消えるものの要約と印)
+  it("インポートのダイアログは左にエディタ、右にプレビューで、取り込むと消えるものを知らせる", async () => {
+    const { user } = render(<DesktopShell>x</DesktopShell>);
+    await user.click(await screen.findByRole("button", { name: "インポート" }));
+    expect(await screen.findByRole("region", { name: "Mermaid コード" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "プレビュー" })).toBeInTheDocument();
+
+    const box = screen.getByRole("textbox", { name: "Mermaid コード" });
+    await user.click(box);
+    await user.paste('erDiagram\n  顧客 {\n    int id PK "主キー"\n  }');
+    const status = await screen.findByRole("status", {}, { timeout: 3000 });
+    expect(status).toHaveTextContent("取り込むと消えるもの: 属性のコメント ×1");
+    // 1 行目の図の種類で、ER 図の印の規則を使う
+    expect(box).toHaveAttribute("data-warnings", "3");
   });
 
   it("Web 版 (外枠なし) では useDesktopActions は何もしない", () => {
