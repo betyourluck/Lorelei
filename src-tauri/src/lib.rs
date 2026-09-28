@@ -202,22 +202,25 @@ fn push_open<R: tauri::Runtime>(app: &AppHandle<R>, request: OpenRequest) {
 }
 
 /// HTTP の MCP の open_in_editor の行き先 (spec 03 D1)。一覧に新しい 1 件を足し、フロントへの預かりに積む。
-/// 足せたら作った図の id (MCP の `document_id`)、足せなかった時は理由を返す (MCP の `opened: false` の reason になる)
+/// 足せたら作った図の id (MCP の `document_id`) と updated_at (spec 08 D2)、足せなかった時は理由を返す (MCP の `opened: false` の reason になる)
 fn deliver<R: tauri::Runtime>(
     app: &AppHandle<R>,
     store: &documents::Store,
     source: String,
     title: Option<String>,
-) -> Result<String, String> {
+) -> Result<lorelei_mcp::Opened, String> {
     let request = incoming(store, source, documents::Origin::Ai, title);
-    let Some(id) = request.document.as_ref().map(|d| d.id.clone()) else {
+    let Some(opened) = request.document.as_ref().map(|d| lorelei_mcp::Opened {
+        id: d.id.clone(),
+        updated_at: d.updated_at.clone(),
+    }) else {
         return Err(request
             .error
             .unwrap_or_else(|| "図の一覧に足せませんでした".into()));
     };
     push_open(app, request);
     bring_to_front(app);
-    Ok(id)
+    Ok(opened)
 }
 
 /// 窓を前に出す。起動の途中 (まだ隠れている窓, spec 05 D5) でも出してから前に出す
@@ -237,8 +240,14 @@ const SHOW_WINDOW_FALLBACK: std::time::Duration = std::time::Duration::from_secs
 struct GuiEditor(AppHandle);
 
 impl lorelei_mcp::EditorPort for GuiEditor {
-    fn open(&self, source: String, title: Option<String>) -> Result<String, String> {
+    fn open(&self, source: String, title: Option<String>) -> Result<lorelei_mcp::Opened, String> {
         deliver(&self.0, &store()?, source, title)
+    }
+    // 書き換え (spec 08): Store::update と載せ替えは P2 で。それまでは口のエラーで断る (spec 04 P1 の list / read と同じ流儀)
+    fn update(&self, _: lorelei_mcp::UpdateRequest) -> Result<lorelei_mcp::UpdateOutcome, lorelei_mcp::UpdateError> {
+        Err(lorelei_mcp::UpdateError::Other(
+            "update_diagram はまだ使えません (spec 08 P2 で実装)".into(),
+        ))
     }
     // 読み戻し (spec 04): documents/ と state.json を読む。画面には問い合わせない (D1)
     fn list(&self) -> Result<Vec<lorelei_mcp::DiagramSummary>, String> {
@@ -348,13 +357,15 @@ mod tests {
             .build(tauri::generate_context!())
             .expect("mock app");
         let store = documents::Store::new(scratch());
-        let id = deliver(app.handle(), &store, "flowchart TD\n  A --> B\n".into(), Some("注文".into())).unwrap();
+        let opened = deliver(app.handle(), &store, "flowchart TD\n  A --> B\n".into(), Some("注文".into())).unwrap();
+        let id = opened.id;
         let pending = app.state::<PendingOpens>();
         let pending = pending.0.lock().unwrap();
         assert_eq!(pending.len(), 1);
         assert_eq!(pending[0].document.as_ref().unwrap().title, "注文");
-        // 作った図の id を返す (MCP の document_id, spec 04 D2)
+        // 作った図の id と updated_at を返す (MCP の document_id / updated_at, spec 04 D2・spec 08 D2)
         assert_eq!(pending[0].document.as_ref().unwrap().id, id);
+        assert_eq!(pending[0].document.as_ref().unwrap().updated_at, opened.updated_at);
         assert_eq!(store.load(&id).unwrap().title, "注文");
         assert_eq!(store.list().unwrap().len(), 1);
         drop(pending);

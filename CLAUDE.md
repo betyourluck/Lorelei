@@ -14,14 +14,14 @@ Lorelei は DB にもリポジトリにも繋がない（秘密を置く欄を�
 
 ```text
 Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いている GUI（Tauri、single-instance）
-                                                          ├─ lorelei_mcp（待ち受け・ツール 5 本）─ lorelei_core（検査・描画・書き出し。純 Rust）
+                                                          ├─ lorelei_mcp（待ち受け・ツール 6 本）─ lorelei_core（検査・描画・書き出し。純 Rust）
                                                           └─ open_in_editor ─ EditorPort ─▶ 図の一覧に 1 件 ─▶ フォーク元の React エディタ（lib/desktop が受け口）
 ```
 
 - **`crates/lorelei_core`**: merman で Mermaid → SVG。PNG / PDF への変換は自前（usvg + resvg / krilla-svg に
   **同梱フォント**を渡す — merman-export はフォント DB を差し替えられず、日本語が太字へ落ちるため）
-- **`crates/lorelei_mcp`**: MCP サーバー（rmcp 2.2 の Streamable HTTP + axum）のライブラリ。ツールは 5 本（検査・描画の 3 本と、spec 04 の読み戻しの `list_diagrams` / `read_diagram`）。
-  `start_http` で `127.0.0.1` だけに待ち受け、トークン・Host・Origin を検査する。GUI の図の一覧へは `EditorPort`（開く・一覧・読む）でつなぐ（Tauri に依存しない）。
+- **`crates/lorelei_mcp`**: MCP サーバー（rmcp 2.2 の Streamable HTTP + axum）のライブラリ。ツールは 6 本（検査・描画の 3 本、spec 04 の読み戻しの `list_diagrams` / `read_diagram`、spec 08 の書き換えの `update_diagram`）。
+  `start_http` で `127.0.0.1` だけに待ち受け、トークン・Host・Origin を検査する。GUI の図の一覧へは `EditorPort`（開く・一覧・読む・書き換える）でつなぐ（Tauri に依存しない）。
   **GUI を閉じていると MCP は使えない**（stdio の `lorelei --mcp` は spec 03 P3 で撤去）
 - **`src-tauri/`**: GUI。workspace の外に置く（AppPromoVideo / Kataribe と同じ流儀）。起動時に MCP を待ち受ける（既定で ON、
   設定は `{app_data_dir}/mcp_server.json`、設定画面から切り替え）。保存ダイアログと About は rfd（JS に権限を足さない）。

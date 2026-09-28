@@ -178,6 +178,19 @@ data_contract に凍結した（コードはまだ触らない）:
 - grep（`以後書き換えない` / `届いた時の原文` / `生成器の出力` / `5 本` / `origin != new` / `前の source に依らず`）: spec 04 の現況 3・D2・D4 と spec 02 の `Document` に「spec 08 で改定」の注記、`Document.source` の注記。
   残り（CLAUDE.md の「5 本」2 か所、`lorelei_mcp/src/lib.rs` の `include_original` の docstring と crate doc、LORELEI.md のツール表）は**ツールが実在する P1・P2 で直す**（今直すと嘘になる）
 
+## P1 結果（2026-09-28）
+
+- `lorelei_mcp`: `EditorPort` に `update(UpdateRequest) → Result<UpdateOutcome, UpdateError>` を足し、`open` の戻りを `Opened { id, updated_at }` に。型 `EditorKind` / `UpdateRequest` / `UpdateOutcome` / `UpdateError`（`KindMismatch { actual }` / `NotFound` / `Conflict { current_updated_at }` / `Other`）。
+  ツール `update_diagram`（`UpdateParams` は `expected_updated_at` が必須。`open` は既定 false）と `UpdateResult`。`open_in_editor` の戻りに `updated_at`
+- 届いた図そのものの検査を `check_editable` に 1 か所にまとめ、`open_in_editor` と `update_diagram` の両方が使う（GUI で開けない種類・**ノードが 0** → reason。文法エラー・空文字は `CoreError` のまま = `validate` と同じツール結果のエラー）
+- `expected_updated_at` は `chrono::DateTime::parse_from_rfc3339` で読めることだけをツールの層で確かめる（同じ瞬間かの比較は GUI 側、P2）。読めなければツール結果のエラー。`chrono` を `std` だけの feature で足した（時計は使わない）
+- ツールの説明を改定: `read_diagram`（update の後は届けた Mermaid そのもの・最後に届けた原文・書き戻しは `update_diagram`）、`include_original` の docstring、`open_in_editor`（ノード 0・書き換えは `update_diagram`・`document_id` と `updated_at`）、`get_info` の案内（読む → 直す → 書き戻す）、crate doc「6 本」
+- テスト（Red → Green、`tests/http.rs`）: `Recorder` / `Refuser` に `update`。新規 3 本 — 書き戻し（口へ渡す 5 つの値・`open` と `updated_at`・`dropped`）/ 届いた図そのものの問題は reason（種類の不一致は口の `KindMismatch` から今の種類を文言に、ノード 0 と GUI で開けない種類は口を呼ばない、`open_in_editor` もノード 0 を断る）/
+  指した図の状態の問題はツール結果のエラー（無い id・`Conflict` は今の値と「read_diagram」を含む・時刻として読めない・**省くと呼べない**・文法エラー・口の `Other`）。既存 1 本にツール 6 本と `updated_at` を足した。12 本緑、clippy 警告 0
+- src-tauri: `deliver` が `Opened` を返す（テストで `updated_at` も突き合わせ）、`GuiEditor::update` は P2 まで `Other("まだ使えません")`（spec 04 P1 の `list` / `read` と同じ流儀）、`mcp_host` の偽の口。clippy 警告 0、39 本緑
+- CLAUDE.md の「5 本」2 か所を 6 本に。`lib.rs` の `include_original` の docstring も直した（P0 の grep の残り）。LORELEI.md は P2 で
+- `cargo fmt` の差分は変更前から `lib.rs`・`tests/http.rs` にあった（fmt は完了の条件に無い）。揃えて整形はしていない
+
 ## 受け入れ条件
 
 1. `read_diagram` で読んだ図を直して `update_diagram(id, source, expected_updated_at)` で書くと、同じ id・同じ名前・同じ並びのまま中身が変わり、`read_diagram` で直した Mermaid が返る（開いていない図では届けた Mermaid そのもの、開いている図では 1 秒待つとエディタの書き方に揃ったもの）

@@ -15,6 +15,8 @@ tokio-util = "0.7"
 serde.workspace = true
 serde_json.workspace = true
 base64.workspace = true
+# update_diagram の expected_updated_at を時刻として読めるか確かめる (spec 08 D2)。時計は使わない
+chrono = { version = "0.4", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["json"] }

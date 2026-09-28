@@ -3,12 +3,19 @@
 
 use std::sync::{Arc, Mutex};
 
-use lorelei_mcp::{Diagram, DiagramSummary, EditorPort, start_http};
+use lorelei_mcp::{
+    Diagram, DiagramSummary, EditorKind, EditorPort, Opened, UpdateError, UpdateOutcome, UpdateRequest,
+    start_http,
+};
 use serde_json::{Value, json};
 
 const TOKEN: &str = "test-token-0123456789abcdef";
 const AI_ID: &str = "00000000-0000-4000-8000-000000000001";
 const NEW_ID: &str = "00000000-0000-4000-8000-000000000002";
+/// 偽の一覧の図の updated_at (open_in_editor が返し、update_diagram の expected_updated_at に合う値)
+const AT: &str = "2026-09-25T10:05:00+09:00";
+/// update の後の updated_at
+const AT_AFTER: &str = "2026-09-25T10:06:00.123456+09:00";
 
 fn summary(id: &str, origin: &str, open: bool) -> DiagramSummary {
     DiagramSummary {
@@ -17,24 +24,51 @@ fn summary(id: &str, origin: &str, open: bool) -> DiagramSummary {
         editor: "flowchart".into(),
         origin: origin.into(),
         created_at: "2026-09-25T10:00:00+09:00".into(),
-        updated_at: "2026-09-25T10:05:00+09:00".into(),
+        updated_at: AT.into(),
         saved_at: None,
         unsaved: true,
         open,
     }
 }
 
-/// 図の一覧を持つ偽のエディタ。open_in_editor が届けた図と、read に渡された id を覚える
+/// 図の一覧を持つ偽のエディタ。open_in_editor が届けた図と、read に渡された id、update の要求を覚える
 #[derive(Default)]
 struct Recorder {
     opened: Mutex<Vec<(String, Option<String>)>>,
     reads: Mutex<Vec<Option<String>>>,
+    updates: Mutex<Vec<UpdateRequest>>,
 }
 
 impl EditorPort for Recorder {
-    fn open(&self, source: String, title: Option<String>) -> Result<String, String> {
+    fn open(&self, source: String, title: Option<String>) -> Result<Opened, String> {
         self.opened.lock().unwrap().push((source, title));
-        Ok(AI_ID.into())
+        Ok(Opened {
+            id: AI_ID.into(),
+            updated_at: AT.into(),
+        })
+    }
+    // spec 08 D4: AI_ID は flowchart で updated_at = AT の開いている図。NEW_ID は開いていない図
+    fn update(&self, req: UpdateRequest) -> Result<UpdateOutcome, UpdateError> {
+        self.updates.lock().unwrap().push(req.clone());
+        let is_open = match req.id.as_str() {
+            AI_ID => true,
+            NEW_ID => false,
+            _ => return Err(UpdateError::NotFound),
+        };
+        if req.editor != EditorKind::Flowchart {
+            return Err(UpdateError::KindMismatch {
+                actual: EditorKind::Flowchart,
+            });
+        }
+        if req.expected_updated_at != AT {
+            return Err(UpdateError::Conflict {
+                current_updated_at: AT.into(),
+            });
+        }
+        Ok(UpdateOutcome {
+            open: is_open || req.open,
+            updated_at: AT_AFTER.into(),
+        })
     }
     fn list(&self) -> Result<Vec<DiagramSummary>, String> {
         Ok(vec![summary(AI_ID, "ai", true), summary(NEW_ID, "new", false)])
@@ -63,8 +97,11 @@ impl EditorPort for Recorder {
 
 struct Refuser;
 impl EditorPort for Refuser {
-    fn open(&self, _: String, _: Option<String>) -> Result<String, String> {
+    fn open(&self, _: String, _: Option<String>) -> Result<Opened, String> {
         Err("図の一覧に足せませんでした".into())
+    }
+    fn update(&self, _: UpdateRequest) -> Result<UpdateOutcome, UpdateError> {
+        Err(UpdateError::Other("書けません: ディスクが一杯です".into()))
     }
     fn list(&self) -> Result<Vec<DiagramSummary>, String> {
         Ok(Vec::new())
@@ -183,7 +220,7 @@ async fn tools_are_listed_and_called_over_http() {
         .map(|t| t["name"].as_str().unwrap().to_owned())
         .collect();
     names.sort();
-    assert_eq!(names, ["list_diagrams", "open_in_editor", "read_diagram", "render", "validate"]);
+    assert_eq!(names, ["list_diagrams", "open_in_editor", "read_diagram", "render", "update_diagram", "validate"]);
 
     let v = call(&url, &sid, 3, "tools/call", json!({"name":"validate","arguments":{"source":"flowchart TD\n  開始 --> 終了"}})).await;
     assert_eq!(v["result"]["structuredContent"]["ok"], true);
@@ -200,8 +237,9 @@ async fn tools_are_listed_and_called_over_http() {
     let out = &o["result"]["structuredContent"];
     assert_eq!(out["opened"], true, "{o}");
     assert_eq!(out["editor"], "erDiagram");
-    // 作った図の id が返り、そのまま read_diagram に渡せる (spec 04 D2)
+    // 作った図の id が返り、そのまま read_diagram に渡せる (spec 04 D2)。updated_at は update_diagram の expected_updated_at に (spec 08 D2)
     assert_eq!(out["document_id"], AI_ID);
+    assert_eq!(out["updated_at"], AT);
     let got = recorder.opened.lock().unwrap().clone();
     assert_eq!(got.len(), 1);
     assert!(got[0].0.starts_with("erDiagram"));
@@ -288,6 +326,141 @@ async fn read_errors_are_tool_errors() {
     let r = call(&url, &sid, 2, "tools/call", json!({"name":"read_diagram","arguments":{}})).await;
     assert_eq!(r["result"]["isError"], true, "{r}");
     assert!(r["result"]["structuredContent"]["error"].as_str().unwrap().contains("今開いている図がありません"));
+    running.stop();
+}
+
+// spec 08 D1〜D4: AI が既存の図を同じ 1 件に書き戻す
+#[tokio::test]
+async fn update_diagram_writes_back_over_http() {
+    let recorder = Arc::new(Recorder::default());
+    let (running, url) = start(recorder.clone()).await;
+    let sid = session(&url).await;
+
+    let u = call(
+        &url,
+        &sid,
+        2,
+        "tools/call",
+        json!({"name":"update_diagram","arguments":{"id":AI_ID,"source":"flowchart LR\n  受付 --> 完了 --> 出荷\n","expected_updated_at":AT}}),
+    )
+    .await;
+    let out = &u["result"]["structuredContent"];
+    assert_eq!(out["updated"], true, "{u}");
+    assert_eq!(out["editor"], "flowchart");
+    assert_eq!(out["dropped"], json!([]));
+    assert_eq!(out["open"], true, "開いている図なので載せ替えを渡した");
+    assert_eq!(out["updated_at"], AT_AFTER);
+
+    // 口へは id・source・種類・expected_updated_at・open (既定 false) をそのまま渡す
+    let got = recorder.updates.lock().unwrap().clone();
+    assert_eq!(got.len(), 1);
+    assert_eq!(got[0].id, AI_ID);
+    assert!(got[0].source.starts_with("flowchart LR"));
+    assert_eq!(got[0].editor, EditorKind::Flowchart);
+    assert_eq!(got[0].expected_updated_at, AT);
+    assert!(!got[0].open);
+
+    // open=true と、エディタで省かれる要素の件数 (dropped) は open_in_editor と同じ
+    let u = call(
+        &url,
+        &sid,
+        3,
+        "tools/call",
+        json!({"name":"update_diagram","arguments":{"id":NEW_ID,"source":"flowchart TD\n  subgraph S\n    A --> B\n  end\n","expected_updated_at":AT,"open":true}}),
+    )
+    .await;
+    let out = &u["result"]["structuredContent"];
+    assert_eq!(out["updated"], true, "{u}");
+    assert_eq!(out["dropped"][0]["construct"], "subgraph");
+    assert_eq!(out["open"], true);
+    assert!(recorder.updates.lock().unwrap()[1].open);
+    running.stop();
+}
+
+// spec 08 D4: 届いた図そのものの問題は updated: false + reason (ファイルは変えない = 口を呼ばない、または口が KindMismatch)
+#[tokio::test]
+async fn update_diagram_refuses_the_diagram_itself_with_a_reason() {
+    let recorder = Arc::new(Recorder::default());
+    let (running, url) = start(recorder.clone()).await;
+    let sid = session(&url).await;
+
+    // 種類の不一致 (flowchart の図に erDiagram): 口が KindMismatch を返し、reason に今の種類が入る
+    let u = call(
+        &url,
+        &sid,
+        2,
+        "tools/call",
+        json!({"name":"update_diagram","arguments":{"id":AI_ID,"source":"erDiagram\n  会員 ||--o{ 注文 : places","expected_updated_at":AT}}),
+    )
+    .await;
+    let out = &u["result"]["structuredContent"];
+    assert_eq!(out["updated"], false, "{u}");
+    assert!(out["reason"].as_str().unwrap().contains("この図は flowchart です"), "{u}");
+    assert!(out["reason"].as_str().unwrap().contains("open_in_editor"));
+    assert_eq!(out["editor"], "erDiagram");
+    assert_eq!(out["open"], false);
+    assert_eq!(out["updated_at"], Value::Null);
+    assert_eq!(recorder.updates.lock().unwrap().len(), 1);
+
+    // ノードが 0 / GUI で開けない種類: 口を呼ばずに断る
+    for (src, word) in [("flowchart TD\n", "ノードの無い図"), ("sequenceDiagram\n  A->>B: hi", "開けません")] {
+        let u = call(&url, &sid, 3, "tools/call", json!({"name":"update_diagram","arguments":{"id":AI_ID,"source":src,"expected_updated_at":AT}})).await;
+        let out = &u["result"]["structuredContent"];
+        assert_eq!(out["updated"], false, "{u}");
+        assert!(out["reason"].as_str().unwrap().contains(word), "{u}");
+        assert_eq!(out["updated_at"], Value::Null);
+    }
+    assert_eq!(recorder.updates.lock().unwrap().len(), 1, "口は呼ばれていない");
+
+    // open_in_editor もノード 0 を断る (spec 08 現況 4 の穴)
+    let o = call(&url, &sid, 4, "tools/call", json!({"name":"open_in_editor","arguments":{"source":"erDiagram\n"}})).await;
+    let out = &o["result"]["structuredContent"];
+    assert_eq!(out["opened"], false, "{o}");
+    assert!(out["reason"].as_str().unwrap().contains("ノードの無い図"));
+    assert_eq!(out["document_id"], Value::Null);
+    assert_eq!(out["updated_at"], Value::Null);
+    assert!(recorder.opened.lock().unwrap().is_empty());
+    running.stop();
+}
+
+// spec 08 D4: 指した図の状態の問題はツール結果のエラー { error }
+#[tokio::test]
+async fn update_errors_are_tool_errors() {
+    let (running, url) = start(Arc::new(Recorder::default())).await;
+    let sid = session(&url).await;
+    let src = "flowchart TD\n  A --> B\n";
+
+    let r = call(&url, &sid, 2, "tools/call", json!({"name":"update_diagram","arguments":{"id":"../state","source":src,"expected_updated_at":AT}})).await;
+    assert_eq!(r["result"]["isError"], true, "{r}");
+    assert!(r["result"]["structuredContent"]["error"].as_str().unwrap().contains("見つかりません"));
+
+    // expected_updated_at が違う: 今の値を載せ、読み直しを促す
+    let r = call(&url, &sid, 3, "tools/call", json!({"name":"update_diagram","arguments":{"id":AI_ID,"source":src,"expected_updated_at":"2026-09-25T10:04:00+09:00"}})).await;
+    assert_eq!(r["result"]["isError"], true, "{r}");
+    let e = r["result"]["structuredContent"]["error"].as_str().unwrap();
+    assert!(e.contains("図が変わっています") && e.contains(AT) && e.contains("read_diagram"), "{e}");
+
+    // 時刻として読めない値は入力のエラー
+    let r = call(&url, &sid, 4, "tools/call", json!({"name":"update_diagram","arguments":{"id":AI_ID,"source":src,"expected_updated_at":"きのう"}})).await;
+    assert_eq!(r["result"]["isError"], true, "{r}");
+    assert!(r["result"]["structuredContent"]["error"].as_str().unwrap().contains("expected_updated_at"), "{r}");
+
+    // 省くと呼べない (必須。利用者裁定)
+    let r = call(&url, &sid, 5, "tools/call", json!({"name":"update_diagram","arguments":{"id":AI_ID,"source":src}})).await;
+    assert!(r.get("error").is_some() || r["result"]["isError"] == true, "{r}");
+    assert_ne!(r["result"]["structuredContent"]["updated"], true);
+
+    // 文法エラーは validate と同じ形 (error と line)
+    let r = call(&url, &sid, 6, "tools/call", json!({"name":"update_diagram","arguments":{"id":AI_ID,"source":"flowchart TD\n  A[a --> B\n","expected_updated_at":AT}})).await;
+    assert_eq!(r["result"]["isError"], true, "{r}");
+    running.stop();
+
+    // 書けない等は口の文字列をそのまま
+    let (running, url) = start(Arc::new(Refuser)).await;
+    let sid = session(&url).await;
+    let r = call(&url, &sid, 2, "tools/call", json!({"name":"update_diagram","arguments":{"id":AI_ID,"source":src,"expected_updated_at":AT}})).await;
+    assert_eq!(r["result"]["isError"], true, "{r}");
+    assert!(r["result"]["structuredContent"]["error"].as_str().unwrap().contains("ディスクが一杯"));
     running.stop();
 }
 

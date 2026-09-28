@@ -3,6 +3,7 @@
 //! GUI のプロセスの中で `127.0.0.1:{port}/mcp` に Streamable HTTP で待ち受ける (`start_http`, spec 03)。
 //! `open_in_editor` は `EditorPort` で GUI へじかに届ける。stdio の `lorelei --mcp` は spec 03 P3 で撤去した。
 //! `list_diagrams` / `read_diagram` は同じ口で GUI の図の一覧を読む (spec 04。人が直した図の読み戻し)。
+//! `update_diagram` は読んだ図を同じ 1 件に書き戻す (spec 08。ツールは計 6 本)。
 
 use std::path::Path;
 use std::sync::Arc;
@@ -29,14 +30,79 @@ pub use http::{RunningHttp, start_http};
 /// GUI の図の一覧への口 (spec 03 D1・spec 04 D3、data_contract `McpServer.http.editor_port`)。
 /// このクレートを Tauri に依存させないための境目。GUI の中の HTTP では GUI 自身が実装する
 pub trait EditorPort: Send + Sync + 'static {
-    /// 図を GUI の一覧に新しい 1 件として足し、開く。Ok は作った図の id (document_id)。
+    /// 図を GUI の一覧に新しい 1 件として足し、開く。Ok は作った図の id (document_id) と updated_at。
     /// 届けられなかった理由は Err で返す (opened: false の reason になる)
-    fn open(&self, source: String, title: Option<String>) -> Result<String, String>;
+    fn open(&self, source: String, title: Option<String>) -> Result<Opened, String>;
     /// 図の一覧 (GUI の一覧と同じ並び)
     fn list(&self) -> Result<Vec<DiagramSummary>, String>;
     /// 1 枚の図。id を省くと今 GUI で開いている図。original_source は常に詰める (省くのはツールの層)。
     /// Err の文字列はそのまま AI に見せる (ファイルのパスを載せない)
     fn read(&self, id: Option<String>) -> Result<Diagram, String>;
+    /// 既存の 1 件の中身を届いた Mermaid で丸ごと差し替える (spec 08 D4、data_contract `Document.update`)。
+    /// 種類 (`editor`) はこのクレートが変換で決めたもので、`Document.editor` と違えば `KindMismatch`。
+    /// 開いている図の載せ替え・開く・ファイルだけ、の判断は GUI 側 (`open` は「GUI へ渡した」)
+    fn update(&self, req: UpdateRequest) -> Result<UpdateOutcome, UpdateError>;
+}
+
+/// `EditorPort::open` の Ok。updated_at はそのまま `update_diagram` の expected_updated_at に渡せる (spec 08 D2)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Opened {
+    pub id: String,
+    pub updated_at: String,
+}
+
+/// GUI エディタの種類 (data_contract `EditorPayload.editor`)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum EditorKind {
+    Flowchart,
+    ErDiagram,
+}
+
+impl EditorKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Flowchart => "flowchart",
+            Self::ErDiagram => "erDiagram",
+        }
+    }
+}
+
+/// data_contract `McpServer.http.editor_port` の UpdateRequest (spec 08 D4)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UpdateRequest {
+    pub id: String,
+    /// 届いた Mermaid そのもの (生成器を通していない)
+    pub source: String,
+    /// 変換で決めた種類。Document.editor と違えば KindMismatch
+    pub editor: EditorKind,
+    /// AI が読んだ版。時刻として読めることはツールの層で確かめ済み
+    pub expected_updated_at: String,
+    /// true なら GUI でその図を開いて窓を前に出す
+    pub open: bool,
+}
+
+/// data_contract `McpServer.http.editor_port` の UpdateOutcome
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UpdateOutcome {
+    /// 載せ替え・開くを GUI へ渡した (Rust が積んだ時点の判断)
+    pub open: bool,
+    /// 書いた後の updated_at
+    pub updated_at: String,
+}
+
+/// data_contract `McpServer.http.editor_port` の UpdateError。KindMismatch だけ updated: false + reason、
+/// 他はツール結果のエラー { error } (`McpServer.refusal_vs_error`)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UpdateError {
+    /// 届いた図の種類が Document.editor と違う (actual = 図の今の種類)
+    KindMismatch { actual: EditorKind },
+    /// id が uuid の形でない・その図が無い・ごみ箱
+    NotFound,
+    /// expected_updated_at がファイルの updated_at と違う
+    Conflict { current_updated_at: String },
+    /// 書けない等。文字列はそのまま AI に見せる (ファイルのパスを載せない)
+    Other(String),
 }
 
 /// data_contract `DiagramSummary` (spec 04 D2)
@@ -185,6 +251,8 @@ pub struct OpenResult {
     pub reason: Option<String>,
     /// 作った図の id。read_diagram の id にそのまま渡せる。opened=false なら null
     pub document_id: Option<String>,
+    /// 作った図の updated_at。update_diagram の expected_updated_at にそのまま渡せる。opened=false なら null
+    pub updated_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -192,9 +260,37 @@ pub struct ReadParams {
     /// 読む図の id (list_diagrams の id、または open_in_editor の document_id)。省くと今 GUI で開いている図。
     #[serde(default)]
     pub id: Option<String>,
-    /// true なら、AI やインポートで届いた時の原文 (original_source) も返す。新規作成の図は null。
+    /// true なら、AI やインポートが最後に届けた原文 (original_source) も返す (update_diagram で置き換わる)。
+    /// 新規作成の図は、update_diagram されるまで null。
     #[serde(default)]
     pub include_original: bool,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct UpdateParams {
+    /// 書き換える図の id (list_diagrams の id、または open_in_editor の document_id)。
+    pub id: String,
+    /// 図の全体の Mermaid (差分ではない)。read_diagram で読んだ Mermaid を直して丸ごと渡す。図の種類は今の図と同じでなければならない。
+    pub source: String,
+    /// 必須。read_diagram / list_diagrams / open_in_editor / 前の update_diagram が返した updated_at を、そのまま渡す。
+    /// 今の図の updated_at と違えば (人が直していれば) 書かずにエラーになるので、read_diagram で読み直してから直す。
+    pub expected_updated_at: String,
+    /// true なら GUI でその図を開いて窓を前に出す。false (既定) なら画面は変えない (開いている図なら中身だけ載せ替わる)。
+    #[serde(default)]
+    pub open: bool,
+}
+
+/// data_contract `McpServer.tools.update_diagram.output`。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct UpdateResult {
+    pub updated: bool,
+    pub editor: Option<&'static str>,
+    pub dropped: Vec<DroppedItem>,
+    pub reason: Option<String>,
+    /// 載せ替え・開くを GUI へ渡した。updated=false なら false
+    pub open: bool,
+    /// 書いた後の updated_at。次の update_diagram の expected_updated_at にそのまま使える。updated=false なら null
+    pub updated_at: Option<String>,
 }
 
 #[tool_router]
@@ -242,9 +338,10 @@ impl LoreleiServer {
     #[tool(
         name = "open_in_editor",
         description = "Mermaid を Lorelei の GUI エディタで開き、人が手直しできるようにする。\
-                       対応は flowchart と erDiagram だけ。開いている Lorelei の窓に出る。\
-                       図は GUI の図の一覧に新しい 1 件として足され、開いている図は上書きしない。title でその名前を付けられる。\
-                       エディタで表現できない要素 (subgraph・classDef・style など) は dropped に件数が返る。"
+                       対応は flowchart と erDiagram だけ (ノードの無い図は開けない)。開いている Lorelei の窓に出る。\
+                       図は GUI の図の一覧に新しい 1 件として足され、開いている図は上書きしない (既存の図を書き換えるのは update_diagram)。\
+                       title でその名前を付けられる。エディタで表現できない要素 (subgraph・classDef・style など) は dropped に件数が返る。\
+                       返る document_id と updated_at は、そのまま read_diagram / update_diagram に渡せる。"
     )]
     async fn open_in_editor(
         &self,
@@ -272,7 +369,13 @@ impl LoreleiServer {
 
     #[tool(
         name = "read_diagram",
-        description = "人が Lorelei の GUI で直した今の図を Mermaid で読む。id を省くと今 GUI で開いている図。                       source はエディタが出した Mermaid で、subgraph・style・classDef などは落ちている (向きと FK は残る)。                       渡した原文が要る時は include_original=true (original_source)。                       GUI での編集は約 1 秒後に保存されるので、直後の編集は含まれないことがある。                       source が空文字なら、新規作成の図はまだ何も保存されておらず、AI やインポートで届いた図はまだエディタに載っていない。                       source はそのまま validate / render に渡せる。"
+        description = "人が Lorelei の GUI で直した今の図を Mermaid で読む。id を省くと今 GUI で開いている図。\
+                       source はエディタが出した Mermaid で、subgraph・style・classDef などは落ちている (向きと FK は残る)。\
+                       ただし update_diagram の後、GUI でその図を開く (載せ替える) までは、届けた Mermaid そのものが返る。\
+                       最後に届けた原文が要る時は include_original=true (original_source)。\
+                       GUI での編集は約 1 秒後に保存されるので、直後の編集は含まれないことがある。\
+                       source が空文字なら、新規作成の図はまだ何も保存されておらず、AI やインポートで届いた図はまだエディタに載っていない。\
+                       source はそのまま validate / render に渡せる。直して書き戻すなら、返った updated_at を添えて update_diagram に渡す。"
     )]
     async fn read_diagram(
         &self,
@@ -282,6 +385,28 @@ impl LoreleiServer {
         Ok(match blocking(move || editor.read(p.id)).await? {
             Ok(d) => CallToolResult::structured(diagram_value(&d, p.include_original)?),
             Err(e) => tool_error(json!({ "error": e })),
+        })
+    }
+
+    #[tool(
+        name = "update_diagram",
+        description = "Lorelei の GUI にある既存の図 (id) の中身を、渡した Mermaid で丸ごと差し替える。\
+                       read_diagram で読んだ図を直して同じ図に書き戻す時に使う (新しい図を作るのは open_in_editor)。\
+                       名前・一覧の並び・同じ ID のノードの位置は保たれる。図の種類 (flowchart / erDiagram) は変えられない。\
+                       expected_updated_at は必須: read_diagram 等が返した updated_at をそのまま渡す。人がその後に直していれば書かずにエラーになるので、読み直してから直す。\
+                       開いている図なら GUI の中身が載せ替わる (直前約 1 秒の人の編集は消えることがある)。開いていない図はファイルだけ書き、open=true の時だけ開いて前に出す。\
+                       返る updated_at は次の update_diagram にそのまま使える。"
+    )]
+    async fn update_diagram(
+        &self,
+        Parameters(p): Parameters<UpdateParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let editor = Arc::clone(&self.editor);
+        let result = blocking(move || update_diagram(p, editor.as_ref())).await?;
+        Ok(match result {
+            Ok(r) => CallToolResult::structured(to_value(&r)?),
+            Err(UpdateFailure::Core(e)) => core_error(&e),
+            Err(UpdateFailure::Editor(message)) => tool_error(json!({ "error": message })),
         })
     }
 }
@@ -306,7 +431,8 @@ impl ServerHandler for LoreleiServer {
             "Lorelei は Mermaid の図を検査・描画・書き出しし、GUI で手直しできるようにします。\
              DB やコードは読みません — 図の素材はあなたが読み、Mermaid にして渡してください。\
              書いたら validate で確かめてください。render は描画結果の画像を毎回返すので、\
-             その画像で見た目を確かめ、必要なら直してから書き出してください。"
+             その画像で見た目を確かめ、必要なら直してから書き出してください。\
+             人が GUI で直した図は read_diagram で読み、直したら返った updated_at を添えて update_diagram で同じ図に書き戻せます。"
                 .into(),
         );
         info
@@ -368,41 +494,131 @@ pub fn open_in_editor(
     title: Option<String>,
     port: &dyn EditorPort,
 ) -> Result<OpenResult, CoreError> {
-    let payload = to_editor(source)?;
-    let Some(payload) = payload else {
-        let family = validate(source)?.family.unwrap_or_default();
-        return Ok(OpenResult {
-            opened: false,
-            editor: None,
-            dropped: Vec::new(),
-            document_id: None,
-            reason: Some(format!(
-                "この図の種類 ({family}) は GUI エディタで開けません。対応は flowchart と erDiagram だけです (render で描画はできます)"
-            )),
-        });
+    let refused = |editor: Option<&'static str>, dropped: Vec<DroppedItem>, reason: String| OpenResult {
+        opened: false,
+        editor,
+        dropped,
+        reason: Some(reason),
+        document_id: None,
+        updated_at: None,
     };
-    let editor = match &payload {
-        EditorPayload::Flowchart { .. } => "flowchart",
-        EditorPayload::ErDiagram { .. } => "erDiagram",
+    let (editor, dropped) = match check_editable(source)? {
+        Ok(ok) => ok,
+        Err(Refusal { editor, dropped, reason }) => return Ok(refused(editor, dropped, reason)),
     };
-    let dropped = payload.dropped().to_vec();
     let title = title.map(|t| t.trim().to_string()).filter(|t| !t.is_empty());
     Ok(match port.open(source.to_string(), title) {
-        Ok(id) => OpenResult {
+        Ok(Opened { id, updated_at }) => OpenResult {
             opened: true,
-            editor: Some(editor),
+            editor: Some(editor.as_str()),
             dropped,
             reason: None,
             document_id: Some(id),
+            updated_at: Some(updated_at),
         },
-        Err(reason) => OpenResult {
-            opened: false,
-            editor: Some(editor),
-            dropped,
-            reason: Some(reason),
-            document_id: None,
-        },
+        Err(reason) => refused(Some(editor.as_str()), dropped, reason),
     })
+}
+
+/// 届いた図そのものの問題 (GUI で開けない種類・ノードが 0)。opened / updated: false + reason になる (data_contract `McpServer.refusal_vs_error`)
+struct Refusal {
+    editor: Option<&'static str>,
+    dropped: Vec<DroppedItem>,
+    reason: String,
+}
+
+/// 図を GUI へ渡してよいか。Ok = 種類と dropped、Err = 断る理由。文法エラー等は CoreError のまま (validate と同じツール結果のエラー)
+fn check_editable(source: &str) -> Result<Result<(EditorKind, Vec<DroppedItem>), Refusal>, CoreError> {
+    let Some(payload) = to_editor(source)? else {
+        let family = validate(source)?.family.unwrap_or_default();
+        return Ok(Err(Refusal {
+            editor: None,
+            dropped: Vec::new(),
+            reason: format!(
+                "この図の種類 ({family}) は GUI エディタで開けません。対応は flowchart と erDiagram だけです (render で描画はできます)"
+            ),
+        }));
+    };
+    let (editor, node_count) = match &payload {
+        EditorPayload::Flowchart { data, .. } => (EditorKind::Flowchart, data.nodes.len()),
+        EditorPayload::ErDiagram { data, .. } => (EditorKind::ErDiagram, data.nodes.len()),
+    };
+    let dropped = payload.dropped().to_vec();
+    // ノードが 0 の図はエディタの取り込みが何もせず、前のキャンバスがその図として保存される (spec 08 現況 4)
+    if node_count == 0 {
+        return Ok(Err(Refusal {
+            editor: Some(editor.as_str()),
+            dropped,
+            reason: "ノードの無い図は開けません (ノードやテーブルを 1 つ以上書いてください)".into(),
+        }));
+    }
+    Ok(Ok((editor, dropped)))
+}
+
+/// update_diagram の失敗。Core は文法エラー等 (validate と同じ形)、Editor は口のエラー文字列 (ツール結果のエラー { error })
+pub enum UpdateFailure {
+    Core(CoreError),
+    Editor(String),
+}
+
+impl From<CoreError> for UpdateFailure {
+    fn from(e: CoreError) -> Self {
+        Self::Core(e)
+    }
+}
+
+/// update_diagram の本体 (spec 08 D1・D4)。届いた図そのものの問題は updated: false + reason、指した図の状態の問題は Err(Editor)
+pub fn update_diagram(p: UpdateParams, port: &dyn EditorPort) -> Result<UpdateResult, UpdateFailure> {
+    let refused = |editor: Option<&'static str>, dropped: Vec<DroppedItem>, reason: String| UpdateResult {
+        updated: false,
+        editor,
+        dropped,
+        reason: Some(reason),
+        open: false,
+        updated_at: None,
+    };
+    let (editor, dropped) = match check_editable(&p.source)? {
+        Ok(ok) => ok,
+        Err(Refusal { editor, dropped, reason }) => return Ok(refused(editor, dropped, reason)),
+    };
+    // 時刻として読めない値は入力のエラー。同じ瞬間かの比較は GUI 側 (data_contract `Document.update`)
+    if chrono::DateTime::parse_from_rfc3339(&p.expected_updated_at).is_err() {
+        return Err(UpdateFailure::Editor(format!(
+            "expected_updated_at を時刻 (RFC 3339) として読めません: {:?}。read_diagram が返した updated_at をそのまま渡してください",
+            p.expected_updated_at
+        )));
+    }
+    let req = UpdateRequest {
+        id: p.id.clone(),
+        source: p.source,
+        editor,
+        expected_updated_at: p.expected_updated_at,
+        open: p.open,
+    };
+    match port.update(req) {
+        Ok(UpdateOutcome { open, updated_at }) => Ok(UpdateResult {
+            updated: true,
+            editor: Some(editor.as_str()),
+            dropped,
+            reason: None,
+            open,
+            updated_at: Some(updated_at),
+        }),
+        Err(UpdateError::KindMismatch { actual }) => Ok(refused(
+            Some(editor.as_str()),
+            dropped,
+            format!(
+                "この図は {} です。{} にするなら open_in_editor で新しい図を作ってください",
+                actual.as_str(),
+                editor.as_str()
+            ),
+        )),
+        Err(UpdateError::NotFound) => Err(UpdateFailure::Editor(format!("図が見つかりません（id: {}）", p.id))),
+        Err(UpdateError::Conflict { current_updated_at }) => Err(UpdateFailure::Editor(format!(
+            "図が変わっています（updated_at: {current_updated_at}）。read_diagram で読み直してから update_diagram してください"
+        ))),
+        Err(UpdateError::Other(message)) => Err(UpdateFailure::Editor(message)),
+    }
 }
 
 async fn blocking<T: Send + 'static>(
