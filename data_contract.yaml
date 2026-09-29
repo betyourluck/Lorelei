@@ -169,6 +169,7 @@ MermaidImport:
     labels: "components/ui/mermaid-dropped.ts の describeDropped / DroppedItem。lib/desktop/open-requests.ts (MCP の通知) はこれを再エクスポートする"
   generator: "ノードのラベルは ( ) [ ] { } | \" か #語; を含む時だけ \"…\" で囲み、中の \" は #quot;、#語; の # は #35;。空のラベルは [\" \"]。< > はそのまま (mermaid はラベルを HTML として扱う)。ER 図 (spec 13 D1・D2): テーブル名・関係の両端・関係のラベルは quoteErName — ^[\\p{L}_][\\p{L}\\p{N}_-]*$ に合い、erdiagram / style / classdef / class / subgraph / end / direction / acctitle / accdescr / many / one / to で始まらず (大文字小文字を問わない前方一致)、u- / u. で始まらない時だけそのまま、ほかは \"…\" で囲む。囲んだ中は #語; の # → #35;、& → #38;、\" → #quot;、% → #37;、バックスラッシュ → #92;、direction + 空白 + 向き の空白 → #<符号位置>; の順。列は columnIssue が null の時だけ書く (名前・型とも mermaid.js の列の規則の形、PK / FK / UK で始まらない。型は ~ 2 つの総称型も可)。全部の列を書かない時は 名前 { } のまま"
   differs_from_export: "書き出し (SVG / PNG / PDF) は merman。描き手・書体・ラベルの描き方が違うので一致しない (LORELEI.md 既知の制約)"
+  generator_fixture: "crates/lorelei_core/tests/fixtures/er_names.json = [{ name, source }]。source は TS の ER 図の生成器の出力 (テーブル name と B、B → name の関係のラベルも name。名前の格子 50 通り)。__tests__/lorelei/er-names-fixture.test.ts が今の生成器と一字一句同じことを確かめ (LORELEI_UPDATE_FIXTURES=1 で書き直す)、Rust の editor.rs の er_generator_names_round_trip_through_merman が to_editor に通して名前・ラベルが戻ることを確かめる (spec 13 P3)"
 
 ErUnwritableColumns:
   description: ER 図のエディタで Mermaid に書けない列を知らせる (spec 13 D2)。生成器はその列を書かない (MermaidImport.generator)。フォーク元の改善 (Web 版でも同じ。デスクトップのツールバーの「コード生成」も同じダイアログを開く)

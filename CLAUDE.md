@@ -97,7 +97,10 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 - 開発コマンド: フロントの依存は `corepack pnpm@9 install --ignore-scripts`（pnpm が無い環境でも corepack で足りる。
   lefthook の hooks は入れていない）。GUI は `corepack pnpm@9 exec tauri dev` / `... tauri build --no-bundle`。
   Rust は `cargo test --workspace`（core / mcp）と `cd src-tauri && cargo test`（GUI の殻、独立 project）。
-  静的書き出しが通るかの確かめは `TAURI_ENV_PLATFORM` を付けた `next build`（→ `out/`）。**素の `next build` は git の中の `docs/`（GitHub Pages）を上書きする**（failures #18）
+  静的書き出しが通るかの確かめは `TAURI_ENV_PLATFORM` を付けた `next build`（→ `out/`）。**素の `next build` は git の中の `docs/`（GitHub Pages）を上書きする**（failures #18）。
+  ER 図の生成器を変えたら `LORELEI_UPDATE_FIXTURES=1` で vitest の `__tests__/lorelei/er-names-fixture.test.ts` を回して `crates/lorelei_core/tests/fixtures/er_names.json` を書き直し、
+  Rust のテストも回す（TS の生成器の出力を Rust の取り込みに通す, spec 13 P3）。ノードの接続点の測り直しは xyflow の `useUpdateNodeInternals` ではなく
+  `features/flowchart/hooks/use-update-node-internals.ts` を使う（xyflow のものは ID を CSS セレクタにエスケープせず埋め、`"` を含む ID で落ちる, failures #20）
 - **`src-tauri/Cargo.toml` にもルートと同じ `[patch.crates-io]` がある**（独立 project なのでルートの patch が効かない）。
   merman-core の patch を外す時は両方消す
 - **merman-core は `vendor/` の修正版を使っている**。修正は 2 つ: ① 日本語のノード ID を受け付ける（上流に **マージ済み**、
