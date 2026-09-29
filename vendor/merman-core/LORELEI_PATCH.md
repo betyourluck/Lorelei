@@ -5,7 +5,7 @@ https://github.com/Latias94/merman 、MIT OR Apache-2.0）。ルートの `Cargo
 `[patch.crates-io]` で差し替えている。**`src-tauri/Cargo.toml` にも同じ patch がある**（独立 project なのでルートの patch が効かない）。
 
 修正は 2 つ。1 は上流にマージ済み（[Latias94/merman#146](https://github.com/Latias94/merman/pull/146)、2026-09-24、`d61d92c`）。
-2 は上流へ PR を出す前（spec 14 P3）。
+2 は上流へ PR を提出済み・未マージ（[Latias94/merman#153](https://github.com/Latias94/merman/pull/153)、2026-09-29）。
 **crates.io に 1 と 2 の両方を含む版が出たら、`Cargo.toml` の `merman` の版を上げ、この写しと両方の patch を消す。**
 2026-09-29 時点で crates.io の最新は `0.8.0-alpha.6`（09-02 公開）のままで、1 を含む版もまだ無い。
 上流 main を git 依存で指す案は採らなかった（alpha.6 から 70 コミット先で、#120 の flowchart parity など 300 ファイルの未検証の変更が入るため）。
@@ -67,7 +67,10 @@ https://github.com/Latias94/merman 、MIT OR Apache-2.0）。ルートの `Cargo
 
 ### 経緯
 
-- 2026-09-29: spec 13 の P0（名前の格子を mermaid.js と merman に通した実測）で見つけた。上流 main も未修正で、issue・PR も無い（全件で確認）。写しに当てた（`bd2962a`）。上流 PR は spec 14 P3。
+- 2026-09-29: spec 13 の P0（名前の格子を mermaid.js と merman に通した実測）で見つけた。上流 main も未修正で、issue・PR も無い（全件で確認）。写しに当てた（`bd2962a`）。
+- 2026-09-29: 同じ差分を上流に PR #153 として提出（betyourluck/merman の `fix/er-cardinality-word-boundary`、上流 main `72c02477` から切ったコミット `f4b362bc`。
+  提出前に同種の PR / issue が無いこと、表の各行の mermaid.js と merman の挙動、`fixtures/er/` に影響する名前が無いことを確かめ直した）。
+  マージ版が写しと違ったら、#146 の時と同じく写しをマージ版の意味に揃える
 
 ### 残っている差（今回の修正の範囲外。merman のほうが緩い向き）
 

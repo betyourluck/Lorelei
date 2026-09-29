@@ -2,7 +2,7 @@
 
 **ID**: 14
 **Date**: 2026-09-29
-**Status**: rev1（査読 1 本を反映・**P0〜P2 着地**。P3（上流 PR）待ち）
+**Status**: **Done**（2026-09-29。rev1 → P0〜P3 着地。上流 PR [Latias94/merman#153](https://github.com/Latias94/merman/pull/153) はマージ待ち —「P3 結果」「受け入れ条件の結果」）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。上流への PR は fork `betyourluck/merman` の枝から出す（spec 01 の #146 と同じ流れ）
 
 ## Goal
@@ -114,4 +114,21 @@ merman が mermaid.js より**緩い**向きの食い違いは直さない（名
 
 - `vendor/merman-core/LORELEI_PATCH.md` に「2. ER 図の多重度の語を語の境界で取る」（症状 / 原因 / 修正 / テスト / 経緯 / 残っている差）を足し、冒頭の消す条件を「1 と 2 の両方を含む版が出たら」にした
 - ルートと `src-tauri` の `Cargo.toml` の `[patch.crates-io]` のコメント、`features/er-diagram/utils/er-names.ts` の理由のコメント（フォーク元のコードなので Lorelei・spec への言及は入れない）、CLAUDE.md の merman-core の行と現状
+
+## P3 結果（2026-09-29）
+
+- 上流 main（`72c02477`）の作業場所に枝 `fix/er-cardinality-word-boundary` を切り、写しと同じ差分をコミット（`f4b362bc`、2 ファイル +81 −5）。
+  `rustfmt --check --edition 2024`（変えた 2 ファイル。`cargo fmt --all` はこの Windows で os error 206、#146 と同じ）・`cargo clippy -p merman-core --all-targets -- -D warnings` 通過
+- 提出前に確かめ直したこと: 同種の issue・PR が無い / PR の表の 10 行を mermaid.js 11.17.2（TS の境界 `readMermaidDiagram`）・上流 main・修正後の 3 つで実測し、すべて表どおり /
+  上流の `fixtures/er/` と `_deferred/er` の 102 本で、列のブロックの外に `to`・`one`・`many` で始まる囲まない語が無い（関係の記号 `o{` を除いてから数えた。最初の数え方は `o{` をブロックの始まりと数える穴があった）
+- 利用者が本文と差分を読んで了解したうえで、fork（`betyourluck/merman`）へ push し、**PR #153** を作った（題 `fix(er): match cardinality words only at a word boundary`、本文は上流のテンプレートに沿う英語）
+
+### 受け入れ条件の結果（2026-09-29）
+
+| # | 結果 | 根拠 |
+|---|---|---|
+| 1 | **通過** | `lorelei_core` の `er_names_may_start_with_cardinality_words_like_mermaid_js`、`src-tauri` の見張り |
+| 2 | **通過** | `er_cardinality_word_boundary_is_ascii_like_mermaid_js`、上流の `parse_diagram_er_cardinality_word_boundary_is_ascii` |
+| 3 | **通過** | 上流の作業場所で `merman-core` 全テスト・`merman-render` の ER 図のテスト、Lorelei の `cargo test --workspace`・`src-tauri` の `cargo test` |
+| 4 | **通過** | PR #153 を提出（マージは上流次第）。番号を `LORELEI_PATCH.md` に書いた |
 
