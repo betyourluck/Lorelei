@@ -130,30 +130,26 @@ vi.mock("@/components/ui/lazy-code-editor", () => ({
 ### ユーティリティ関数テスト
 
 ```typescript
-import { describe, test, expect } from "vitest";
-import { parseMermaidCode } from "../../../utils/mermaid/parse-mermaid-code";
+// 取り込みは mermaid.js の解析を使う。setup の模擬を外して本物の mermaid を jsdom で動かす
+import { describe, test, expect, vi } from "vitest";
+import { readFlowchartForImport } from "@/features/flowchart/utils/import-flowchart";
 
-describe("parseMermaidCode", () => {
-  test("基本的なフローチャートをパースできる", () => {
-    const code = `
-      flowchart TD
-        A[開始] --> B[終了]
-    `;
+vi.unmock("@/components/ui/mermaid-render");
 
-    const result = parseMermaidCode(code);
+describe("readFlowchartForImport", () => {
+  test("基本的なフローチャートを取り込める", async () => {
+    const result = await readFlowchartForImport("flowchart TD\n  A[開始] --> B[終了]\n");
 
-    expect(result.nodes).toHaveLength(2);
-    expect(result.edges).toHaveLength(1);
-    expect(result.nodes[0]).toMatchObject({
-      id: "A",
-      label: "開始",
-      shapeType: "rectangle",
-    });
+    if (!result.ok) throw new Error(result.error);
+    expect(result.data.nodes).toHaveLength(2);
+    expect(result.data.edges).toHaveLength(1);
+    expect(result.data.nodes[0]).toMatchObject({ id: "A", label: "開始", shapeType: "rectangle" });
+    expect(result.dropped).toEqual([]);
   });
 
-  test("不正なコードでエラーが発生する", () => {
-    const invalidCode = "invalid mermaid code";
-    expect(() => parseMermaidCode(invalidCode)).toThrow();
+  test("文法の誤りは取り込まずに理由を返す", async () => {
+    const result = await readFlowchartForImport("flowchart TD\n  A -->\n");
+    expect(result.ok).toBe(false);
   });
 });
 ```

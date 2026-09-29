@@ -1,10 +1,26 @@
-import { describe, test, expect } from "vitest";
+/**
+ * コード生成 → インポート (mermaid.js の解析、spec 11 D1) の往復。形 6 つ・矢印 5 つ・予約語の付け替え・向き (spec 12 D2)。
+ * 本物の mermaid を使う (境界 mermaid-render は __tests__/setup.ts で模擬しているので、このファイルでは外す)
+ */
+import { describe, test, expect, vi } from "vitest";
+import { readMermaidDiagram } from "@/components/ui/mermaid-render";
 import type { FlowData } from "@/features/flowchart/hooks/flow-helpers";
-import { generateMermaidCode, parseMermaidCode } from "@/features/flowchart/hooks/mermaid";
+import { generateMermaidCode } from "@/features/flowchart/hooks/mermaid";
 import type { GraphType } from "@/features/flowchart/types/types";
+import { flowFromMermaid } from "@/features/flowchart/utils/from-mermaid";
+
+vi.unmock("@/components/ui/mermaid-render");
+
+const readBack = async (code: string) => {
+  const snapshot = await readMermaidDiagram(code);
+  if (snapshot.kind !== "flowchart") throw new Error(`not flowchart: ${snapshot.kind}`);
+  const { data, dropped } = flowFromMermaid(snapshot);
+  expect(dropped, code).toEqual([]);
+  return data;
+};
 
 describe("Mermaid round-trip test", () => {
-  test("生成されたMermaidコードを正しくパースできる", () => {
+  test("生成されたMermaidコードを正しくパースできる", async () => {
     const originalFlowData: FlowData = {
       nodes: [
         {
@@ -64,7 +80,7 @@ describe("Mermaid round-trip test", () => {
     const generatedMermaid = generateMermaidCode(originalFlowData);
 
     // 生成されたMermaidコードをパース
-    const parsedData = parseMermaidCode(generatedMermaid);
+    const parsedData = await readBack(generatedMermaid);
 
     // パースされたデータが期待される構造と一致するかチェック
     expect(parsedData.nodes).toHaveLength(3);
@@ -102,7 +118,7 @@ describe("Mermaid round-trip test", () => {
     expect(secondEdge?.arrowType).toBe("thick");
   });
 
-  test("全ての矢印タイプとノード形状のround-trip", () => {
+  test("全ての矢印タイプとノード形状のround-trip", async () => {
     const originalFlowData: FlowData = {
       nodes: [
         {
@@ -163,7 +179,7 @@ describe("Mermaid round-trip test", () => {
 
     const generatedMermaid = generateMermaidCode(originalFlowData);
 
-    const parsedData = parseMermaidCode(generatedMermaid);
+    const parsedData = await readBack(generatedMermaid);
 
     // ノード形状の検証
     expect(parsedData.nodes.find((n) => n.variableName === "rect")?.shapeType).toBe("rectangle");
@@ -183,7 +199,7 @@ describe("Mermaid round-trip test", () => {
     );
   });
 
-  test("異なる方向（direction）でのMermaidコード生成", () => {
+  test("異なる方向（direction）でのMermaidコード生成", async () => {
     const simpleFlowData: FlowData = {
       nodes: [
         {
@@ -212,14 +228,14 @@ describe("Mermaid round-trip test", () => {
     // すべての方向をテスト
     const directions: GraphType[] = ["TD", "LR", "RL", "BT"];
 
-    directions.forEach((direction) => {
+    for (const direction of directions) {
       const generatedMermaid = generateMermaidCode(simpleFlowData, direction);
 
       // 生成されたコードに正しい方向が含まれているかチェック
       expect(generatedMermaid).toContain(`flowchart ${direction}`);
 
       // パースできることを確認
-      const parsedData = parseMermaidCode(generatedMermaid);
+      const parsedData = await readBack(generatedMermaid);
       expect(parsedData.nodes).toHaveLength(2);
       expect(parsedData.edges).toHaveLength(1);
 
@@ -227,7 +243,8 @@ describe("Mermaid round-trip test", () => {
       expect(parsedData.nodes.find((n) => n.variableName === "A")?.label).toBe("ノードA");
       expect(parsedData.nodes.find((n) => n.variableName === "B")?.label).toBe("ノードB");
       expect(parsedData.edges[0].label).toBe("接続");
-    });
+      expect(parsedData.direction).toBe(direction === "TD" ? undefined : direction);
+    }
   });
 
   test("デフォルト方向（TD）でのMermaidコード生成", () => {
@@ -258,8 +275,8 @@ describe("Mermaid round-trip test", () => {
 
 // spec 07 D1: 向きの往復
 describe("Mermaid round-trip の向き", () => {
-  test("LR で書いて読むと LR に戻る", () => {
+  test("LR で書いて読むと LR に戻る", async () => {
     const code = generateMermaidCode({ nodes: [], edges: [] }, "LR");
-    expect(parseMermaidCode(code).direction).toBe("LR");
+    expect((await readBack(code)).direction).toBe("LR");
   });
 });

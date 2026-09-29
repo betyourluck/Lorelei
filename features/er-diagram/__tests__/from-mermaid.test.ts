@@ -81,6 +81,23 @@ describe("erFromMermaid", () => {
     expect(r.dropped).toEqual([d("edge_to_subgraph", 1), d("subgraph", 1)]);
   });
 
+  // spec 12 D2: フォーク元のパーサーのテストにだけあった入力の種類
+  test("ハイフンを含むテーブル名 ・ 括弧を含む型 ・ 同じテーブルの間の複数の関係", async () => {
+    const r = await er(
+      "erDiagram\n  ORDER ||--|{ LINE-ITEM : contains\n  ORDER ||--o{ LINE-ITEM : returns\n  LINE-ITEM {\n    varchar(255) productCode\n    int quantity\n  }\n"
+    );
+    expect(r.data.nodes.map((n) => n.name)).toEqual(["ORDER", "LINE-ITEM"]);
+    expect(r.data.nodes[1].columns.map((c) => [c.type, c.name])).toEqual([
+      ["varchar(255)", "productCode"],
+      ["int", "quantity"],
+    ]);
+    expect(r.data.edges.map((e) => [e.id, e.source, e.target, e.data?.label, e.data?.cardinality])).toEqual([
+      ["edge-0", "ORDER", "LINE-ITEM", "contains", "one-to-many-mandatory"],
+      ["edge-1", "ORDER", "LINE-ITEM", "returns", "one-to-many"],
+    ]);
+    expect(r.dropped).toEqual([]);
+  });
+
   test("線はエディタの形 (erEdge ・ edge-N)", async () => {
     const r = await er("erDiagram\n  A ||--o{ B : has\n  B ||--|| C : is\n");
     expect(r.data.edges.map((e) => [e.id, e.type])).toEqual([
