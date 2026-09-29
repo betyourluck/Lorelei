@@ -278,3 +278,15 @@ mermaid.js 11.17.2（`readMermaidDiagram`）と merman（`to_editor`）に通し
 - **上流へ返せるコミット**（フォーク元の改善だけ）: `eb9f668`（P1）・`0562da8`（コメント）・`af9ba88`（P2）・`e6acb9a`（P4 の落ちる不具合）。PR を出すかは利用者が決める
 - xyflow の ID のエスケープ漏れは最新の `@xyflow/react` 12.12.0 でも同じ。上流に報告するかは利用者が決める
 
+## フォーク元への PR（2026-09-30）
+
+- 利用者の判断で、P1 の**生成器の直しだけ**をフォーク元（illionillion/mermaid-editor）へ PR にした: [illionillion/mermaid-editor#74](https://github.com/illionillion/mermaid-editor/pull/74)
+  （`betyourluck/Lorelei` の枝 `fix/er-generator-valid-names`。フォーク元の main `81feeae` から切った 1 コミット `6692120`、4 ファイル +255 −15）
+- Lorelei のコミットはそのまま載らなかった（記録した 19 コミットを試しに cherry-pick すると 3 つしか載らない。デスクトップの差し込みの上で作ったため）ので、移植した:
+  `er-names.ts` は `quoteErName`・`columnIssue` だけ（P2 の印・ダイアログは含めない）、フォーク元の生成器（FK・向きが無い）に当て、`label` は `String(...)` で包んだ（フォーク元の型検査）。
+  テストは mermaid.js に依らない文字列の期待値（フォーク元は mermaid.js を依存に持たない）。コメントに Lorelei・Rust・spec への言及を入れない
+- 確かめたこと: フォーク元の依存のままの作業場所で `vitest run` 41 ファイル 538 件・`tsc --noEmit`・ESLint・Prettier（変えたファイル）。生成器のテストの 4 件は修正前に落ちる。
+  変更前後の出力を mermaid@11.17.2 で解析した表（変更前は 9 件中 6 件が文法の誤り・2 件が割れる、変更後はすべて通る）を本文に載せた
+- **訂正**: 利用者への説明で「カラム追加の直後にコード生成を開くと誤ったコード」と言ったが誤り。足した直後の空の列（PK なし）は空白だけの行で、mermaid.js は読み飛ばす（P0 の表のとおり）。
+  誤りになるのは片方だけ入れた書きかけの列と、空の列に PK / UK を付けた場合。PR の本文は実測どおりに書いた
+
