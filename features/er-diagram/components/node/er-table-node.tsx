@@ -1,7 +1,8 @@
-import { Handle, useUpdateNodeInternals } from "@xyflow/react";
+import { Handle } from "@xyflow/react";
 import { useEffect } from "react";
 import { useDirection } from "@/features/flowchart/components/direction-context";
 import { handlePositions } from "@/features/flowchart/hooks/direction";
+import { useUpdateNodeInternals } from "@/features/flowchart/hooks/use-update-node-internals";
 import type { ERColumn } from "./er-table-content";
 import { ERTableContent } from "./er-table-content";
 

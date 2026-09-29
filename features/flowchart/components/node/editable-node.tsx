@@ -1,11 +1,12 @@
 "use client";
 
-import { Handle, useUpdateNodeInternals } from "@xyflow/react";
+import { Handle } from "@xyflow/react";
 import type { FC } from "@yamada-ui/react";
 import { Box } from "@yamada-ui/react";
 import type { MouseEvent, ChangeEvent, KeyboardEvent } from "react";
 import { useState, useRef, useEffect } from "react";
 import { handlePositions } from "../../hooks/direction";
+import { useUpdateNodeInternals } from "../../hooks/use-update-node-internals";
 import type { MermaidShapeType } from "../../types/types";
 import { UI_CONSTANTS } from "../../types/types";
 import { useDirection } from "../direction-context";
