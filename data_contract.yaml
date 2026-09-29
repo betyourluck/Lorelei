@@ -170,6 +170,14 @@ MermaidImport:
   generator: "ノードのラベルは ( ) [ ] { } | \" か #語; を含む時だけ \"…\" で囲み、中の \" は #quot;、#語; の # は #35;。空のラベルは [\" \"]。< > はそのまま (mermaid はラベルを HTML として扱う)。ER 図 (spec 13 D1・D2): テーブル名・関係の両端・関係のラベルは quoteErName — ^[\\p{L}_][\\p{L}\\p{N}_-]*$ に合い、erdiagram / style / classdef / class / subgraph / end / direction / acctitle / accdescr / many / one / to で始まらず (大文字小文字を問わない前方一致)、u- / u. で始まらない時だけそのまま、ほかは \"…\" で囲む。囲んだ中は #語; の # → #35;、& → #38;、\" → #quot;、% → #37;、バックスラッシュ → #92;、direction + 空白 + 向き の空白 → #<符号位置>; の順。列は columnIssue が null の時だけ書く (名前・型とも mermaid.js の列の規則の形、PK / FK / UK で始まらない。型は ~ 2 つの総称型も可)。全部の列を書かない時は 名前 { } のまま"
   differs_from_export: "書き出し (SVG / PNG / PDF) は merman。描き手・書体・ラベルの描き方が違うので一致しない (LORELEI.md 既知の制約)"
 
+ErUnwritableColumns:
+  description: ER 図のエディタで Mermaid に書けない列を知らせる (spec 13 D2)。生成器はその列を書かない (MermaidImport.generator)。フォーク元の改善 (Web 版でも同じ。デスクトップのツールバーの「コード生成」も同じダイアログを開く)
+  field_problem: "features/er-diagram/utils/er-names.ts の fieldProblem(value, name | type) → empty | space | key | chars | null。columnIssue はこれで組む"
+  reason: "describeFieldProblem → 「名前が空」「名前に空白」「名前が PK・FK・UK と読まれる」「名前に書けない文字」(型も同じ形)。名前も型も空は「名前と型が空」"
+  cell: "列の入力欄 (CellEditor) は確定した値で判定し、書けないセルを invalid (赤枠)・aria-invalid・title「<理由>（Mermaid に書けないので、この列はコードに書き出しません）」にする。名前も型も空の列 (カラム追加の直後) には出さない。値は消さない"
+  dialog: "SkippedColumn { table, column, reason }。unwritableColumns(tables) をパネルが今のテーブルから作り、ERDiagramMermaidModal の skippedColumns に渡す → 見出しの下に「書き出していない列: <table>.<column>（<reason>）、…」。無ければ出さない"
+  table_name: "テーブル名の入力欄も CellEditor (rejectBlank)。Enter・フォーカスが外れた時に反映し、空・空白だけで確定したら確定前の名前に戻す (spec 13 D3)"
+
 CodeEditor:
   description: Mermaid を書く・読むエディタ (spec 10)。CodeMirror 6 の薄い包みで、Kataribe の CodeEditor.vue を React に写した。フォーク元の改善 (Web 版でも動く)
   files:
