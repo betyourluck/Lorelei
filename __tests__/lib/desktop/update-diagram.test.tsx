@@ -2,7 +2,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@/__tests__/test-utils";
 import { FlowEditor } from "@/features/flowchart/flow-editor";
-import { parseMermaidCode } from "@/features/flowchart/hooks/mermaid";
+import { readFlowchartForImport } from "@/features/flowchart/utils/import-flowchart";
 import { DesktopShell } from "@/lib/desktop/desktop-shell";
 import { DOCUMENTS_EVENT, OPEN_EVENT } from "@/lib/desktop/tauri";
 import { clearPendingOpens } from "@/lib/desktop/use-desktop-open";
@@ -52,12 +52,17 @@ vi.mock("next/navigation", () => ({
 const SOURCE = "flowchart LR\n    A[A]\n    B[B]\n    A --> B\n";
 const LAYOUT = { A: { x: 0, y: 0 }, B: { x: 450, y: 0 } };
 
-const convert = (source: string) => ({
-  source,
-  payload: { editor: "flowchart" as const, data: parseMermaidCode(source), dropped: [] },
-  dropped: [],
-  error: null,
-});
+/** Rust の convert_source の模擬。変換は Rust の to_editor と同じ対応表の TS の取り込み (spec 11 D1) */
+const convert = async (source: string) => {
+  const read = await readFlowchartForImport(source);
+  if (!read.ok) throw new Error(read.error);
+  return {
+    source,
+    payload: { editor: "flowchart" as const, data: read.data, dropped: [] },
+    dropped: [],
+    error: null,
+  };
+};
 
 const shell = () =>
   render(
@@ -82,7 +87,7 @@ describe("update_diagram の載せ替えと楽観ロック (spec 08)", { timeout
     const real = backend.invoke.getMockImplementation()!;
     backend.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown> = {}) =>
       cmd === "convert_source"
-        ? ({ ...convert(String(args.source)), document: null } as unknown as Awaited<
+        ? ({ ...(await convert(String(args.source))), document: null } as unknown as Awaited<
             ReturnType<typeof real>
           >)
         : real(cmd, args)
@@ -103,12 +108,11 @@ describe("update_diagram の載せ替えと楽観ロック (spec 08)", { timeout
     await opened();
     const before = backend.calls("save_document").length;
 
-    // Rust の deliver_update: Store::update → reload の要求 (layout 付き) → OPEN_EVENT。
-    // フォーク元の parseMermaidCode (テストの変換) は A --> B --> C の連鎖を扱えない (Rust の to_editor は扱う) ので、辺は 1 本ずつ書く
-    const next = "flowchart LR\n  A --> B\n  B --> C\n";
+    // Rust の deliver_update: Store::update → reload の要求 (layout 付き) → OPEN_EVENT
+    const next = "flowchart LR\n  A --> B --> C\n";
     const summary = backend.update(doc.id, next);
     backend.pending.push({
-      ...convert(next),
+      ...(await convert(next)),
       document: summary,
       reload: true,
       layout: backend.docs.get(doc.id)!.layout,
@@ -168,7 +172,7 @@ describe("update_diagram の載せ替えと楽観ロック (spec 08)", { timeout
     });
     backend.setLast(doc.id);
     backend.pending.push({
-      ...convert(next),
+      ...(await convert(next)),
       document: backend.summary(doc),
       reload: true,
       layout: doc.layout,

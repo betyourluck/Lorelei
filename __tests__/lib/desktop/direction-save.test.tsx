@@ -2,7 +2,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@/__tests__/test-utils";
 import { FlowEditor } from "@/features/flowchart/flow-editor";
-import { parseMermaidCode } from "@/features/flowchart/hooks/mermaid";
+import { readFlowchartForImport } from "@/features/flowchart/utils/import-flowchart";
 import { DesktopShell } from "@/lib/desktop/desktop-shell";
 import { clearPendingOpens } from "@/lib/desktop/use-desktop-open";
 import { fakeBackend } from "./fake-backend";
@@ -29,13 +29,18 @@ const SOURCE = "flowchart LR\n    A[A]\n    B[B]\n    A --> B\n";
 describe("向きの切り替えの保存 (spec 07 D3)", { timeout: 20000 }, () => {
   beforeEach(() => {
     backend = fakeBackend();
-    // 変換は Rust の変換と同じ形 (フォーク元の読み込みの出力 + direction) を返す
+    // 変換は Rust の to_editor と同じ対応表の TS の取り込み (spec 11 D1) で、Rust の変換と同じ形を返す
     const real = backend.invoke.getMockImplementation()!;
+    const toEditor = async (source: string) => {
+      const read = await readFlowchartForImport(source);
+      if (!read.ok) throw new Error(read.error);
+      return read.data;
+    };
     backend.invoke.mockImplementation(async (cmd: string, args: Record<string, unknown> = {}) =>
       cmd === "convert_source"
         ? ({
             source: args.source,
-            payload: { editor: "flowchart", data: parseMermaidCode(String(args.source)), dropped: [] },
+            payload: { editor: "flowchart", data: await toEditor(String(args.source)), dropped: [] },
             dropped: [],
             error: null,
             document: null,
