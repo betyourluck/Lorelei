@@ -1,0 +1,202 @@
+[
+  {
+    "name": "ユーザー",
+    "source": "erDiagram\n  ユーザー {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ ユーザー : ユーザー"
+  },
+  {
+    "name": "注文 明細",
+    "source": "erDiagram\n  \"注文 明細\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"注文 明細\" : \"注文 明細\""
+  },
+  {
+    "name": "tokens",
+    "source": "erDiagram\n  \"tokens\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"tokens\" : \"tokens\""
+  },
+  {
+    "name": "topic",
+    "source": "erDiagram\n  \"topic\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"topic\" : \"topic\""
+  },
+  {
+    "name": "oneshot",
+    "source": "erDiagram\n  \"oneshot\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"oneshot\" : \"oneshot\""
+  },
+  {
+    "name": "manyToMany",
+    "source": "erDiagram\n  \"manyToMany\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"manyToMany\" : \"manyToMany\""
+  },
+  {
+    "name": "to",
+    "source": "erDiagram\n  \"to\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"to\" : \"to\""
+  },
+  {
+    "name": "one",
+    "source": "erDiagram\n  \"one\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"one\" : \"one\""
+  },
+  {
+    "name": "many",
+    "source": "erDiagram\n  \"many\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"many\" : \"many\""
+  },
+  {
+    "name": "end",
+    "source": "erDiagram\n  \"end\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"end\" : \"end\""
+  },
+  {
+    "name": "End",
+    "source": "erDiagram\n  \"End\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"End\" : \"End\""
+  },
+  {
+    "name": "end注文",
+    "source": "erDiagram\n  \"end注文\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"end注文\" : \"end注文\""
+  },
+  {
+    "name": "style",
+    "source": "erDiagram\n  \"style\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"style\" : \"style\""
+  },
+  {
+    "name": "style注文",
+    "source": "erDiagram\n  \"style注文\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"style注文\" : \"style注文\""
+  },
+  {
+    "name": "class",
+    "source": "erDiagram\n  \"class\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"class\" : \"class\""
+  },
+  {
+    "name": "classes",
+    "source": "erDiagram\n  \"classes\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"classes\" : \"classes\""
+  },
+  {
+    "name": "classDef",
+    "source": "erDiagram\n  \"classDef\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"classDef\" : \"classDef\""
+  },
+  {
+    "name": "subgraph",
+    "source": "erDiagram\n  \"subgraph\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"subgraph\" : \"subgraph\""
+  },
+  {
+    "name": "erDiagram",
+    "source": "erDiagram\n  \"erDiagram\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"erDiagram\" : \"erDiagram\""
+  },
+  {
+    "name": "direction",
+    "source": "erDiagram\n  \"direction\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"direction\" : \"direction\""
+  },
+  {
+    "name": "accTitle",
+    "source": "erDiagram\n  \"accTitle\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"accTitle\" : \"accTitle\""
+  },
+  {
+    "name": "accDescr",
+    "source": "erDiagram\n  \"accDescr\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"accDescr\" : \"accDescr\""
+  },
+  {
+    "name": "u-id",
+    "source": "erDiagram\n  \"u-id\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"u-id\" : \"u-id\""
+  },
+  {
+    "name": "u.x",
+    "source": "erDiagram\n  \"u.x\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"u.x\" : \"u.x\""
+  },
+  {
+    "name": "u注文",
+    "source": "erDiagram\n  u注文 {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ u注文 : u注文"
+  },
+  {
+    "name": "1abc",
+    "source": "erDiagram\n  \"1abc\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"1abc\" : \"1abc\""
+  },
+  {
+    "name": "２番",
+    "source": "erDiagram\n  \"２番\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"２番\" : \"２番\""
+  },
+  {
+    "name": "a.b",
+    "source": "erDiagram\n  \"a.b\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"a.b\" : \"a.b\""
+  },
+  {
+    "name": "a*b",
+    "source": "erDiagram\n  \"a*b\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"a*b\" : \"a*b\""
+  },
+  {
+    "name": "a(b)",
+    "source": "erDiagram\n  \"a(b)\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"a(b)\" : \"a(b)\""
+  },
+  {
+    "name": "a:b",
+    "source": "erDiagram\n  \"a:b\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"a:b\" : \"a:b\""
+  },
+  {
+    "name": "a~b",
+    "source": "erDiagram\n  \"a~b\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"a~b\" : \"a~b\""
+  },
+  {
+    "name": "😀絵",
+    "source": "erDiagram\n  \"😀絵\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"😀絵\" : \"😀絵\""
+  },
+  {
+    "name": "é",
+    "source": "erDiagram\n  é {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ é : é"
+  },
+  {
+    "name": "a\"b",
+    "source": "erDiagram\n  \"a#quot;b\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"a#quot;b\" : \"a#quot;b\""
+  },
+  {
+    "name": "#1;",
+    "source": "erDiagram\n  \"#35;1;\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"#35;1;\" : \"#35;1;\""
+  },
+  {
+    "name": "a#b",
+    "source": "erDiagram\n  \"a#b\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"a#b\" : \"a#b\""
+  },
+  {
+    "name": "a&amp;b",
+    "source": "erDiagram\n  \"a#38;amp;b\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"a#38;amp;b\" : \"a#38;amp;b\""
+  },
+  {
+    "name": "50%",
+    "source": "erDiagram\n  \"50#37;\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"50#37;\" : \"50#37;\""
+  },
+  {
+    "name": "C:\\dir",
+    "source": "erDiagram\n  \"C:#92;dir\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"C:#92;dir\" : \"C:#92;dir\""
+  },
+  {
+    "name": "direction LR",
+    "source": "erDiagram\n  \"direction#32;LR\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"direction#32;LR\" : \"direction#32;LR\""
+  },
+  {
+    "name": "x direction TB y",
+    "source": "erDiagram\n  \"x direction#32;TB y\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"x direction#32;TB y\" : \"x direction#32;TB y\""
+  },
+  {
+    "name": "direction　rl",
+    "source": "erDiagram\n  \"direction#12288;rl\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"direction#12288;rl\" : \"direction#12288;rl\""
+  },
+  {
+    "name": "one-to-one",
+    "source": "erDiagram\n  \"one-to-one\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"one-to-one\" : \"one-to-one\""
+  },
+  {
+    "name": "one-to-many",
+    "source": "erDiagram\n  \"one-to-many\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"one-to-many\" : \"one-to-many\""
+  },
+  {
+    "name": "many-to-one",
+    "source": "erDiagram\n  \"many-to-one\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"many-to-one\" : \"many-to-one\""
+  },
+  {
+    "name": "many-to-many",
+    "source": "erDiagram\n  \"many-to-many\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"many-to-many\" : \"many-to-many\""
+  },
+  {
+    "name": "zero-to-one",
+    "source": "erDiagram\n  zero-to-one {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ zero-to-one : zero-to-one"
+  },
+  {
+    "name": "one-to-zero",
+    "source": "erDiagram\n  \"one-to-zero\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"one-to-zero\" : \"one-to-zero\""
+  },
+  {
+    "name": "one-to-many-mandatory",
+    "source": "erDiagram\n  \"one-to-many-mandatory\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"one-to-many-mandatory\" : \"one-to-many-mandatory\""
+  }
+]

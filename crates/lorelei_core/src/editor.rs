@@ -155,6 +155,12 @@ impl Drops {
     }
 }
 
+/// mermaid の前処理の符号 (`ﬂ°quot¶ß` など) と実体参照を元の文字に戻す。フローチャートのラベルは merman が解析の段階で戻すが、
+/// ER 図のテーブルの名前と関係のラベルは符号のまま入る (spec 13 P0)
+fn decode_text(s: &str) -> String {
+    merman::entities::decode_mermaid_entities_to_unicode(s).into_owned()
+}
+
 fn shape_error(what: &str) -> CoreError {
     CoreError::Convert(format!("merman の意味モデルの形が想定と違います: {what}"))
 }
@@ -387,6 +393,8 @@ fn er(model: &Value) -> Result<EditorPayload, CoreError> {
         if subgraph_ids.contains(name.as_str()) {
             continue;
         }
+        // 囲んだ名前の中の #quot; などは merman の内部の符号のまま入る。元の文字に戻す (spec 13 D1。TS の取り込みと同じ)
+        let name = decode_text(name);
         name_of_id.insert(str_of(e, "id").to_string(), name.clone());
         drops.add("alias", usize::from(non_empty(e, "alias")));
         let classes = str_of(e, "cssClasses")
@@ -454,7 +462,7 @@ fn er(model: &Value) -> Result<EditorPayload, CoreError> {
             source,
             target,
             data: ErEdgeData {
-                label: str_of(r, "roleA").to_string(),
+                label: decode_text(str_of(r, "roleA")),
                 cardinality,
             },
         });

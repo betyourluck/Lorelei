@@ -413,3 +413,27 @@ fn er_cardinality_word_boundary_is_ascii_like_mermaid_js() {
     assert_eq!(names, ["A", "tokens"]);
     assert_eq!(data.edges[0].data.cardinality, "one-to-many");
 }
+
+// ---------- spec 13 P3: ER 図の生成器の出力を merman で取り込む (TS の往復と同じ入力) ----------
+
+/// fixtures/er_names.json は TS の生成器の出力 (__tests__/lorelei/er-names-fixture.test.ts が今の生成器と突き合わせる)。
+/// テーブル名と関係のラベルが、囲み・実体参照 (#quot; #35; #38; #37; #92; #32;) を戻して元の文字になる
+#[test]
+fn er_generator_names_round_trip_through_merman() {
+    let cases: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/er_names.json")).expect("fixture");
+    for case in cases.as_array().expect("array") {
+        let name = case["name"].as_str().unwrap();
+        let source = case["source"].as_str().unwrap();
+        let (data, dropped) = er(source);
+        let names: Vec<_> = data.nodes.iter().map(|n| n.name.as_str()).collect();
+        assert_eq!(names, [name, "B"], "{source}");
+        let edges: Vec<_> = data
+            .edges
+            .iter()
+            .map(|e| (e.source.as_str(), e.target.as_str(), e.data.label.as_str()))
+            .collect();
+        assert_eq!(edges, [("B", name, name)], "{source}");
+        assert!(dropped.is_empty(), "{source}: {dropped:?}");
+    }
+}
