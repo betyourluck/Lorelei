@@ -2,7 +2,7 @@
 
 **ID**: 14
 **Date**: 2026-09-29
-**Status**: rev1（査読 1 本を反映。P0 待ち）
+**Status**: rev1（査読 1 本を反映・**P0・P1 着地**。P2（台帳）・P3（上流 PR）待ち）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。上流への PR は fork `betyourluck/merman` の枝から出す（spec 01 の #146 と同じ流れ）
 
 ## Goal
@@ -75,7 +75,8 @@ merman が mermaid.js より**緩い**向きの食い違いは直さない（名
 
 1. `tokens`・`topic`・`oneshot`・`manyToMany` などの ER 図のテーブル名・関係のラベルが、merman（Lorelei の MCP の `validate` / `to_editor`）で mermaid.js と同じく通る
 2. `to`・`one`・`many` 単独・`to注文`・`one-to-one` は誤りのまま（mermaid.js と同じ）。`A one to onerous : x` は誤りになる（黙って化けない）
-3. 写しの ER 図の既存のテスト（`--manifest-path vendor/merman-core/Cargo.toml`）と、`cargo test --workspace`・`src-tauri` の `cargo test` が通る
+3. 上流の作業場所（上流 main に同じ差分を当てたもの）で `merman-core` の全テストと `merman-render` の ER 図のテストが通り、Lorelei の `cargo test --workspace`・`src-tauri` の `cargo test` が通る
+   （rev1 の「写しのテストを `--manifest-path` で回す」は成り立たなかった —「P0・P1 結果」）
 4. 上流へ PR を出した（利用者の了解のうえ）。PR の番号を `LORELEI_PATCH.md` に書く
 
 ## スコープ外
@@ -92,4 +93,20 @@ merman が mermaid.js より**緩い**向きの食い違いは直さない（名
 | 1: `src-tauri/Cargo.toml` の古いコメント（39〜41 行目）が D3・P2 に無い | 採る | D3・P2 に足した |
 | 2: 写しは workspace の外で、`cargo test --workspace` では写しのテストが走らない / failures #1 の `target/` | 採る（加えて、`vendor/merman-core/Cargo.lock` は今の `.gitignore` で除かれないことを確かめた） | P1 に回し方・Cargo.lock を入れないこと・`git status --short` の件数、受け入れ条件 3 に `--manifest-path` |
 | 3: 記号のうち `|o`・`}o` だけに境界を足す理由 | 採る | D1 に「末尾が語の文字 `o` だから」 |
+
+## P0・P1 結果（2026-09-29）
+
+| コミット | 中身 | テスト（Red → Green） |
+|---|---|---|
+| `bd2962a`（写しの修正 = 上流 PR と同じ差分） | `vendor/merman-core/src/diagrams/er.rs` に `ends_word_at`（直後が入力の終わりか ASCII の `[A-Za-z0-9_]` 以外）を足し、複数語の 8 つ・`many`・`one`・`to`・`|o`・`}o` の一致の条件に。`src/tests/er.rs` に 2 本 | 上流の作業場所で: 足した 2 本は直す前に 2 本とも落ち、直した後に通る |
+| `2ef2682`（Lorelei 側） | `crates/lorelei_core/tests/editor.rs` に 2 本、`src-tauri/src/lib.rs` に patch の見張り 1 本 | `lorelei_core` の 2 本は直す前に落ち（`tokens` は `unexpected identifying; expected name`、`A one to onerous : x` は通ってしまう）、直した後に通る |
+
+- **P0（確かめ直し）**: 上のとおり、Lorelei 側のテストを直す前に回した結果が、エージェントの下調べの実測（誤りと化け）と一致した
+- **写しの中では merman-core のテストをコンパイルできない**: 写しのテストは上流のリポジトリの `fixtures/` を `include_str!` で読む（`flowchart.rs:2341`・`theme.rs:478`）。
+  rev1 で査読から採った「`cargo test --manifest-path vendor/merman-core/Cargo.toml` で回す」は、採る前に回して確かめていなかった。前回（#146）も上流側のテストは上流で回していた（`LORELEI_PATCH.md`）
+- **上流の作業場所**: 上流 main（`72c02477`）を scratchpad に `--depth 1` で clone（Windows では fixtures のファイル名が長く、`git -c core.longpaths=true clone` が要る）。
+  上流の `crates/merman-core/src/diagrams/er.rs`・`src/tests/er.rs` は写しの HEAD と同じ（改行を揃えて一致）なので、直した写しの 2 ファイルを LF にして置いた。
+  `cargo test -p merman-core`: 単体 1,554 本と結合テストすべて通過。`cargo test -p merman-render er`: 通過（ER 図の描画のゴールデンは動かない）
+- 写しの中で `cargo test` を回した時にできた `vendor/merman-core/Cargo.lock` は消した（コミットしていない）
+- Lorelei: `cargo test --workspace`・`src-tauri` の `cargo test` 通過
 
