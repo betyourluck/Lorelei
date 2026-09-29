@@ -22,6 +22,7 @@ import {
   Text,
 } from "@yamada-ui/react";
 import { useState, useEffect } from "react";
+import { describeFieldProblem, fieldProblem } from "../../utils/er-names";
 import { TableMenu } from "./table-menu";
 
 export type ERColumn = {
@@ -58,6 +59,17 @@ export const ERTableContent: FC<ERTableContentProps> = ({
   const handleAdd = () => {
     onColumnsChange([...columns, { name: "", type: "", pk: false, uk: false }]);
   };
+  /**
+   * Mermaid に書けない値のセルの理由 (spec 13 D2)。確定した値で判定する。
+   * 名前も型も空の列 (「カラム追加」の直後) には出さない (足した直後に赤が 2 つ点くのを避ける。コード生成のダイアログには出る)
+   */
+  const invalidReason = (column: ERColumn, field: "name" | "type"): string | undefined => {
+    if (column.name.trim() === "" && column.type.trim() === "") return undefined;
+    const problem = fieldProblem(column[field], field);
+    return problem
+      ? `${describeFieldProblem(field, problem)}（Mermaid に書けないので、この列はコードに書き出しません）`
+      : undefined;
+  };
 
   const columnDefs: ColumnDef<ERColumn>[] = [
     {
@@ -66,6 +78,7 @@ export const ERTableContent: FC<ERTableContentProps> = ({
         <CellEditor
           value={getValue() as string}
           label="カラム名"
+          invalidReason={invalidReason(row.original, "name")}
           onCommit={(v) => handleChange(row.index, "name", v)}
         />
       ),
@@ -77,6 +90,7 @@ export const ERTableContent: FC<ERTableContentProps> = ({
         <CellEditor
           value={getValue() as string}
           label="型"
+          invalidReason={invalidReason(row.original, "type")}
           onCommit={(v) => handleChange(row.index, "type", v)}
         />
       ),
@@ -183,10 +197,13 @@ export const ERTableContent: FC<ERTableContentProps> = ({
                 <Text fontWeight="bold" fontSize="md">
                   テーブル名
                 </Text>
-                <Input
-                  aria-label="テーブル名"
+                {/* 確定 (Enter・フォーカスが外れる) で反映し、空・空白だけの確定は前の名前に戻す。打鍵の途中の空の名前を自動保存に乗せない (spec 13 D3) */}
+                <CellEditor
                   value={name}
-                  onChange={(e) => onNameChange(e.target.value)}
+                  label="テーブル名"
+                  onCommit={onNameChange}
+                  rejectBlank
+                  size="md"
                   fontWeight="bold"
                   fontSize="md"
                 />
@@ -232,20 +249,44 @@ export const CellEditor = ({
   value,
   onCommit,
   label,
+  invalidReason,
+  rejectBlank = false,
+  size = "sm",
+  fontWeight,
+  fontSize,
 }: {
   value: string;
   onCommit: (v: string) => void;
   label: string;
+  /** あれば赤枠にし、理由を title に出す (spec 13 D2) */
+  invalidReason?: string;
+  /** 空・空白だけで確定したら反映せず、確定前の値に戻す (spec 13 D3。テーブル名) */
+  rejectBlank?: boolean;
+  size?: "sm" | "md";
+  fontWeight?: string;
+  fontSize?: string;
 }) => {
   const [inputValue, setInputValue] = useState(value);
   const [isComposing, setIsComposing] = useState(false);
   useEffect(() => {
     setInputValue(value);
   }, [value]);
+  const commit = () => {
+    if (rejectBlank && inputValue.trim() === "") {
+      setInputValue(value);
+      return;
+    }
+    onCommit(inputValue);
+  };
   return (
     <Input
       aria-label={label}
-      size="sm"
+      size={size}
+      fontWeight={fontWeight}
+      fontSize={fontSize}
+      invalid={invalidReason !== undefined}
+      aria-invalid={invalidReason !== undefined}
+      title={invalidReason}
       value={inputValue}
       onChange={(e) => setInputValue(e.target.value)}
       onCompositionStart={() => setIsComposing(true)}
@@ -253,10 +294,10 @@ export const CellEditor = ({
         setIsComposing(false);
         setInputValue(e.currentTarget.value);
       }}
-      onBlur={() => onCommit(inputValue)}
+      onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === "Enter" && !isComposing) {
-          onCommit(inputValue);
+          commit();
           (e.currentTarget as HTMLElement).blur();
         }
       }}

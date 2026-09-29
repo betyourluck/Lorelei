@@ -59,12 +59,62 @@ const KEY_PREFIX = /^(?:pk|fk|uk)(?![A-Za-z0-9_])/i;
 export type ColumnIssue = "empty" | "empty-name" | "empty-type" | "bad-name" | "bad-type";
 
 export function columnIssue(column: { name: string; type: string }): ColumnIssue | null {
-  const noName = column.name.trim() === "";
-  const noType = column.type.trim() === "";
-  if (noName && noType) return "empty";
-  if (noName) return "empty-name";
-  if (noType) return "empty-type";
-  if (!COLUMN_WORD.test(column.name) || KEY_PREFIX.test(column.name)) return "bad-name";
-  if (!(COLUMN_WORD.test(column.type) || GENERIC_TYPE.test(column.type)) || KEY_PREFIX.test(column.type)) return "bad-type";
+  const name = fieldProblem(column.name, "name");
+  const type = fieldProblem(column.type, "type");
+  if (name === "empty" && type === "empty") return "empty";
+  if (name === "empty") return "empty-name";
+  if (type === "empty") return "empty-type";
+  if (name) return "bad-name";
+  if (type) return "bad-type";
   return null;
+}
+
+/** 列名・型の 1 項目を Mermaid に書けない理由 (入力欄の印に使う)。書ける時は null */
+export type FieldProblem = "empty" | "space" | "key" | "chars";
+
+export function fieldProblem(value: string, field: "name" | "type"): FieldProblem | null {
+  if (value.trim() === "") return "empty";
+  if (/\s/.test(value)) return "space";
+  if (KEY_PREFIX.test(value)) return "key";
+  if (COLUMN_WORD.test(value) || (field === "type" && GENERIC_TYPE.test(value))) return null;
+  return "chars";
+}
+
+const FIELD_LABEL = { name: "名前", type: "型" } as const;
+
+/** 印とダイアログに出す短い理由 (「名前に空白」「型が空」など) */
+export function describeFieldProblem(field: "name" | "type", problem: FieldProblem): string {
+  const label = FIELD_LABEL[field];
+  switch (problem) {
+    case "empty":
+      return `${label}が空`;
+    case "space":
+      return `${label}に空白`;
+    case "key":
+      return `${label}が PK・FK・UK と読まれる`;
+    case "chars":
+      return `${label}に書けない文字`;
+  }
+}
+
+/** コード生成に書き出さなかった列 (テーブル名・列名・短い理由) */
+export type SkippedColumn = { table: string; column: string; reason: string };
+
+export function unwritableColumns(
+  tables: { name: string; columns: { name: string; type: string }[] }[]
+): SkippedColumn[] {
+  return tables.flatMap((table) =>
+    table.columns.flatMap((column) => {
+      const name = fieldProblem(column.name, "name");
+      const type = fieldProblem(column.type, "type");
+      if (!name && !type) return [];
+      const reason =
+        name === "empty" && type === "empty"
+          ? "名前と型が空"
+          : name
+            ? describeFieldProblem("name", name)
+            : describeFieldProblem("type", type!);
+      return [{ table: table.name, column: column.name, reason }];
+    })
+  );
 }

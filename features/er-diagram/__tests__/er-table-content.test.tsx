@@ -221,3 +221,89 @@ describe("ERTableContent の FK", () => {
     expect(screen.getByRole("checkbox", { name: "FK" })).toBeChecked();
   });
 });
+
+// spec 13 D2: Mermaid に書けない列の印 (確定した値で判定する)
+describe("ERTableContent の書けない列の印 (spec 13 D2)", () => {
+  const cells = () => ({
+    name: screen.getByRole("textbox", { name: "カラム名" }),
+    type: screen.getByRole("textbox", { name: "型" }),
+  });
+  const one = (column: Partial<ERColumn>) =>
+    render(
+      <ERTableContent
+        name="注文"
+        columns={[{ name: "", type: "", pk: false, uk: false, ...column }]}
+        onNameChange={() => {}}
+        onColumnsChange={() => {}}
+      />
+    );
+
+  test("「カラム追加」の直後 (名前も型も空) は印を出さない", () => {
+    one({});
+    expect(cells().name).not.toHaveAttribute("aria-invalid", "true");
+    expect(cells().type).not.toHaveAttribute("aria-invalid", "true");
+  });
+
+  test("片方だけ空なら、空の側に印と理由", () => {
+    one({ type: "int" });
+    expect(cells().name).toHaveAttribute("aria-invalid", "true");
+    expect(cells().name.getAttribute("title")).toContain("名前が空");
+    expect(cells().name.getAttribute("title")).toContain("コードに書き出しません");
+    expect(cells().type).not.toHaveAttribute("aria-invalid", "true");
+  });
+
+  test("書けない形の値のセルに印と理由。値は消さない", () => {
+    one({ name: "注文 日", type: "pk" });
+    expect(cells().name).toHaveAttribute("aria-invalid", "true");
+    expect(cells().name.getAttribute("title")).toContain("名前に空白");
+    expect(cells().name).toHaveValue("注文 日");
+    expect(cells().type).toHaveAttribute("aria-invalid", "true");
+    expect(cells().type.getAttribute("title")).toContain("型が PK・FK・UK と読まれる");
+  });
+
+  test("書ける列には印を出さない", () => {
+    one({ name: "注文日", type: "date" });
+    expect(cells().name).not.toHaveAttribute("aria-invalid", "true");
+    expect(cells().type).not.toHaveAttribute("aria-invalid", "true");
+  });
+});
+
+// spec 13 D3: テーブル名は確定 (Enter・フォーカスが外れる) で反映し、空・空白だけの確定は前の名前に戻す
+describe("ERTableContent のテーブル名の確定 (spec 13 D3)", () => {
+  const table = (onNameChange: (name: string) => void) =>
+    render(
+      <ERTableContent
+        name="ユーザー"
+        columns={defaultColumns}
+        onNameChange={onNameChange}
+        onColumnsChange={() => {}}
+      />
+    );
+  const input = () => screen.getByRole("textbox", { name: "テーブル名" });
+
+  test("打鍵の途中は反映せず、Enter で反映する (空白を含む名前も確定できる)", () => {
+    const names: string[] = [];
+    table((n) => names.push(n));
+    fireEvent.change(input(), { target: { value: "注文 明細" } });
+    expect(names).toEqual([]);
+    fireEvent.keyDown(input(), { key: "Enter" });
+    expect(names).toEqual(["注文 明細"]);
+  });
+
+  test("フォーカスが外れた時に反映する", () => {
+    const names: string[] = [];
+    table((n) => names.push(n));
+    fireEvent.change(input(), { target: { value: "会員" } });
+    fireEvent.blur(input());
+    expect(names).toEqual(["会員"]);
+  });
+
+  test.each(["", "   "])("空・空白だけ (%j) で確定したら反映せず、前の名前に戻す", (value) => {
+    const names: string[] = [];
+    table((n) => names.push(n));
+    fireEvent.change(input(), { target: { value } });
+    fireEvent.blur(input());
+    expect(names).toEqual([]);
+    expect(input()).toHaveValue("ユーザー");
+  });
+});

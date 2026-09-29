@@ -7,6 +7,7 @@ import { NavigationMenu } from "@/components/ui";
 import { DirectionMenu } from "@/features/flowchart/components/direction-menu";
 import type { GraphType } from "@/features/flowchart/types/types";
 import { useDesktopActions } from "@/lib/desktop";
+import { unwritableColumns } from "../../utils/er-names";
 import type { ParsedMermaidERData } from "../../utils/import-mermaid-to-er";
 import { ImportModal } from "../mermaid/import-modal";
 import type { ERTableNodeProps } from "../node/er-table-node";
@@ -35,6 +36,8 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
   const [open, setOpen] = useBoolean(false);
   const [openImport, setOpenImport] = useBoolean(false);
   const code = generateCode(nodes, edges);
+  // 生成器が書き出さなかった列 (spec 13 D2)。ダイアログで知らせる
+  const skippedColumns = unwritableColumns(nodes.map((n) => n.data));
   // Lorelei: デスクトップ版のツールバーから呼べるようにする (Web 版では何もしない)
   useDesktopActions({
     add: { label: "テーブル追加", run: onAddTable },
@@ -97,6 +100,7 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
         onClose={setOpen.off}
         code={code}
         onDownload={handleDownload}
+        skippedColumns={skippedColumns}
       />
       <ImportModal open={openImport} onClose={setOpenImport.off} onImport={onImportMermaid} />
     </Panel>
