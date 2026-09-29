@@ -99,7 +99,8 @@ spec 10 の後の次の候補「インポートのエディタで、取り込む
 
 ### D6. 今のパーサーは残す
 
-インポートは使わなくなるが、テストと MCP の経路の外の使い道（`round-trip` など）があるので、この spec では消さない（収縮は別の変更で。スコープ外）
+インポートは使わなくなるが、テストと MCP の経路の外の使い道（`round-trip` など）があるので、この spec では消さない（収縮は別の変更で。スコープ外）。
+**→ [spec 12](12_remove-legacy-parser.md) で撤去した**（テストは mermaid.js の経路へ移した）
 
 ## Phase
 
@@ -123,7 +124,7 @@ spec 10 の後の次の候補「インポートのエディタで、取り込む
 
 ## スコープ外
 
-- 今のパーサー（`parseMermaidCode` / `convertMermaidToERData`）の撤去
+- 今のパーサー（`parseMermaidCode` / `convertMermaidToERData`）の撤去（→ spec 12）
 - ER 図の名前の空白（生成器が書くコードが誤りになる。既知の制約として LORELEI.md に書く）/ ラベルの改行
 - subgraph・classDef・style などをエディタで扱えるようにすること
 - markdown の文字列（`` "`**太字**`" ``）の記法は、記法のまま取り込む（査読 12）

@@ -215,7 +215,7 @@ data_contract に凍結した（コードはまだ触らない）:
   `fake-backend` に `base_updated_at` / `normalize_pending` / `take_pending_open` の中身 / `update` を足した。`lib/desktop` 11 ファイル 82 本緑、型検査・ESLint 通過
 - **テストで分かった罠 2 つ**（failures に書く候補）: (1) `@tauri-apps/api/event` / `window` / `core` を `vi.mock` した動的 import は、同じテストの途中で模擬が本物に差し替わることがある（`direction-save.test.tsx` の未処理エラー 14 件も同じ）。
   外枠のテストでは `@/lib/desktop/tauri` を `vi.hoisted` + `importOriginal` で静的に模擬する。(2) 図を開き終えた判定を「向きのボタンが出た」にすると、開いた直後の自動保存（1 秒後）が届く前に書き換えてしまい、その保存が `STALE_BASE` になる（設計どおりだが試したい形ではない）。最初の保存を待ってから書き換える
-- フォーク元の `parseMermaidCode`（テストの変換に使う）は `A --> B --> C` の連鎖を扱えない（Rust の `to_editor` は扱う）。テストの入力は辺を 1 本ずつ書く
+- フォーク元の `parseMermaidCode`（テストの変換に使う）は `A --> B --> C` の連鎖を扱えない（Rust の `to_editor` は扱う）。テストの入力は辺を 1 本ずつ書く（**spec 12 で撤去**。テストの変換は mermaid.js の取り込みになり、連鎖も書ける）
 - LORELEI.md: ツール表に `update_diagram`、頼み方の例、「書き換えの注意」、`history/`。spec 04 の未検証（●）に候補を書き戻した
 - Prettier: 変更前から整形されていなかったファイル（`doc-session.ts` / `use-doc-session.ts` / 既存テスト 2 本）はそのまま。変更前に整っていた 3 ファイルは整えた
 - 全件: vitest 58 ファイル 592 本すべて緑（今回は ArrowTypeSelector も時間切れにならなかった）。未処理エラー 163 件は jsdom の `DOMMatrixReadOnly`（xyflow）と動的 import の競合による本物の Tauri API 呼び出しで、変更前からある種類

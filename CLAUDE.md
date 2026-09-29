@@ -28,7 +28,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   CSP は style-src の自動ハッシュ追記を止めている
 - **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは spec 01 の 4 ファイル・8 行 + spec 02 の 5 ファイル・12 行（`app/layout.tsx` の外枠、エディタ 2 つの高さ、パネル 2 つの `useDesktopActions`。重なりを除いて計 7 ファイル）+ spec 04 P0 でエディタ 2 つの初期図を export（`initialFlowNodes` / `initialERNodes`。初期図の突き合わせ用。ファイルは既存の 7 つに含まれる）+ spec 07 P2 でパネル 2 つの `useDesktopActions` に向き（`direction` / `setDirection`）を足した（同じ 2 ファイル）
 - **フロント（`app/` `features/` `components/`）**: フォーク元のコード。直してよい（下の掟の「フォーク元は必要なら直してよい」）。
-  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」に一覧がある。PR を出すかは利用者が決める。
+  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」に一覧がある。PR を出すかは利用者が決める。
   **デスクトップではフォーク元のパネル（インポートを含む）を隠し、ツールバーから `lib/desktop/` のダイアログを開く** — フォーク元の部品を直したら、デスクトップのどの操作がどの部品を開くかを確かめる（failures #17）
 
 ## 掟（Mandate）
@@ -60,6 +60,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
+- 2026-09-29: [spec 12](specs/12_remove-legacy-parser.md) **Done** — rev0（フォーク元の正規表現のパーサー `parseMermaidCode` / `convertMermaidToERData` を撤去。
+  取り込みは spec 11 の mermaid.js の経路だけ。古いパーサーを使っていたテスト（往復・デスクトップの `convert_source` の模擬）は mermaid.js の経路へ移した）
 - 2026-09-29: [spec 11](specs/11_import-via-mermaid.md) **Done** — rev1（インポートの取り込みを**フォーク元の正規表現のパーサーから mermaid.js 11.17.2 の解析**
   （`getDiagramFromText` の db の写し）に替え、Rust の `to_editor` と同じ対応表で取り込む。取り込むと消えるものを要約と行の黄色の印で知らせる。生成器のラベルの囲み（往復が mermaid.js で戻る））。
   D7 で**デスクトップのツールバーのインポートも同じ本文**にした（取り込みは Rust のまま）。Rust の `to_editor` の穴 2 つ（ER 図の subgraph で止まる・線の ID の衝突）も直した。
@@ -88,7 +90,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   受け入れ条件 1（配布ビルドのタイトルバー）と 3（VRT）は未確認のまま閉じた。図の一覧は `{app_data_dir}/documents/` を Rust だけが読み書きする
 - 開発コマンド: フロントの依存は `corepack pnpm@9 install --ignore-scripts`（pnpm が無い環境でも corepack で足りる。
   lefthook の hooks は入れていない）。GUI は `corepack pnpm@9 exec tauri dev` / `... tauri build --no-bundle`。
-  Rust は `cargo test --workspace`（core / mcp）と `cd src-tauri && cargo test`（GUI の殻、独立 project）
+  Rust は `cargo test --workspace`（core / mcp）と `cd src-tauri && cargo test`（GUI の殻、独立 project）。
+  静的書き出しが通るかの確かめは `TAURI_ENV_PLATFORM` を付けた `next build`（→ `out/`）。**素の `next build` は git の中の `docs/`（GitHub Pages）を上書きする**（failures #18）
 - **`src-tauri/Cargo.toml` にもルートと同じ `[patch.crates-io]` がある**（独立 project なのでルートの patch が効かない）。
   merman-core の patch を外す時は両方消す
 - **merman-core は `vendor/` の修正版を使っている**（日本語のノード ID を受け付けるため）。修正は上流に **マージ済み**

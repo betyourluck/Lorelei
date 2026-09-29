@@ -229,3 +229,13 @@
 - **一般化**: フォーク元（Web 版）とデスクトップの外枠が**同じ機能に別の入口を持つ**時、フォーク元の部品を直したら、デスクトップのどの操作がどの部品を開くかを grep で確かめてから
   「デスクトップで確認」と書く（`HIDE_FORK_PANELS` のように隠している所がある）。利用者に確認を頼む時は、見てほしい画面の目印（題・ボタンの名前）を添え、
   受け取るのは一言より画面にする
+
+## #18 静的書き出しを確かめるつもりの `next build` が、git の中の `docs/`（GitHub Pages）を上書きし `docs/storybook/` を消した（2026-09-29, spec 12 P2）
+
+- **症状**: 受け入れ条件「Web 版の静的書き出しが通る」のために素の `corepack pnpm@9 exec next build` を回したら、ビルドは通ったが、`git status` に `docs/` の
+  変更・削除（`docs/storybook/` 全部と前回の `_next/` のチャンク）と未追跡のチャンクが 200 件ほど出た
+- **真因**: `next.config.mjs` は `NODE_ENV=production` で `TAURI_ENV_PLATFORM` が無い時を GitHub Pages の書き出しとみなし、`distDir` を `docs`（git に入っている公開物）にする。
+  Next は書き出しの前に書き出し先を空にするので、Storybook の書き出し（`docs/storybook/`、別の手順で作る）も消える。spec 09〜11 は `TAURI_ENV_PLATFORM` 付き（→ `out/`、git の外）で回していた
+- **処方**: `git restore --worktree -- docs/` と `git clean -fd docs/`（作業の前は clean だったので、未追跡はすべて今のビルドの生成物）で戻した。
+  書き出しが通るかの確かめは `TAURI_ENV_PLATFORM` を付けて `out/` へ出す（basePath が違うだけで、中のコードは同じ）
+- **一般化**: 「通るか」を確かめるためのビルドでも、**書き出し先が git の中かどうか**を設定で先に見る。確かめのコマンドは、前の spec で実際に使った形（環境変数を含む）をそのまま写す
