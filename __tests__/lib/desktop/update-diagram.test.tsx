@@ -1,5 +1,5 @@
 import { ReactFlowProvider } from "@xyflow/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@/__tests__/test-utils";
 import { FlowEditor } from "@/features/flowchart/flow-editor";
 import { readFlowchartForImport } from "@/features/flowchart/utils/import-flowchart";
@@ -79,6 +79,11 @@ const opened = async () => {
   await waitFor(() => expect(backend.calls("save_document")).toHaveLength(1), { timeout: 4000 });
   return menus[0];
 };
+
+/** mermaid の初回の読み込みは全件を並列に回すと 8 秒を超え、図を開き終える待ちに食い込む。先に 1 度読んでおき、テストの中の変換は解析だけにする (spec 12) */
+beforeAll(async () => {
+  await readFlowchartForImport("flowchart TD\n  A --> B\n");
+}, 60000);
 
 // spec 08 D2・D3: AI が update_diagram で書き換えた図を GUI が受ける
 describe("update_diagram の載せ替えと楽観ロック (spec 08)", { timeout: 20000 }, () => {

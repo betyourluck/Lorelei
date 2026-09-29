@@ -1,5 +1,5 @@
 import { ReactFlowProvider } from "@xyflow/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@/__tests__/test-utils";
 import { FlowEditor } from "@/features/flowchart/flow-editor";
 import { readFlowchartForImport } from "@/features/flowchart/utils/import-flowchart";
@@ -24,6 +24,11 @@ vi.mock("@/lib/desktop/tauri", async (importOriginal) => ({
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => "/" }));
 
 const SOURCE = "flowchart LR\n    A[A]\n    B[B]\n    A --> B\n";
+
+/** mermaid の初回の読み込みは全件を並列に回すと 8 秒を超え、図を開き終える待ちに食い込む。先に 1 度読んでおき、テストの中の変換は解析だけにする (spec 12) */
+beforeAll(async () => {
+  await readFlowchartForImport("flowchart TD\n  A --> B\n");
+}, 60000);
 
 // spec 07 P3 の実機で観測 (2026-09-26): 保存した LR の図を開き、ツールバーで TD に変えても保存されなかった
 describe("向きの切り替えの保存 (spec 07 D3)", { timeout: 20000 }, () => {
