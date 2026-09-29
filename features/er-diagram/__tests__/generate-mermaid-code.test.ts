@@ -97,7 +97,10 @@ describe("generateERDiagramMermaidCode", () => {
         },
       ];
       const code = generateERDiagramMermaidCode(nodes, edges);
-      expect(code).toContain(`A ${expectedSymbols[i]} B : ${card}`);
+      // spec 13 D1: one / many で始まるラベルは囲む (囲まない one-to-one などは mermaid.js・merman の両方で文法の誤り。
+      // 旧: 囲まずに書き、7 つのうち zero-to-one 以外が誤りだった)。往復は round-trip-mermaid.test.ts
+      const label = card.startsWith("zero") ? card : `"${card}"`;
+      expect(code).toContain(`A ${expectedSymbols[i]} B : ${label}`);
     });
   });
 
@@ -214,7 +217,8 @@ describe("generateERDiagramMermaidCode", () => {
     expect(code).not.toContain("UK");
   });
 
-  it("カラム名・型が空文字の場合でも出力される", () => {
+  // spec 13 D2: 名前も型も空の列は Mermaid に書けない (`     PK` は文法の誤り)。書き出さない (旧: 空文字のまま PK だけ出力していた)
+  it("カラム名・型が空文字の場合は、その列を出力しない", () => {
     const nodes: Node<ERTableNodeProps>[] = [
       {
         id: "1",
@@ -229,7 +233,7 @@ describe("generateERDiagramMermaidCode", () => {
       },
     ];
     const code = generateERDiagramMermaidCode(nodes, []);
-    expect(code).toContain("PK"); // 空文字でもPKは出力される
+    expect(code).toBe("erDiagram\n  User {\n  }");
   });
 
   it("ノード・エッジが空配列の場合、erDiagramのみ出力", () => {

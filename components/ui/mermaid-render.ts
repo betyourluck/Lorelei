@@ -117,7 +117,8 @@ const flowSnapshot = (db: any): FlowSnapshot => ({
 const erSnapshot = (db: any): ErSnapshot => {
   const entries: [string, any][] =
     db.getEntities() instanceof Map ? Array.from(db.getEntities().entries()) : Object.entries(db.getEntities());
-  const nameOfId = new Map(entries.map(([name, e]) => [String(e.id), name]));
+  // 名前は囲みの中の #quot; などが内部の符号のまま入る。関係の両端も同じ名前で指すので、ここで戻しておく (spec 13 D1)
+  const nameOfId = new Map(entries.map(([name, e]) => [String(e.id), decodeText(name)]));
   // mermaid が振った id の末尾が出現順 (entity-<名前>-<n>)
   const order = (e: any) => Number(String(e.id).split("-").pop());
   entries.sort(([, a], [, b]) => order(a) - order(b));
@@ -125,7 +126,7 @@ const erSnapshot = (db: any): ErSnapshot => {
     kind: "er",
     direction: String(db.getDirection?.() ?? ""),
     entities: entries.map(([name, e]) => ({
-      name,
+      name: decodeText(name),
       alias: decodeText(e.alias),
       attributes: (Array.isArray(e.attributes) ? e.attributes : []).map((a: any) => ({
         type: String(a.type ?? ""),
