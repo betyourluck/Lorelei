@@ -8,7 +8,9 @@
 const BARE_NAME = new RegExp("^[\\p{L}_][\\p{L}\\p{N}_-]*$", "u");
 /**
  * キーワード・関係の記号で始まる名前は囲む。境界を見ない前方一致 (大文字小文字を問わない):
- * merman は to / one / many を境界なしで関係の記号として取り (tokens が割れる)、mermaid.js は end注文 のような ASCII の語の後の非 ASCII を境界とみなす
+ * mermaid.js は end注文・one-to-one のような ASCII の語の後の非 ASCII や - を境界とみなし、キーワードとして取る。
+ * merman (Rust の移植) の 0.8.0-alpha.6 は to / one / many を境界なしで取る (tokens が誤りになる)。
+ * 前方一致は tokens なども囲むが、囲めば両方で通るので安全側
  */
 const RESERVED_PREFIX = /^(?:erdiagram|style|classdef|class|subgraph|end|direction|acctitle|accdescr|many|one|to)/i;
 /** u- / u. は両方の解析器が「親」の記号 (u) として取る */
