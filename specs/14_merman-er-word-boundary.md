@@ -2,7 +2,7 @@
 
 **ID**: 14
 **Date**: 2026-09-29
-**Status**: 起票（rev0。査読前）
+**Status**: rev1（査読 1 本を反映。P0 待ち）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。上流への PR は fork `betyourluck/merman` の枝から出す（spec 01 の #146 と同じ流れ）
 
 ## Goal
@@ -43,7 +43,8 @@ AI が書いた ER 図が、Lorelei の MCP（`validate` / `render` / `open_in_e
 
 - `Lexer` に「語の終わり」の判定を 1 つ足す: 一致した語の直後のバイトが無い（入力の終わり）か、ASCII の `[A-Za-z0-9_]` でなければ真（JS の `\b` と同じ。UTF-8 の多バイトの先頭は 0x80 以上なので、
   `to注文` は mermaid.js と同じく割れる — spec 01 の patch の「境界は ASCII」と揃う）
-- この判定を `many`・`one`・`to` と複数語の 8 つ、`|o`・`}o` の一致の条件に足す。`many(0)`・`many(1)`・`0+`・`1+` と記号には足さない（mermaid.js にも無い）
+- この判定を `many`・`one`・`to` と複数語の 8 つ、`|o`・`}o` の一致の条件に足す。`many(0)`・`many(1)`・`0+`・`1+` と記号には足さない（mermaid.js にも無い）。
+  記号のうち `|o`・`}o` だけに足すのは、末尾が語の文字 `o` だから（mermaid.js もこの 2 つだけ `\b` を持つ。`||`・`o{` などは末尾が記号で、後ろに語が続いても境界は要らない）
 - 振り分けの順は変えない（境界で外れた入力は `lex_name_or_str` に落ちる = mermaid.js の名前の規則に落ちるのと同じ）
 
 ### D2. 範囲外（残っている差として記録する）
@@ -55,15 +56,18 @@ merman が mermaid.js より**緩い**向きの食い違いは直さない（名
 
 - spec 13 の `quoteErName` は囲み続ける（修正後も mermaid.js の `\b` の食い違い — `Many`・`to注文`・`one-to-one` — は残り、囲むのは安全側）。
   `er-names.ts` の理由のコメントを「merman の旧版は境界なしで取った（spec 14 で直した）」に直す
-- `LORELEI_PATCH.md` に節を足し、消す条件を「#146 と spec 14 の修正の両方を含む merman の版が crates.io に出たら」にする。ルートの `Cargo.toml` の古いコメントを直す
+- `LORELEI_PATCH.md` に節を足し、消す条件を「#146 と spec 14 の修正の両方を含む merman の版が crates.io に出たら」にする。ルートの `Cargo.toml`（33〜34 行目）と
+  `src-tauri/Cargo.toml`（39〜41 行目）の、#146 の時の古いコメントを直す
 
 ## Phase
 
 - **P0（PoC）**: 現況の実測を写しで確かめ直す（使い捨てのテスト）。直した後に通るべき入力と、誤りのまま残るべき入力の表を作る
 - **P1**（写しの修正）: D1。テスト（Red → Green）: 写しの `src/tests/er.rs` に「`to`・`one`・`many` で始まる名前とラベルが通る」（`tokens`・`topic`・`total`・`toy`・`oneshot`・
   `manyToMany`・`many_items`・`TOTAL`）と「境界は ASCII のまま」（`to`・`one`・`many`・`to注文`・ラベル `one-to-one` は誤り、`A one to onerous : x` は誤り）。
-  写しの ER 図の既存のテスト 49 本が通る。Lorelei の `crates/lorelei_core/tests/editor.rs` に `to_editor` の 1 件、`src-tauri` の patch の見張り（`lib.rs` 413 行目と同じ形）に 1 件
-- **P2**（台帳）: D3。`LORELEI_PATCH.md`・ルートの `Cargo.toml` のコメント・`er-names.ts` のコメント・CLAUDE.md（merman-core の写しの行）
+  写しの ER 図の既存のテスト 49 本が通る。写しは workspace の外（ルートの `Cargo.toml` の `exclude = ["vendor"]`）なので、写しのテストは `cargo test --manifest-path vendor/merman-core/Cargo.toml` で回す
+  （`cargo test --workspace` では走らない）。写しの中で回すと `vendor/merman-core/Cargo.lock` ができ、これは `.gitignore` で除かれない（`target/` は除かれる）— **コミットに入れない**。
+  コミット前に `git status --short` の件数を見る（failures #1）。Lorelei の `crates/lorelei_core/tests/editor.rs` に `to_editor` の 1 件、`src-tauri` の patch の見張り（`lib.rs` 413 行目と同じ形）に 1 件
+- **P2**（台帳）: D3。`LORELEI_PATCH.md`・ルートと `src-tauri` の `Cargo.toml` のコメント・`er-names.ts` のコメント・CLAUDE.md（merman-core の写しの行）
 - **P3**（上流 PR）: fork の枝に同じ差分と上流側のテストを載せ、上流のテスト（`cargo test -p merman-core` の ER 図）を通してから PR を出す。
   **PR を出す直前に、本文と差分を利用者に見せて了解を取る**（外に出す操作）。提出前に同種の issue・PR が無いことを確かめ直す
 
@@ -71,10 +75,21 @@ merman が mermaid.js より**緩い**向きの食い違いは直さない（名
 
 1. `tokens`・`topic`・`oneshot`・`manyToMany` などの ER 図のテーブル名・関係のラベルが、merman（Lorelei の MCP の `validate` / `to_editor`）で mermaid.js と同じく通る
 2. `to`・`one`・`many` 単独・`to注文`・`one-to-one` は誤りのまま（mermaid.js と同じ）。`A one to onerous : x` は誤りになる（黙って化けない）
-3. 写しの ER 図の既存のテストと、`cargo test --workspace`・`src-tauri` の `cargo test` が通る
+3. 写しの ER 図の既存のテスト（`--manifest-path vendor/merman-core/Cargo.toml`）と、`cargo test --workspace`・`src-tauri` の `cargo test` が通る
 4. 上流へ PR を出した（利用者の了解のうえ）。PR の番号を `LORELEI_PATCH.md` に書く
 
 ## スコープ外
 
 - D2 の緩い向きの食い違い
 - 上流の新しい版を待って写しを消すこと（消す条件だけ書く）
+
+## 査読の採否（rev0 → rev1）
+
+査読 1 本（利用者の持ち込み。同じ本文が 2 回貼られていたので 1 本として扱う）。指摘はファイルで確かめてから採った。
+
+| 指摘 | 採否 | 反映 |
+|---|---|---|
+| 1: `src-tauri/Cargo.toml` の古いコメント（39〜41 行目）が D3・P2 に無い | 採る | D3・P2 に足した |
+| 2: 写しは workspace の外で、`cargo test --workspace` では写しのテストが走らない / failures #1 の `target/` | 採る（加えて、`vendor/merman-core/Cargo.lock` は今の `.gitignore` で除かれないことを確かめた） | P1 に回し方・Cargo.lock を入れないこと・`git status --short` の件数、受け入れ条件 3 に `--manifest-path` |
+| 3: 記号のうち `|o`・`}o` だけに境界を足す理由 | 採る | D1 に「末尾が語の文字 `o` だから」 |
+
