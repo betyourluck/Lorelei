@@ -2,7 +2,7 @@
 
 **ID**: 14
 **Date**: 2026-09-29
-**Status**: rev1（査読 1 本を反映・**P0・P1 着地**。P2（台帳）・P3（上流 PR）待ち）
+**Status**: rev1（査読 1 本を反映・**P0〜P2 着地**。P3（上流 PR）待ち）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。上流への PR は fork `betyourluck/merman` の枝から出す（spec 01 の #146 と同じ流れ）
 
 ## Goal
@@ -109,4 +109,9 @@ merman が mermaid.js より**緩い**向きの食い違いは直さない（名
   `cargo test -p merman-core`: 単体 1,554 本と結合テストすべて通過。`cargo test -p merman-render er`: 通過（ER 図の描画のゴールデンは動かない）
 - 写しの中で `cargo test` を回した時にできた `vendor/merman-core/Cargo.lock` は消した（コミットしていない）
 - Lorelei: `cargo test --workspace`・`src-tauri` の `cargo test` 通過
+
+## P2 結果（2026-09-29）
+
+- `vendor/merman-core/LORELEI_PATCH.md` に「2. ER 図の多重度の語を語の境界で取る」（症状 / 原因 / 修正 / テスト / 経緯 / 残っている差）を足し、冒頭の消す条件を「1 と 2 の両方を含む版が出たら」にした
+- ルートと `src-tauri` の `Cargo.toml` の `[patch.crates-io]` のコメント、`features/er-diagram/utils/er-names.ts` の理由のコメント（フォーク元のコードなので Lorelei・spec への言及は入れない）、CLAUDE.md の merman-core の行と現状
 

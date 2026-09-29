@@ -37,7 +37,8 @@ rfd = "0.17"
 tauri = { version = "2", features = ["test"] }
 
 # **ルートの [patch.crates-io] はこの独立 project には効かない**。同じ patch を書かないと、GUI だけが
-# 日本語のノード ID を拒否する修正前の merman-core を使う (vendor/merman-core/LORELEI_PATCH.md)。
-# 効いていることは tests で固定している (japanese_node_ids_are_accepted_in_the_gui_build)
+# 修正前の merman-core (日本語のノード ID・ER 図の tokens などの名前を拒否する) を使う (vendor/merman-core/LORELEI_PATCH.md)。
+# 効いていることは tests で固定している (japanese_node_ids_are_accepted_in_the_gui_build /
+# er_names_starting_with_cardinality_words_are_accepted_in_the_gui_build)
 [patch.crates-io]
 merman-core = { path = "../vendor/merman-core" }

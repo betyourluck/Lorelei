@@ -30,7 +30,7 @@ rmcp = "2.2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 base64 = "0.22"
 
-# merman-core 0.8.0-alpha.6 は日本語などのノード ID を拒否する (mermaid.js は受け付ける)。
-# 修正版を上流へ PR するまで写しを使う。差分は vendor/merman-core/LORELEI_PATCH.md (spec 01「P1 で判明したこと」)
+# merman-core 0.8.0-alpha.6 は日本語などのノード ID を拒否し (上流 #146 でマージ済み)、ER 図の tokens などの名前を
+# 誤りにする (spec 14)。両方を含む版が crates.io に出るまで写しを使う。差分は vendor/merman-core/LORELEI_PATCH.md
 [patch.crates-io]
 merman-core = { path = "vendor/merman-core" }

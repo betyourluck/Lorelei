@@ -28,7 +28,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   CSP は style-src の自動ハッシュ追記を止めている
 - **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは spec 01 の 4 ファイル・8 行 + spec 02 の 5 ファイル・12 行（`app/layout.tsx` の外枠、エディタ 2 つの高さ、パネル 2 つの `useDesktopActions`。重なりを除いて計 7 ファイル）+ spec 04 P0 でエディタ 2 つの初期図を export（`initialFlowNodes` / `initialERNodes`。初期図の突き合わせ用。ファイルは既存の 7 つに含まれる）+ spec 07 P2 でパネル 2 つの `useDesktopActions` に向き（`direction` / `setDirection`）を足した（同じ 2 ファイル）
 - **フロント（`app/` `features/` `components/`）**: フォーク元のコード。直してよい（下の掟の「フォーク元は必要なら直してよい」）。
-  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」に一覧がある。PR を出すかは利用者が決める。
+  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」に一覧がある。PR を出すかは利用者が決める。
   **デスクトップではフォーク元のパネル（インポートを含む）を隠し、ツールバーから `lib/desktop/` のダイアログを開く** — フォーク元の部品を直したら、デスクトップのどの操作がどの部品を開くかを確かめる（failures #17）
 
 ## 掟（Mandate）
@@ -60,6 +60,11 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
+- 2026-09-29: [spec 14](specs/14_merman-er-word-boundary.md) rev1 — **P0〜P2 着地、P3（上流 PR）待ち**（merman の ER 図の字句解析が `many` / `one` / `to` を境界なしで取り、
+  AI が書いた ER 図の `tokens` などのテーブル名を誤りにしていた（`A one to onerous : x` は名前が `rous` に化けた）。写しを mermaid.js の `\b` と同じ境界にした）
+- 2026-09-29: [spec 13](specs/13_er-names.md) rev2 — **P0・P1 着地、P2〜P4 待ち**（ER 図の生成器が空白を含むテーブル名をそのまま書き、デスクトップで開き直せない・テーブルが割れる。
+  テーブル名・関係のラベルを要る時だけ囲み、書けない列は書き出さない（`quoteErName` / `columnIssue`）。P0 で mermaid.js と merman に名前の格子を通して規則を決めた。
+  関係のラベルは spec 11 D5 の取りこぼし（キーワードのラベル・Rust の取り込みが `#quot;` を戻さない, failures #19）。P2 = 入力欄の印・ダイアログ・テーブル名の確定、P3 = Rust の戻し、P4 = 配布ビルド）
 - 2026-09-29: [spec 12](specs/12_remove-legacy-parser.md) **Done** — rev0（フォーク元の正規表現のパーサー `parseMermaidCode` / `convertMermaidToERData` を撤去。
   取り込みは spec 11 の mermaid.js の経路だけ。古いパーサーを使っていたテスト（往復・デスクトップの `convert_source` の模擬）は mermaid.js の経路へ移した）
 - 2026-09-29: [spec 11](specs/11_import-via-mermaid.md) **Done** — rev1（インポートの取り込みを**フォーク元の正規表現のパーサーから mermaid.js 11.17.2 の解析**
@@ -94,10 +99,11 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   静的書き出しが通るかの確かめは `TAURI_ENV_PLATFORM` を付けた `next build`（→ `out/`）。**素の `next build` は git の中の `docs/`（GitHub Pages）を上書きする**（failures #18）
 - **`src-tauri/Cargo.toml` にもルートと同じ `[patch.crates-io]` がある**（独立 project なのでルートの patch が効かない）。
   merman-core の patch を外す時は両方消す
-- **merman-core は `vendor/` の修正版を使っている**（日本語のノード ID を受け付けるため）。修正は上流に **マージ済み**
-  （[Latias94/merman#146](https://github.com/Latias94/merman/pull/146)、2026-09-24）だが、2026-09-28 時点で crates.io にはまだ入っていない
-  （最新 `0.8.0-alpha.6`）。**新しい版が出たら `merman` の版を上げて写しと patch を消す**。写しはマージ版の意味（mermaid.js の `UNICODE_TEXT` 範囲表、
-  キーワード境界は ASCII）に揃えてある。経緯は `vendor/merman-core/LORELEI_PATCH.md`
+- **merman-core は `vendor/` の修正版を使っている**。修正は 2 つ: ① 日本語のノード ID を受け付ける（上流に **マージ済み**、
+  [Latias94/merman#146](https://github.com/Latias94/merman/pull/146)、2026-09-24。写しはマージ版の意味 = mermaid.js の `UNICODE_TEXT` 範囲表、キーワード境界は ASCII）
+  ② ER 図の `many` / `one` / `to` を語の境界で取る（`tokens` などの名前を通す。spec 14。上流 PR は spec 14 P3）。
+  2026-09-29 時点で crates.io の最新は `0.8.0-alpha.6` で、どちらも入っていない。**両方を含む版が出たら `merman` の版を上げて写しと patch を消す**。
+  写しの中では merman-core のテストをコンパイルできない（上流の `fixtures/` を読む）— 上流側のテストは上流の作業場所で回す。経緯は `vendor/merman-core/LORELEI_PATCH.md`
 - 同梱フォントのライセンス文は `crates/lorelei_core/fonts/OFL.txt`（google/fonts の ofl/notosansjp から取得）。
   配布物の `licenses/` に同梱し、About（タイトルバーの「?」。spec 02 でネイティブのメニューを撤去）に一覧を出す
 - vitest は 2026-09-29 から **「全件緑かつ exit 0（未処理のエラー 0）」を基準にできる**。この環境では全件を並列に走らせると 5 秒の際のテストが順に時間切れになるので、

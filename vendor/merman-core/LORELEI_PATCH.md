@@ -4,9 +4,10 @@
 https://github.com/Latias94/merman 、MIT OR Apache-2.0）。ルートの `Cargo.toml` の
 `[patch.crates-io]` で差し替えている。**`src-tauri/Cargo.toml` にも同じ patch がある**（独立 project なのでルートの patch が効かない）。
 
-**修正は上流にマージ済み（[Latias94/merman#146](https://github.com/Latias94/merman/pull/146)、2026-09-24、`d61d92c`）。
-crates.io に `0.8.0-alpha.6` より新しい版が出たら、`Cargo.toml` の `merman` の版を上げ、この写しと両方の patch を消す。**
-2026-09-28 時点で crates.io の最新は `0.8.0-alpha.6`（09-02 公開）のままで、マージ版を含む版はまだ無い。
+修正は 2 つ。1 は上流にマージ済み（[Latias94/merman#146](https://github.com/Latias94/merman/pull/146)、2026-09-24、`d61d92c`）。
+2 は上流へ PR を出す前（spec 14 P3）。
+**crates.io に 1 と 2 の両方を含む版が出たら、`Cargo.toml` の `merman` の版を上げ、この写しと両方の patch を消す。**
+2026-09-29 時点で crates.io の最新は `0.8.0-alpha.6`（09-02 公開）のままで、1 を含む版もまだ無い。
 上流 main を git 依存で指す案は採らなかった（alpha.6 から 70 コミット先で、#120 の flowchart parity など 300 ファイルの未検証の変更が入るため）。
 
 無改変の写しは `dd4cca1`。そこからの差分が下の修正のすべて（`git diff dd4cca1 -- vendor/`）。
@@ -46,3 +47,30 @@ crates.io に `0.8.0-alpha.6` より新しい版が出たら、`Cargo.toml` の 
 - **このエラーは行番号を失う**: 字句解析のエラーは生成時に span を持つが、`Engine::parse_diagram_sync` の
   戻り値では `span: None` になっている。validate が行番号を返せない。別件として上流に報告する候補。
 - 範囲表の CJK 統合漢字は `U+4E00..U+9FCC`（mermaid.js の表のまま）。`U+9FCD` 以降に後から足された漢字は通らないが、実用上は出会わない。
+
+## 2. ER 図の多重度の語（`many` / `one` / `to` など）を語の境界で取る（2026-09-29、spec 14）
+
+- **症状**: `erDiagram\n  A ||--o{ tokens : has` が `unexpected identifying; expected name` で失敗する。`topic`・`total`・`oneshot`・`manyToMany` も同じ。
+  関係のラベルの `tokens` も誤り。`A one to onerous : x` は誤りにならず、テーブル名が **`rous`** に化けて通る。mermaid.js 11.17.2 は前者を通し、後者を誤りにする。
+- **原因**: `src/diagrams/er.rs` の `lex_rel_tokens` が、複数語の多重度 8 つ（`one or zero`・`only one`・`optionally to` など）と `many`・`one`・`to` を
+  `lower.starts_with(…)` で境界を見ずに取っていた。字句解析の振り分けで `lex_rel_tokens` は `lex_name_or_str` より先に呼ばれるので、名前の先頭が多重度の語として食われる。
+  mermaid.js は `/^(?:many\b)/i`・`/^(?:to\b)/i` などで、末尾に `\b` を持つ（`|o\b`・`}o\b` も）。
+- **修正**: `ends_word_at`（一致した語の直後が入力の終わりか、ASCII の `[A-Za-z0-9_]` でなければ真 = mermaid.js の Unicode フラグなしの `\b`）を足し、
+  複数語の 8 つ・`many`・`one`・`to`・`|o`・`}o` の一致の条件にした。`many(0)`・`many(1)`・`0+`・`1+` と記号には足さない（mermaid.js にも無い）。
+  **境界は ASCII のまま**: `to-do`・`to注文`・ラベルの `one-to-one` は mermaid.js と同じく誤り。
+- **テスト**: 写しの `src/tests/er.rs` に `parse_diagram_er_entity_names_may_start_with_cardinality_words` / `parse_diagram_er_cardinality_word_boundary_is_ascii`（上流 PR と同じ）。
+  写しの中では merman-core のテストをコンパイルできない（上流の `fixtures/` を `include_str!` で読む）ので、上流 main（`72c02477`。er.rs は写しと同じ）に同じ差分を当てた作業場所で回した:
+  足した 2 本は直す前に落ち、直した後に通る。`merman-core` の全テストと `merman-render` の ER 図のテストも通る。
+  Lorelei 側は `crates/lorelei_core/tests/editor.rs` の `er_names_may_start_with_cardinality_words_like_mermaid_js` / `er_cardinality_word_boundary_is_ascii_like_mermaid_js`、
+  `src-tauri` の `er_names_starting_with_cardinality_words_are_accepted_in_the_gui_build`（patch の見張り）。
+- **Lorelei の生成器への影響は無い**: spec 13 の `quoteErName` は `to`・`one`・`many` で始まる名前を囲んで書く（修正の前から当たらない）。当たっていたのは AI が書いた ER 図。
+
+### 経緯
+
+- 2026-09-29: spec 13 の P0（名前の格子を mermaid.js と merman に通した実測）で見つけた。上流 main も未修正で、issue・PR も無い（全件で確認）。写しに当てた（`bd2962a`）。上流 PR は spec 14 P3。
+
+### 残っている差（今回の修正の範囲外。merman のほうが緩い向き）
+
+- `starts_with_word_ci` の境界は空白と `:{}[];` だけ: `end-user`・`style-guide`・`end注文` を merman は名前として通し、mermaid.js は誤りにする。
+- `direction` を名前に使うと merman だけが誤り（mermaid.js は `direction` + 空白 + 向き の時だけ向きとして読む）。
+- 行頭（インデントなし）の `u-table`・`1abc` は merman が通し、mermaid.js は割る・誤りにする。
