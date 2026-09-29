@@ -167,7 +167,7 @@ MermaidImport:
     summary: "取り込むと消えるもの: <describeDropped>。取り込みと同じ計算 (from-mermaid の dropped)。400ms 止まったら作り直す"
     lines: "features/*/utils/drop-warnings.ts の字句の目安 → CodeEditor の warnings (黄色)。デスクトップは 1 行目の図の種類で規則を選ぶ"
     labels: "components/ui/mermaid-dropped.ts の describeDropped / DroppedItem。lib/desktop/open-requests.ts (MCP の通知) はこれを再エクスポートする"
-  generator: "ノードのラベルは ( ) [ ] { } | \" か #語; を含む時だけ \"…\" で囲み、中の \" は #quot;、#語; の # は #35;。空のラベルは [\" \"]。ER 図の関係のラベルは文字・数字・_・- だけならそのまま、ほかは囲む。< > はそのまま (mermaid はラベルを HTML として扱う)"
+  generator: "ノードのラベルは ( ) [ ] { } | \" か #語; を含む時だけ \"…\" で囲み、中の \" は #quot;、#語; の # は #35;。空のラベルは [\" \"]。< > はそのまま (mermaid はラベルを HTML として扱う)。ER 図 (spec 13 D1・D2): テーブル名・関係の両端・関係のラベルは quoteErName — ^[\\p{L}_][\\p{L}\\p{N}_-]*$ に合い、erdiagram / style / classdef / class / subgraph / end / direction / acctitle / accdescr / many / one / to で始まらず (大文字小文字を問わない前方一致)、u- / u. で始まらない時だけそのまま、ほかは \"…\" で囲む。囲んだ中は #語; の # → #35;、& → #38;、\" → #quot;、% → #37;、バックスラッシュ → #92;、direction + 空白 + 向き の空白 → #<符号位置>; の順。列は columnIssue が null の時だけ書く (名前・型とも mermaid.js の列の規則の形、PK / FK / UK で始まらない。型は ~ 2 つの総称型も可)。全部の列を書かない時は 名前 { } のまま"
   differs_from_export: "書き出し (SVG / PNG / PDF) は merman。描き手・書体・ラベルの描き方が違うので一致しない (LORELEI.md 既知の制約)"
 
 CodeEditor:
