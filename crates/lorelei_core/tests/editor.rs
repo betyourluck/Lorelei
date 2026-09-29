@@ -378,3 +378,38 @@ fn edge_ids_stay_unique_with_dashed_node_ids() {
     let ids: Vec<_> = data.edges.iter().map(|e| e.id.as_str()).collect();
     assert_eq!(ids, ["a-b-c", "a-b-c-2"]);
 }
+
+// ---------- spec 14: merman の ER 図の字句解析で to / one / many を語の境界で取る ----------
+
+/// to / one / many で始まるテーブル名・関係のラベルが、mermaid.js と同じく通る (写しの修正前は merman だけが誤りにした)
+#[test]
+fn er_names_may_start_with_cardinality_words_like_mermaid_js() {
+    for name in ["tokens", "topic", "total", "toy", "oneshot", "manyToMany", "many_items", "TOTAL"] {
+        let (data, dropped) = er(&format!("erDiagram\n  A ||--o{{ {name} : has\n  {name} ||--|| B : {name}\n"));
+        let names: Vec<_> = data.nodes.iter().map(|n| n.name.as_str()).collect();
+        assert_eq!(names, ["A", name, "B"], "{name}");
+        let labels: Vec<_> = data.edges.iter().map(|e| e.data.label.as_str()).collect();
+        assert_eq!(labels, ["has", name], "{name}");
+        assert!(dropped.is_empty(), "{name}: {dropped:?}");
+    }
+}
+
+/// 境界は ASCII のまま (mermaid.js の \b と同じ)。境界のある語はこれまでどおり多重度として取り、名前が黙って化けない
+#[test]
+fn er_cardinality_word_boundary_is_ascii_like_mermaid_js() {
+    for line in [
+        "A ||--o{ to : has",
+        "A ||--o{ one : has",
+        "A ||--o{ to注文 : has",
+        "A ||--o{ B : one-to-one",
+        // 写しの修正前は通り、テーブル名が rous / self に化けていた
+        "A one to onerous : x",
+        "A only one to oneself : has",
+    ] {
+        assert!(!validate(&format!("erDiagram\n  {line}\n")).unwrap().ok, "{line}");
+    }
+    let (data, _) = er("erDiagram\n  A one to many tokens : has\n");
+    let names: Vec<_> = data.nodes.iter().map(|n| n.name.as_str()).collect();
+    assert_eq!(names, ["A", "tokens"]);
+    assert_eq!(data.edges[0].data.cardinality, "one-to-many");
+}

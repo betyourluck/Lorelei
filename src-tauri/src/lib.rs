@@ -415,6 +415,13 @@ mod tests {
         assert!(v.ok, "{v:?}");
     }
 
+    /// 同じく spec 14 の修正 (ER 図の to / one / many を語の境界で取る) もこの project で効くこと
+    #[test]
+    fn er_names_starting_with_cardinality_words_are_accepted_in_the_gui_build() {
+        let v = lorelei_core::validate("erDiagram\n  A ||--o{ tokens : has\n").unwrap();
+        assert!(v.ok, "{v:?}");
+    }
+
     // HTTP の MCP の open_in_editor は GUI の中でじかに届く (spec 03 D1): 一覧に 1 件足し、フロントへの預かりに積む
     #[test]
     fn http_open_in_editor_adds_a_document_and_queues_it() {
