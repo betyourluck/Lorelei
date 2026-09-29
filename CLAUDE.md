@@ -62,9 +62,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
 - 2026-09-29: [spec 14](specs/14_merman-er-word-boundary.md) **Done** — rev1（上流 PR [Latias94/merman#153](https://github.com/Latias94/merman/pull/153) はマージ待ち。merman の ER 図の字句解析が `many` / `one` / `to` を境界なしで取り、
   AI が書いた ER 図の `tokens` などのテーブル名を誤りにしていた（`A one to onerous : x` は名前が `rous` に化けた）。写しを mermaid.js の `\b` と同じ境界にした）
-- 2026-09-29: [spec 13](specs/13_er-names.md) rev2 — **P0〜P2 着地、P3・P4 待ち**（ER 図の生成器が空白を含むテーブル名をそのまま書き、デスクトップで開き直せない・テーブルが割れる。
+- 2026-09-29: [spec 13](specs/13_er-names.md) rev2 — **P0〜P3 着地、P4（配布ビルド）待ち**（ER 図の生成器が空白を含むテーブル名をそのまま書き、デスクトップで開き直せない・テーブルが割れる。
   テーブル名・関係のラベルを要る時だけ囲み、書けない列は書き出さない（`quoteErName` / `columnIssue`）。P0 で mermaid.js と merman に名前の格子を通して規則を決めた。
-  関係のラベルは spec 11 D5 の取りこぼし（キーワードのラベル・Rust の取り込みが `#quot;` を戻さない, failures #19）。P2 で入力欄の印・コード生成のダイアログの一覧・テーブル名の確定。P3 = Rust の戻し、P4 = 配布ビルド）
+  関係のラベルは spec 11 D5 の取りこぼし（キーワードのラベル・Rust の取り込みが `#quot;` を戻さない, failures #19）。P2 で入力欄の印・コード生成のダイアログの一覧・テーブル名の確定。P3 で Rust の取り込みも名前とラベルを戻す（TS の生成器の出力を fixture にして Rust に通す）。P4 = 配布ビルド）
 - 2026-09-29: [spec 12](specs/12_remove-legacy-parser.md) **Done** — rev0（フォーク元の正規表現のパーサー `parseMermaidCode` / `convertMermaidToERData` を撤去。
   取り込みは spec 11 の mermaid.js の経路だけ。古いパーサーを使っていたテスト（往復・デスクトップの `convert_source` の模擬）は mermaid.js の経路へ移した）
 - 2026-09-29: [spec 11](specs/11_import-via-mermaid.md) **Done** — rev1（インポートの取り込みを**フォーク元の正規表現のパーサーから mermaid.js 11.17.2 の解析**

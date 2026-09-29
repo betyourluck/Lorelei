@@ -2,7 +2,7 @@
 
 **ID**: 13
 **Date**: 2026-09-29
-**Status**: rev2（裁定 3 件済み・査読 2 本を反映・**P0〜P2 着地**。P3（Rust の戻し）・P4（配布ビルド）待ち。merman の不具合は spec 14 で扱った）
+**Status**: rev2（裁定 3 件済み・査読 2 本を反映・**P0〜P3 着地**。P4（配布ビルド）待ち。merman の不具合は spec 14 で扱った）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。ただし**フォーク元の改善（P1・P2）とデスクトップ・Rust（P3・P4）はコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする
 
 ## Goal
@@ -236,4 +236,17 @@ mermaid.js 11.17.2（`readMermaidDiagram`）と merman（`to_editor`）に通し
   触っていないものは HEAD に戻し、テストを足した 4 ファイルは HEAD + 足した部分（と import）だけに組み直した。整形は変えたファイルだけに当てる
 - 全体: vitest 74 ファイル 794 件、exit 0。型検査・lint（変えたファイル。`er-table-content.test.tsx` の `useEffect` の警告は既存のコード）通過
 - D4: LORELEI.md の既知の制約を書き換えた。data_contract に `ErUnwritableColumns`
+
+## P3 結果（2026-09-29）
+
+| コミット | 中身 | テスト（Red → Green） |
+|---|---|---|
+| `023bb72`（Lorelei 側） | `crates/lorelei_core/src/editor.rs` の ER 図の変換で、テーブルの名前（関係の両端も）と関係のラベル（`roleA`）に `merman::entities::decode_mermaid_entities_to_unicode` を当てる（`decode_text`） | `editor.rs` の `er_generator_names_round_trip_through_merman`: fixture `tests/fixtures/er_names.json`（TS の生成器の出力。名前の格子 50 通り = P1 の往復と同じ入力）を `to_editor` に通し、名前・関係の両端・ラベルが元の文字に戻り、落としたものが無い |
+
+- **Red**: 直す前は `a"b` で落ちた（名前が `aﬂ°quot¶ßb`）。格子のうち、それより前の `tokens`・`topic`・`oneshot` などは spec 14 の写しの修正で既に通っている
+- fixture と今の生成器の出力が一字一句同じことは `__tests__/lorelei/er-names-fixture.test.ts` が確かめる（生成器を変えたら落ちる。`LORELEI_UPDATE_FIXTURES=1` で書き直す）。
+  TS の生成器の出力を Rust のテストへ渡す形は、TS と Rust の 2 つの取り込みが同じコードを読む Lorelei の形に合わせた（failures #19 の一般化「出力を読む経路すべてで往復を確かめる」）
+- 全体: `cargo test --workspace`・`cargo clippy --workspace --all-targets -- -D warnings`・`src-tauri` の `cargo test`・vitest 75 ファイル 795 件 exit 0
+- 受け入れ条件 1 は TS（P1）と Rust（P3）がそろったので通過（判定は P4 の後に「受け入れ条件の結果」でまとめる）
+- data_contract の `EditorPayload.mapping.erDiagram` の `entity`・`label` に戻しを書いた
 

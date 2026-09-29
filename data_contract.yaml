@@ -110,8 +110,8 @@ EditorPayload:
       output: "ParsedMermaidERData { nodes: [{ id, name, columns: [{ name, type, pk, uk, fk? }] }], edges: [{ id: edge-N, type: erEdge, source, target, data: { label, cardinality } }], direction? }"
       direction: "flowchart と同じ GraphType。無ければ TD (spec 07 D1)"
       keys: "merman の attribute.keys (PK / UK / FK の配列、順は問わない) → pk / uk / fk。fk は無ければ false (spec 07 D2。古い保存データ・フォーク元の既存データを壊さない)"
-      entity: "id = name = merman の entities のキー (alias は使わない)"
-      label: "roleA をそのまま。空なら空 (フォーク元の生成器が出力時に relation で補う)"
+      entity: "id = name = merman の entities のキー (alias は使わない) を、mermaid の内部の符号と HTML の実体参照を戻した文字 (spec 13 P3。Rust は merman::entities::decode_mermaid_entities_to_unicode、TS は写しの decodeText。関係の両端も同じ名前)"
+      label: "roleA を、内部の符号と実体参照を戻した文字 (spec 13 P3。以前の Rust はそのままで #quot; が符号になった, failures #19)。空なら空 (フォーク元の生成器が出力時に relation で補う)"
       cardinality:   # merman の (cardB = 左側の記号, cardA = 右側の記号)。2026-09-24 実測で確認
         "ONLY_ONE, ONLY_ONE": one-to-one               # ||--||
         "ONLY_ONE, ZERO_OR_MORE": one-to-many          # ||--o{
