@@ -2,7 +2,7 @@
 
 **ID**: 14
 **Date**: 2026-09-29
-**Status**: **Done**（2026-09-29。rev1 → P0〜P3 着地。上流 PR [Latias94/merman#153](https://github.com/Latias94/merman/pull/153) はマージ待ち —「P3 結果」「受け入れ条件の結果」）
+**Status**: **Done**（2026-09-29。rev1 → P0〜P3 着地。上流 PR [Latias94/merman#153](https://github.com/Latias94/merman/pull/153) は 2026-09-29 にマージ済み（`2d70832e`） —「P3 結果」「受け入れ条件の結果」）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。上流への PR は fork `betyourluck/merman` の枝から出す（spec 01 の #146 と同じ流れ）
 
 ## Goal
@@ -131,4 +131,10 @@ merman が mermaid.js より**緩い**向きの食い違いは直さない（名
 | 2 | **通過** | `er_cardinality_word_boundary_is_ascii_like_mermaid_js`、上流の `parse_diagram_er_cardinality_word_boundary_is_ascii` |
 | 3 | **通過** | 上流の作業場所で `merman-core` 全テスト・`merman-render` の ER 図のテスト、Lorelei の `cargo test --workspace`・`src-tauri` の `cargo test` |
 | 4 | **通過** | PR #153 を提出（マージは上流次第）。番号を `LORELEI_PATCH.md` に書いた |
+
+## マージ（2026-09-29）
+
+- 上流の Latias94 がテストを 1 コミット足して（`83b5b205` `test(er): cover cardinality alias word boundaries`）マージした（`2d70832e`）。lexer（`er.rs`）はマージ版と写しで同じ
+- 写しの `src/tests/er.rs` をマージ版に揃えた（+35 行。`|o`・`}o`・複数語の多重度の直後に名前が続くと誤り、`A one optionally toone B` も誤り）。写しの挙動は変わらない
+- crates.io の最新は 2026-09-30 時点で `0.8.0-alpha.6` のまま。#146 と #153 の両方を含む版が出たら写しと patch を消す
 
