@@ -28,7 +28,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   CSP は style-src の自動ハッシュ追記を止めている
 - **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは spec 01 の 4 ファイル・8 行 + spec 02 の 5 ファイル・12 行（`app/layout.tsx` の外枠、エディタ 2 つの高さ、パネル 2 つの `useDesktopActions`。重なりを除いて計 7 ファイル）+ spec 04 P0 でエディタ 2 つの初期図を export（`initialFlowNodes` / `initialERNodes`。初期図の突き合わせ用。ファイルは既存の 7 つに含まれる）+ spec 07 P2 でパネル 2 つの `useDesktopActions` に向き（`direction` / `setDirection`）を足した（同じ 2 ファイル）
 - **フロント（`app/` `features/` `components/`）**: フォーク元のコード。直してよい（下の掟の「フォーク元は必要なら直してよい」）。
-  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」に一覧がある。PR を出すかは利用者が決める。
+  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」「P4 結果」に一覧がある。PR を出すかは利用者が決める。
   **デスクトップではフォーク元のパネル（インポートを含む）を隠し、ツールバーから `lib/desktop/` のダイアログを開く** — フォーク元の部品を直したら、デスクトップのどの操作がどの部品を開くかを確かめる（failures #17）
 
 ## 掟（Mandate）
@@ -62,9 +62,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
 - 2026-09-29: [spec 14](specs/14_merman-er-word-boundary.md) **Done** — rev1（上流 PR [Latias94/merman#153](https://github.com/Latias94/merman/pull/153) はマージ待ち。merman の ER 図の字句解析が `many` / `one` / `to` を境界なしで取り、
   AI が書いた ER 図の `tokens` などのテーブル名を誤りにしていた（`A one to onerous : x` は名前が `rous` に化けた）。写しを mermaid.js の `\b` と同じ境界にした）
-- 2026-09-29: [spec 13](specs/13_er-names.md) rev2 — **P0〜P3 着地、P4（配布ビルド）待ち**（ER 図の生成器が空白を含むテーブル名をそのまま書き、デスクトップで開き直せない・テーブルが割れる。
+- 2026-09-29: [spec 13](specs/13_er-names.md) **Done** — rev2（ER 図の生成器が空白を含むテーブル名をそのまま書き、デスクトップで開き直せない・テーブルが割れる。
   テーブル名・関係のラベルを要る時だけ囲み、書けない列は書き出さない（`quoteErName` / `columnIssue`）。P0 で mermaid.js と merman に名前の格子を通して規則を決めた。
-  関係のラベルは spec 11 D5 の取りこぼし（キーワードのラベル・Rust の取り込みが `#quot;` を戻さない, failures #19）。P2 で入力欄の印・コード生成のダイアログの一覧・テーブル名の確定。P3 で Rust の取り込みも名前とラベルを戻す（TS の生成器の出力を fixture にして Rust に通す）。P4 = 配布ビルド）
+  関係のラベルは spec 11 D5 の取りこぼし（キーワードのラベル・Rust の取り込みが `#quot;` を戻さない, failures #19）。P2 で入力欄の印・コード生成のダイアログの一覧・テーブル名の確定。P3 で Rust の取り込みも名前とラベルを戻す（TS の生成器の出力を fixture にして Rust に通す）。P4 の配布ビルドで、`"` を含むテーブル名の図を開くと落ちる不具合を見つけて直した（xyflow の `useUpdateNodeInternals` が ID をセレクタにエスケープせずに埋める, failures #20））
 - 2026-09-29: [spec 12](specs/12_remove-legacy-parser.md) **Done** — rev0（フォーク元の正規表現のパーサー `parseMermaidCode` / `convertMermaidToERData` を撤去。
   取り込みは spec 11 の mermaid.js の経路だけ。古いパーサーを使っていたテスト（往復・デスクトップの `convert_source` の模擬）は mermaid.js の経路へ移した）
 - 2026-09-29: [spec 11](specs/11_import-via-mermaid.md) **Done** — rev1（インポートの取り込みを**フォーク元の正規表現のパーサーから mermaid.js 11.17.2 の解析**

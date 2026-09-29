@@ -253,3 +253,16 @@
 - **処方**: spec 13 で、テーブル名と関係のラベルを同じ囲み方（D1）で書き、Rust の `to_editor` に `merman::entities::decode_mermaid_entities_to_unicode` を当てる（P3）
 - **一般化**: 生成器の出力の規則を変えたら、**その出力を読む経路すべて**（mermaid.js の TS の写し・merman の Rust の変換）で往復を確かめる。Lorelei では同じコードを 2 つの解析器が読む。
   「通る」の確かめは、境界の入力（キーワード・数字始まり・記号）を格子にして両方に同じものを通す（spec 13 P0 の形）
+
+## #20 名前を正しく戻すようにしたら、" を含むテーブル名の図を開くとアプリが落ちるようになった（2026-09-29, spec 13 P4）
+
+- **症状**: 配布ビルドで ER 図のテーブル名を `顧客 "VIP"` にして保存し、起動し直すと「Application error: a client-side exception has occurred」の白い画面になり、操作できなくなった。
+  起動時に前回の図を開くので、起動するたびに落ちる。保存された source（`"顧客 #quot;VIP#quot;"`）は正しかった
+- **真因**: 取り込んだ ER 図のテーブルの ID は名前そのもの。spec 07 でノードの部品が描くたびに xyflow の `useUpdateNodeInternals(id)` を呼ぶようにしたが、
+  xyflow はその ID をエスケープせずに `.react-flow__node[data-id="${id}"]` のセレクタに埋める（12.8.2・最新の 12.12.0 とも）。ID に `"` があると `SyntaxError: not a valid selector`。
+  spec 13 P3 より前は、Rust の取り込みが `"` を符号（`ﬂ°quot¶ß`）のまま残していたので、この穴に当たらなかった — **正しく戻すようにした直しが、下流の穴を表に出した**。
+  名前の格子の往復は生成器と 2 つの取り込みまでで止めていて、取り込んだ結果を画面に描くところまで通していなかった
+- **処方**: ID を CSS の文字列として逃がす自前の `useUpdateNodeInternals`（`features/flowchart/hooks/use-update-node-internals.ts`）に替えた（ER 図のテーブル・フローチャートのノード）。
+  `features/er-diagram/__tests__/er-table-node.test.tsx` で `"` の ID を xyflow の中で描く（Red: 同じ SyntaxError → Green）。`\` の ID は例外にならないが、要素が見つからず測り直しが黙って飛んでいた
+- **一般化**: 名前・ID を「元の文字に戻す」直しは、その文字列が行き着く先（DOM の属性・CSS セレクタ・ファイル名・URL）すべてで特殊文字として解釈されうる。
+  往復のテストの格子は、変換の段だけでなく**描画まで**通す（最後の段は実機で見るまで分からなかった）。外部の部品が文字列を埋め込む所（`querySelector`・`innerHTML`）は grep で先に洗う

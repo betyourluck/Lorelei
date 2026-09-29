@@ -2,7 +2,7 @@
 
 **ID**: 13
 **Date**: 2026-09-29
-**Status**: rev2（裁定 3 件済み・査読 2 本を反映・**P0〜P3 着地**。P4（配布ビルド）待ち。merman の不具合は spec 14 で扱った）
+**Status**: **Done**（2026-09-29。rev2 → P0〜P4 着地。P4 で見つけた落ちる不具合（failures #20）も直した。受け入れ条件 1〜6 通過 —「P4 結果」「受け入れ条件の結果」）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。ただし**フォーク元の改善（P1・P2）とデスクトップ・Rust（P3・P4）はコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする
 
 ## Goal
@@ -249,4 +249,32 @@ mermaid.js 11.17.2（`readMermaidDiagram`）と merman（`to_editor`）に通し
 - 全体: `cargo test --workspace`・`cargo clippy --workspace --all-targets -- -D warnings`・`src-tauri` の `cargo test`・vitest 75 ファイル 795 件 exit 0
 - 受け入れ条件 1 は TS（P1）と Rust（P3）がそろったので通過（判定は P4 の後に「受け入れ条件の結果」でまとめる）
 - data_contract の `EditorPayload.mapping.erDiagram` の `entity`・`label` に戻しを書いた
+
+## P4 結果（2026-09-29、配布ビルド。画面は利用者のスクリーンショット）
+
+- **1 回目の配布ビルド**（`tauri build --no-bundle`）で利用者が確かめた:
+  - テーブル名 `注文 明細`・関係のラベル `行う（本人）` を作って保存し、起動し直して一覧から開くと、割れず・符号にならずに戻る（画面）
+  - `注文 日`（空白入り）の列に赤枠（画面）。保存して再起動するとその列が消え、`total` は残る（画面。保存された source にも `注文 日` の行が無いことを読んで確かめた）
+  - 空のテーブル名の確定で前の名前に戻る: 利用者の「1〜3 まで確認」の一言だけで、デスクトップの画面は無い（Web 版は画面で確かめた — P2 結果）
+  - **AI の読み戻し**: このセッションは GUI の MCP に接続できなかった（起動時に接続に失敗したユーザー設定のサーバー）。代わりに `read_diagram` が返すのと同じ、保存された図の source を
+    `{app_data_dir}/documents/` から読み、`lorelei_core` の `validate`（通る・誤り 0）と `to_editor`（名前・ラベル・多重度が戻る、落としたもの 0）に使い捨てのテストで通した
+- **落ちる不具合を見つけた**: テーブル名を `顧客 "VIP"` にして起動し直すと「Application error: a client-side exception has occurred」の白い画面になり、起動のたびに落ちた。
+  保存された source（`"顧客 #quot;VIP#quot;"`）は正しかった。真因は xyflow の `useUpdateNodeInternals` が ID を CSS セレクタにエスケープせずに埋めること（ID = 名前）。
+  P3 で `"` を正しく戻すようにしたことで表に出た（failures #20）。`e6acb9a`（**フォーク元の改善**）で、ID を逃がす自前の `useUpdateNodeInternals` に替えた（テスト: `er-table-node.test.tsx`、Red は同じ SyntaxError）
+- **作り直した配布ビルド**で利用者が確かめた: 同じ図が白い画面にならずに開き、テーブル名は `顧客 "VIP"`（画面）/ `total 頭`（空白入り）に変えてコード生成を開くと、見出しの下に
+  「書き出していない列: 顧客 "VIP".total 頭（名前に空白）」、コードは `"顧客 #quot;VIP#quot;"` でその列が無く、プレビューは `顧客 "VIP"` を描く（画面）
+
+### 受け入れ条件の結果（2026-09-29）
+
+| # | 結果 | 根拠 |
+|---|---|---|
+| 1 | **通過** | 名前の格子 50 通り: mermaid.js + TS の取り込み（P1）、merman + Rust の取り込み（P3、同じ生成器の出力の fixture）。配布ビルドで空白・`"`・括弧の名前とラベルが開き直しで戻る（P4） |
+| 2 | **通過** | 生成器のテスト（書けない列を飛ばしてもコードが通る）。入力欄の印・ダイアログの一覧は Web 版（P2）と配布ビルド（P4）の画面 |
+| 3 | **通過** | `er-table-content.test.tsx`（Enter・フォーカス外れ・空・空白だけ）、Web 版の画面（P2）。配布ビルドは利用者の一言だけ |
+| 4 | **通過** | 配布ビルドで閉じて開き直すと同じテーブル・関係（D2 の書き出さない列を除く）。保存された source を `to_editor` に通して確認 |
+| 5 | **通過** | `doc-session.test.ts` の `initial_sources` の突き合わせが緑のまま |
+| 6 | **通過** | vitest 76 ファイル 797 件 exit 0、`cargo test --workspace`・`src-tauri` の `cargo test`・`clippy -D warnings` |
+
+- **上流へ返せるコミット**（フォーク元の改善だけ）: `eb9f668`（P1）・`0562da8`（コメント）・`af9ba88`（P2）・`e6acb9a`（P4 の落ちる不具合）。PR を出すかは利用者が決める
+- xyflow の ID のエスケープ漏れは最新の `@xyflow/react` 12.12.0 でも同じ。上流に報告するかは利用者が決める
 
