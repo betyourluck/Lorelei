@@ -4,8 +4,14 @@
  */
 import { DropCounter, type DroppedItem } from "@/components/ui/mermaid-dropped";
 import type { FlowEdgeSnapshot, FlowSnapshot } from "@/components/ui/mermaid-snapshot";
-import type { ParsedMermaidData, ParsedMermaidEdge, ParsedMermaidNode } from "../hooks/mermaid";
+import type {
+  ParsedMermaidData,
+  ParsedMermaidEdge,
+  ParsedMermaidNode,
+  ParsedMermaidSubgraph,
+} from "../hooks/mermaid";
 import type { GraphType, MermaidArrowType, MermaidShapeType } from "../types/types";
+import { orderParentsFirst } from "./subgraph-tree";
 
 const SHAPES: Record<string, MermaidShapeType> = {
   square: "rectangle",
@@ -60,7 +66,6 @@ export const directionOf = (direction: string): GraphType | undefined => {
 export function flowFromMermaid(snapshot: FlowSnapshot): { data: ParsedMermaidData; dropped: DroppedItem[] } {
   const drops = new DropCounter();
   drops.add("accessibility", snapshot.accessibility);
-  drops.add("subgraph", snapshot.subgraphs.length);
   drops.add("classDef", snapshot.classDefs);
   drops.add("tooltip", snapshot.tooltips);
 
@@ -110,6 +115,53 @@ export function flowFromMermaid(snapshot: FlowSnapshot): { data: ParsedMermaidDa
     });
   }
 
+  const subgraphs = subgraphsOf(snapshot, nodes.map((n) => n.id));
+  // 枠の中の direction はエディタに無い (図全体の向きで並べる, spec 15 D6)
+  drops.add("subgraph_direction", snapshot.subgraphs.filter((s) => s.dir !== undefined).length);
+
   const direction = directionOf(snapshot.direction);
-  return { data: direction ? { nodes, edges, direction } : { nodes, edges }, dropped: drops.toList() };
+  const data: ParsedMermaidData = { nodes, edges };
+  if (direction) data.direction = direction;
+  if (subgraphs.length > 0) data.subgraphs = subgraphs;
+  return { data, dropped: drops.toList() };
+}
+
+/**
+ * 枠 (spec 15 D1)。mermaid.js の一覧の nodes には子の枠の ID も入るので、それを子の枠の親にする。
+ * 自分自身を nodes に持つ枠 (`subgraph X` の中の `X`) はその 1 件を無視する。1 つのノードは 1 つの枠にだけ入れる
+ * (mermaid.js も merman も先に閉じた枠だけが持つ。念のため先に出た枠を採る)。枠の中のノードは図のノードの順に並べる
+ * (mermaid.js は線の書き順の逆で返すことがある)
+ */
+function subgraphsOf(snapshot: FlowSnapshot, nodeOrder: string[]): ParsedMermaidSubgraph[] {
+  const rank = new Map(nodeOrder.map((id, i) => [id, i]));
+  const subgraphIds = new Set(snapshot.subgraphs.map((s) => s.id));
+  const parentOf = new Map<string, string>();
+  const claimed = new Set<string>();
+  const direct = new Map<string, string[]>();
+  for (const s of snapshot.subgraphs) {
+    const members: string[] = [];
+    for (const m of s.nodes) {
+      if (m === s.id) continue;
+      if (subgraphIds.has(m)) {
+        if (!parentOf.has(m)) parentOf.set(m, s.id);
+      } else if (rank.has(m) && !claimed.has(m)) {
+        claimed.add(m);
+        members.push(m);
+      }
+    }
+    direct.set(
+      s.id,
+      members.sort((a, b) => (rank.get(a) ?? 0) - (rank.get(b) ?? 0))
+    );
+  }
+  return orderParentsFirst(
+    snapshot.subgraphs.map((s): ParsedMermaidSubgraph => {
+      const parent = parentOf.get(s.id);
+      // 空白だけの題は空にする (生成器は空の題を [" "] と書く。[""] は mermaid.js の誤り, spec 15 P0)
+      const title = s.title.trim() === "" ? "" : s.title;
+      const sub: ParsedMermaidSubgraph = { id: s.id, title, nodes: direct.get(s.id) ?? [] };
+      if (parent !== undefined) sub.parent = parent;
+      return sub;
+    })
+  );
 }

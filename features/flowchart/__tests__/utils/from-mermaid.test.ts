@@ -43,7 +43,7 @@ describe("flowFromMermaid — フォーク元が壊した入力", () => {
     expect(cls.dropped).toEqual([d("class", 1), d("classDef", 1)]);
   });
 
-  test("subgraph は知らせ、ノードにならない (end も)", async () => {
+  test("subgraph は枠になり、ノードにならない (end も)。枠を指す線は落とす", async () => {
     const r = await flow(
       "flowchart TD\n  subgraph S1[受注]\n    A[受付] --> B[確認]\n  end\n  B --> C[出荷]\n  C --> S1\n"
     );
@@ -52,7 +52,8 @@ describe("flowFromMermaid — フォーク元が壊した入力", () => {
       ["A", "B"],
       ["B", "C"],
     ]);
-    expect(r.dropped).toEqual([d("edge_to_subgraph", 1), d("subgraph", 1)]);
+    expect(r.data.subgraphs).toEqual([{ id: "S1", title: "受注", nodes: ["A", "B"] }]);
+    expect(r.dropped).toEqual([d("edge_to_subgraph", 1)]);
   });
 
   test("style ・ linkStyle ・ click を数え、向きを写す", async () => {
@@ -122,13 +123,13 @@ describe("flowFromMermaid — 対応表", () => {
       ["受付", "確認"],
       ["受付", "完了ー"],
     ]);
+    expect(r.data.subgraphs).toEqual([{ id: "受注", title: "受注", nodes: ["受付", "確認"] }]);
     expect(r.dropped).toEqual([
       d("class", 1),
       d("classDef", 1),
       d("click", 1),
       d("edge_to_subgraph", 1),
       d("style", 1),
-      d("subgraph", 1),
     ]);
   });
 
@@ -175,5 +176,57 @@ describe("flowFromMermaid — 対応表", () => {
     const r = await flow("flowchart TD\n  A ---> B\n");
     expect(r.data.edges[0].arrowType).toBe("arrow");
     expect(r.dropped).toEqual([d("edge_length", 1)]);
+  });
+});
+
+// spec 15 D1: 枠 (サブグラフ) の取り込み。形は P0 の実測 (mermaid.js と merman で同じ)
+describe("flowFromMermaid — 枠", () => {
+  const subgraphs = async (source: string) => (await flow(source)).data.subgraphs;
+
+  test("入れ子は親から並べ、子の枠は parent で表す (mermaid.js は内側を先に並べる)", async () => {
+    expect(
+      await subgraphs(
+        'flowchart TD\n  subgraph X["x"]\n    subgraph Y["y"]\n      subgraph Z["z"]\n        A\n      end\n    end\n    B\n  end\n  C\n'
+      )
+    ).toEqual([
+      { id: "X", title: "x", nodes: ["B"] },
+      { id: "Y", title: "y", nodes: [], parent: "X" },
+      { id: "Z", title: "z", nodes: ["A"], parent: "Y" },
+    ]);
+  });
+
+  test("1 つのノードは 1 つの枠にだけ入る (先に閉じた枠)", async () => {
+    expect(await subgraphs("flowchart TD\n  subgraph X\n    A\n  end\n  subgraph Y\n    A\n  end\n")).toEqual([
+      { id: "X", title: "X", nodes: ["A"] },
+      { id: "Y", title: "Y", nodes: [] },
+    ]);
+    expect(await subgraphs("flowchart TD\n  subgraph X\n    A\n    subgraph Y\n      A\n    end\n  end\n")).toEqual([
+      { id: "X", title: "X", nodes: [] },
+      { id: "Y", title: "Y", nodes: ["A"], parent: "X" },
+    ]);
+  });
+
+  test("自分を入れた枠は、その 1 件を無視する (枠と同じ ID のノードも作らない)", async () => {
+    const r = await flow('flowchart TD\n  subgraph X["x"]\n    X\n    A\n  end\n');
+    expect(ids(r)).toEqual(["A"]);
+    expect(r.data.subgraphs).toEqual([{ id: "X", title: "x", nodes: ["A"] }]);
+  });
+
+  test("空の枠・空白だけの題・題だけの枠 (ID は mermaid.js が振る)", async () => {
+    expect(await subgraphs('flowchart TD\n  subgraph X[" "]\n  end\n  subgraph 受付 審査\n    A\n  end\n')).toEqual([
+      { id: "X", title: "", nodes: [] },
+      { id: "subGraph1", title: "受付 審査", nodes: ["A"] },
+    ]);
+  });
+
+  test("枠の中の direction は落として数える", async () => {
+    const r = await flow("flowchart TD\n  subgraph X\n    direction LR\n    A --> B\n  end\n");
+    // mermaid.js は枠の中を線の書き順の逆 (B, A) で返すが、図のノードの順にそろえる
+    expect(r.data.subgraphs).toEqual([{ id: "X", title: "X", nodes: ["A", "B"] }]);
+    expect(r.dropped).toEqual([d("subgraph_direction", 1)]);
+  });
+
+  test("枠の無い図は subgraphs を持たない", async () => {
+    expect("subgraphs" in (await flow("flowchart TD\n  A --> B\n")).data).toBe(false);
   });
 });

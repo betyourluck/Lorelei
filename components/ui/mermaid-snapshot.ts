@@ -33,7 +33,8 @@ export interface FlowSnapshot {
   direction: string;
   vertices: FlowVertexSnapshot[];
   edges: FlowEdgeSnapshot[];
-  subgraphs: { id: string; title: string; nodes: string[] }[];
+  /** nodes には子の枠の ID も入る (spec 15 P0)。dir は枠の中の direction (無ければ持たない) */
+  subgraphs: { id: string; title: string; nodes: string[]; dir?: string }[];
   classDefs: number;
   tooltips: number;
   /** accTitle / accDescr の数 */

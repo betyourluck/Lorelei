@@ -1,4 +1,6 @@
+import type { Node } from "@xyflow/react";
 import type { MermaidArrowType, MermaidShapeType, GraphType } from "../types/types";
+import { SUBGRAPH_NODE_TYPE } from "../utils/subgraph-tree";
 import type { FlowData } from "./flow-helpers";
 
 /**
@@ -9,6 +11,18 @@ export interface ParsedMermaidData {
   edges: ParsedMermaidEdge[];
   /** 図の向き。TD (と同じ意味の TB) の時は持たない (無ければ TD) */
   direction?: GraphType;
+  /** サブグラフ (枠, spec 15 D1)。親が子より前に並ぶ。無ければ持たない */
+  subgraphs?: ParsedMermaidSubgraph[];
+}
+
+/**
+ * サブグラフ (枠) の型定義 (spec 15 D1)。nodes は直下のノードの ID だけで、入れ子は子の枠の parent で表す
+ */
+export interface ParsedMermaidSubgraph {
+  id: string;
+  title: string;
+  nodes: string[];
+  parent?: string;
 }
 
 /**
@@ -158,6 +172,11 @@ const quoteNodeLabel = (label: string): string => {
 };
 
 /**
+ * 枠の題 (spec 15 D2)。いつも囲む (題が ID と同じでも省かない)。空の題は空白 1 つを囲む (`[""]` は mermaid.js の誤り, P0)
+ */
+const quoteSubgraphTitle = (title: string): string => (title === "" ? '" "' : escapeQuoted(title));
+
+/**
  * Mermaidラベルをサニタイズする
  * @param label ラベル文字列
  * @returns サニタイズされたラベル
@@ -276,22 +295,56 @@ export const getArrowTypeDisplayName = (arrowType: MermaidArrowType): string => 
 export const generateMermaidCode = (flowData: FlowData, direction: GraphType = "TD"): string => {
   let code = `flowchart ${direction}\n`;
 
-  // ノードの定義
+  // ノードの定義。枠 (spec 15 D2) は subgraph … end で囲み、中のノードと子の枠を 4 字ずつ下げて書く。
+  // 枠の無い図は今までどおり (直下のノードを並べた順に 4 字下げ)
+  const byId = new Map(flowData.nodes.map((node) => [node.id, node]));
+  const isFrame = (node: Node | undefined): boolean => node?.type === SUBGRAPH_NODE_TYPE;
+  const parentOf = (id: string): string | undefined => {
+    const parentId = byId.get(id)?.parentId;
+    return parentId !== undefined && isFrame(byId.get(parentId)) ? parentId : undefined;
+  };
+  // 親を辿って同じ枠に戻る (親子が輪になった) 枠は図の直下に書く (書き落とさない)
+  const inCycle = (id: string): boolean => {
+    const seen = new Set([id]);
+    for (let p = parentOf(id); p !== undefined; p = parentOf(p)) {
+      if (seen.has(p)) return true;
+      seen.add(p);
+    }
+    return false;
+  };
+  const children = new Map<string | undefined, Node[]>();
   flowData.nodes.forEach((node) => {
-    const variableName = (node.data.variableName as string) || `node${node.id}`;
-    const safeVariableName = getSafeVariableName(variableName);
-    const shapeType = (node.data.shapeType as MermaidShapeType) || "rectangle";
-    const label = (node.data.label as string) || "";
-    const shapeCode = formatMermaidShape(shapeType, label);
-    code += `    ${safeVariableName}${shapeCode}\n`;
+    const parent = isFrame(node) && inCycle(node.id) ? undefined : parentOf(node.id);
+    children.set(parent, [...(children.get(parent) ?? []), node]);
   });
+  const writeNodes = (parent: string | undefined, indent: string): void => {
+    (children.get(parent) ?? []).forEach((node) => {
+      if (isFrame(node)) {
+        const frameName = getSafeVariableName(
+          (node.data.variableName as string) || `group${node.id}`
+        );
+        code += `${indent}subgraph ${frameName}[${quoteSubgraphTitle((node.data.title as string) || "")}]\n`;
+        writeNodes(node.id, `${indent}    `);
+        code += `${indent}end\n`;
+        return;
+      }
+      const variableName = (node.data.variableName as string) || `node${node.id}`;
+      const safeVariableName = getSafeVariableName(variableName);
+      const shapeType = (node.data.shapeType as MermaidShapeType) || "rectangle";
+      const label = (node.data.label as string) || "";
+      const shapeCode = formatMermaidShape(shapeType, label);
+      code += `${indent}${safeVariableName}${shapeCode}\n`;
+    });
+  };
+  writeNodes(undefined, "    ");
 
-  // エッジの定義
+  // エッジの定義。線は全部、枠の外 (最後) に書く (ブロックの中に書くと外のノードを枠へ引き込む, spec 15 D2)
   flowData.edges.forEach((edge) => {
-    const sourceNode = flowData.nodes.find((node) => node.id === edge.source);
-    const targetNode = flowData.nodes.find((node) => node.id === edge.target);
+    const sourceNode = byId.get(edge.source);
+    const targetNode = byId.get(edge.target);
 
-    if (sourceNode && targetNode) {
+    // 枠を指す線はエディタでは作れない (spec 15 D6)。あっても書かない
+    if (sourceNode && targetNode && !isFrame(sourceNode) && !isFrame(targetNode)) {
       const sourceVariableName = getSafeVariableName(
         (sourceNode.data.variableName as string) || `node${sourceNode.id}`
       );

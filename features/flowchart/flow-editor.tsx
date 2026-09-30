@@ -21,6 +21,8 @@ import {
 import type { ParsedMermaidData } from "./hooks/mermaid";
 import type { MermaidArrowType } from "./types";
 import type { GraphType } from "./types/types";
+import { layoutNested, type NestedLayoutMetrics } from "./utils/nested-layout";
+import { SUBGRAPH_NODE_TYPE } from "./utils/subgraph-tree";
 
 // レイアウト定数
 const LAYOUT_CONSTANTS = {
@@ -30,6 +32,23 @@ const LAYOUT_CONSTANTS = {
   VERTICAL_OFFSET: 50, // 上部からの初期オフセット
   LEVEL_WIDTH: 450, // 横向き (LR / RL) のレベル間の横幅 (ノードは横に長いので縦より広く)
 } as const;
+
+/**
+ * 枠のある図の配置の寸法 (spec 15 D3)。ノードの大きさは描く前なので見積もり (幅は w="xs" の 240、高さは最小の 48。P1 で画面で測った)。
+ * 送りは上の今の段組みと同じ
+ */
+const nestedLayoutMetrics = (direction: GraphType): NestedLayoutMetrics => {
+  const horizontal = direction === "LR" || direction === "RL";
+  return {
+    node: { width: 240, height: 48 },
+    pitchAlong: horizontal ? LAYOUT_CONSTANTS.LEVEL_WIDTH : LAYOUT_CONSTANTS.LEVEL_HEIGHT,
+    pitchAcross: horizontal ? LAYOUT_CONSTANTS.LEVEL_HEIGHT : LAYOUT_CONSTANTS.NODE_SPACING,
+    start: LAYOUT_CONSTANTS.VERTICAL_OFFSET,
+    center: LAYOUT_CONSTANTS.CENTER_OFFSET,
+    padding: 24,
+    titleHeight: 28,
+  };
+};
 
 /** 新しいエディタの初期図 (デスクトップ版は Document.initial_sources として凍結している, spec 04 D4-2) */
 export const initialFlowNodes: Node[] = [
@@ -415,13 +434,34 @@ export function FlowEditor() {
         return positions;
       };
 
-      const positions = layoutNodes(data.nodes, data.edges);
+      // 枠 (サブグラフ) がある図は入れ子の段組みで並べる (spec 15 D3)。無い図は今までどおり
+      const frames = data.subgraphs ?? [];
+      const nested =
+        frames.length > 0 ? layoutNested(data, importedDirection, nestedLayoutMetrics(importedDirection)) : null;
+      const positions = nested ? nested.positions : layoutNodes(data.nodes, data.edges);
+      const parentOfNode = new Map(frames.flatMap((f) => f.nodes.map((n) => [n, f.id] as const)));
+
+      // 枠は xyflow の親。親は子より前に並べる (frames は親から順, spec 15 D1)。
+      // 枠を消すと xyflow は中身も消すので、中身を残す消し方 (裁定 3) ができるまで消せなくしておく (P3)
+      const frameNodes: Node[] = frames.map((f) => {
+        const size = nested?.frameSizes.get(f.id);
+        return {
+          id: f.id,
+          type: SUBGRAPH_NODE_TYPE,
+          position: positions.get(f.id) || { x: 0, y: 0 },
+          ...(f.parent !== undefined ? { parentId: f.parent } : {}),
+          ...(size ? { width: size.width, height: size.height } : {}),
+          deletable: false,
+          data: { variableName: f.id, title: f.title },
+        };
+      });
 
       // ParsedMermaidNodeをReactFlowのNode型に変換
       const convertedNodes: Node[] = data.nodes.map((parsedNode) => ({
         id: parsedNode.id,
         type: "editableNode",
         position: positions.get(parsedNode.id) || { x: 250, y: 50 }, // フォールバック位置
+        ...(parentOfNode.has(parsedNode.id) ? { parentId: parentOfNode.get(parsedNode.id) } : {}),
         data: {
           label: parsedNode.label,
           variableName: parsedNode.variableName,
@@ -448,7 +488,7 @@ export function FlowEditor() {
         },
       }));
 
-      setNodes(convertedNodes);
+      setNodes([...frameNodes, ...convertedNodes]);
       setEdges(convertedEdges);
 
       // インポートされたノード数を次のnodeIdに設定

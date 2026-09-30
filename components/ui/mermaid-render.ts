@@ -108,6 +108,7 @@ const flowSnapshot = (db: any): FlowSnapshot => ({
     id: String(s.id),
     title: decodeText(s.title),
     nodes: list(s.nodes),
+    ...(typeof s.dir === "string" && s.dir !== "" ? { dir: s.dir } : {}),
   })),
   classDefs: sizeOf(db.getClasses?.()),
   tooltips: sizeOf(db.tooltips),
