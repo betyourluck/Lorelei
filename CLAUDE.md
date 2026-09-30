@@ -61,7 +61,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
-- 2026-09-30: [spec 15](specs/15_flowchart-subgraph.md) **進行中** — rev2（フローチャートの subgraph をエディタの枠（xyflow の親ノード）にし、保存・読み戻し・コード生成で落とさない。裁定 1〜5 済み）。
+- 2026-09-30: [spec 15](specs/15_flowchart-subgraph.md) **Done** — rev2（フローチャートの subgraph をエディタの枠（xyflow の親ノード）にし、保存・読み戻し・コード生成で落とさない。裁定 1〜5 済み）。
   P0（mermaid.js と merman に 87 通り）・P1（フォーク元: 取り込み・入れ子の段組み・枠の表示・生成器。Web 版の画面で確認）・
   P2（Rust の `to_editor` が枠を返す・`Document.layout` は絶対座標で枠は大きさも持つ。`tauri dev` で MCP の往復と開き直しを確認）・
   P3（GUI の編集: 枠を追加・ドロップで出し入れ・題と ID・大きさ・中身を残す削除。計算は `features/flowchart/utils/frame-edit.ts`。Web 版の画面で確認）着地。
