@@ -2,7 +2,7 @@
 
 **ID**: 15
 **Date**: 2026-09-30
-**Status**: rev2（裁定 1〜5 済み。P0・P1 着地、次は P2（デスクトップ・Rust））
+**Status**: rev2（裁定 1〜5 済み。P0〜P2 着地、次は P3（GUI の編集））
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。ただし**フォーク元の改善とデスクトップ・Rust・台帳はコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする
 （CLAUDE.md のとおり、フォーク元の改善のコミットは `lib/desktop/` と台帳（data_contract・specs・CLAUDE.md・failures）を含まない。同じ Phase の中でもコミットを分ける）
 
@@ -288,3 +288,25 @@ xyflow（ソース）:
   data_contract の `read_diagram` の source の説明
 - 枠の中のノードを枠の外へドラッグしても、見た目だけ外に出て親は変わらない（コード生成では枠の中に書く）。付け替えは P3
 - LR / RL / BT の画面は見ていない（配置のテストで 4 つの向きの収まりと重なりを確かめた）
+
+## P2 結果（2026-09-30）
+
+| コミット | 中身 | テスト |
+|---|---|---|
+| `dfe4092`（デスクトップ・Rust） | Rust の `to_editor` が `subgraphs` を返す（TS と同じ規則、`FlowSubgraph`）・`subgraph_direction`・fixture `flow_subgraphs.json`・`Document.layout` の絶対座標と枠の大きさ（`collectLayout` / `withLayout` / `expectedKeys`、Rust の `Pos` に `width` / `height`）・MCP のツールの説明と LORELEI.md | Rust `tests/editor.rs` +7（Red: 型だけ足した状態で 8 件が期待の食い違いで落ちる → Green）・fixture 24 通り・`src-tauri` +1（Red: 大きさが読み捨てられる → Green）・vitest `doc-session` +5（Red 4 件 → Green）・fixture の TS 側 +1。既存の 4 件の期待を直した（subgraph を落とす前提 → style） |
+
+- 全体: vitest 80 ファイル 857 件、exit 0（未処理のエラー 0）。`cargo test --workspace` と `src-tauri` の `cargo test`（47 件）も通過。型検査・lint 通過
+- **`tauri dev` で確かめた**（MCP 経由で、保存されたファイルも直接読んだ）:
+  - `open_in_editor` で入れ子・空の枠・枠をまたぐ線・枠を指す線・枠の中の `direction` の図を開くと、`dropped` は `edge_to_subgraph ×1`・`subgraph_direction ×1` だけ
+  - 自動保存の `source` に入れ子の `subgraph … end` と空の枠が残り、線は全部外。`layout` は絶対座標で、枠は大きさを持つ（`C` の (180, 530) = 枠「一次審査」(156, 478) + 余白と見出し (24, 52)）
+  - `read_diagram` でも枠が残る
+  - **開き直し**: 別の図に切り替えた間に、保存ファイルの枠「審査」・「一次審査」・中のノード・空の枠の位置と大きさを自動の配置では出ない値に書き換え、`update_diagram`（`open=true`）で開き直すと、
+    GUI が保存し直した値が書き換えた値と一致した（絶対 → 相対 → 絶対の往復が実物で合う）。利用者のスクリーンショットで、枠「審査」が書き換えた位置と大きさ（420×420）で描かれ、中に「一次審査」と 2 つのノードが収まり、
+    空の枠に注記、枠を横切る線が見えることを確かめた
+- LORELEI.md・MCP のツールの説明・data_contract（`read_diagram` の source・`Document.layout`・`generator_fixture`・`ts_mirror` の食い違いの注を外した）を直した
+- 整形で触っていない行まで書き換えた件は failures #23（戻して入れ直した）。ヒアドキュメントの化けは failures #16 に追記
+
+### 未了
+
+- デスクトップのツールバーのインポート（Rust の取り込み）で枠を開くことは、MCP と同じ `to_editor` を通るのでテストでは同じだが、画面ではまだ見ていない
+- 枠の中のノードのドラッグで親が変わらないのは P1 と同じ（P3）

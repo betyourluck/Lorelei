@@ -62,8 +62,10 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
 - 2026-09-30: [spec 15](specs/15_flowchart-subgraph.md) **進行中** — rev2（フローチャートの subgraph をエディタの枠（xyflow の親ノード）にし、保存・読み戻し・コード生成で落とさない。裁定 1〜5 済み）。
-  P0（mermaid.js と merman に 87 通り）・P1（フォーク元: 取り込み・入れ子の段組み・枠の表示・生成器。Web 版の画面で確認）着地。**デスクトップは P2（Rust の `to_editor`・`Document.layout`）まで枠が出ない**。
-  P0 で、ラベルの `direction LR` を mermaid.js が囲みの中でも行ごと食ってノードが消える今の生成器の穴を見つけて直した（failures #21）。次は P2 → P3（GUI の編集）→ P4（配布ビルド）
+  P0（mermaid.js と merman に 87 通り）・P1（フォーク元: 取り込み・入れ子の段組み・枠の表示・生成器。Web 版の画面で確認）・
+  P2（Rust の `to_editor` が枠を返す・`Document.layout` は絶対座標で枠は大きさも持つ。`tauri dev` で MCP の往復と開き直しを確認）着地。
+  P0 で、ラベルの `direction LR` を mermaid.js が囲みの中でも行ごと食ってノードが消える今の生成器の穴を見つけて直した（failures #21）。次は P3（GUI の編集）→ P4（配布ビルド）。
+  **P3 までは枠を消せない**（`deletable: false`。xyflow は親を消すと子も消す）・枠の中のノードを外へドラッグしても親は変わらない
 - 2026-09-29: [spec 14](specs/14_merman-er-word-boundary.md) **Done** — rev1（上流 PR [Latias94/merman#153](https://github.com/Latias94/merman/pull/153) は 2026-09-29 にマージ済み。merman の ER 図の字句解析が `many` / `one` / `to` を境界なしで取り、
   AI が書いた ER 図の `tokens` などのテーブル名を誤りにしていた（`A one to onerous : x` は名前が `rous` に化けた）。写しを mermaid.js の `\b` と同じ境界にした）
 - 2026-09-29: [spec 13](specs/13_er-names.md) **Done** — rev2（ER 図の生成器が空白を含むテーブル名をそのまま書き、デスクトップで開き直せない・テーブルが割れる。
@@ -102,7 +104,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   Rust は `cargo test --workspace`（core / mcp）と `cd src-tauri && cargo test`（GUI の殻、独立 project）。
   静的書き出しが通るかの確かめは `TAURI_ENV_PLATFORM` を付けた `next build`（→ `out/`）。**素の `next build` は git の中の `docs/`（GitHub Pages）を上書きする**（failures #18）。
   ER 図の生成器を変えたら `LORELEI_UPDATE_FIXTURES=1` で vitest の `__tests__/lorelei/er-names-fixture.test.ts` を回して `crates/lorelei_core/tests/fixtures/er_names.json` を書き直し、
-  Rust のテストも回す（TS の生成器の出力を Rust の取り込みに通す, spec 13 P3）。ノードの接続点の測り直しは xyflow の `useUpdateNodeInternals` ではなく
+  Rust のテストも回す（TS の生成器の出力を Rust の取り込みに通す, spec 13 P3）。フローチャートの生成器の枠を変えた時も同じく `flow-subgraphs-fixture.test.ts` → `flow_subgraphs.json`（spec 15 P2）。
+  整形は HEAD で整形済みのファイルと新しいファイルにだけかける（HEAD は Rust も TS も全体が整形済みではない, failures #23）。ノードの接続点の測り直しは xyflow の `useUpdateNodeInternals` ではなく
   `features/flowchart/hooks/use-update-node-internals.ts` を使う（xyflow のものは ID を CSS セレクタにエスケープせず埋め、`"` を含む ID で落ちる, failures #20）
 - **`src-tauri/Cargo.toml` にもルートと同じ `[patch.crates-io]` がある**（独立 project なのでルートの patch が効かない）。
   merman-core の patch を外す時は両方消す

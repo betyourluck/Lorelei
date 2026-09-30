@@ -87,7 +87,7 @@ EditorPayload:
     flowchart:
       output: "ParsedMermaidData { nodes: [{ id, variableName, label, shapeType }], edges: [{ id, source, target, label, arrowType }], direction?, subgraphs?: [{ id, title, nodes, parent? }] }"
       subgraph: >-
-        spec 15 D1 (TS の取り込みは P1、Rust の to_editor は P2 まで落とす)。枠が無ければ subgraphs を持たない。
+        spec 15 D1 (TS の取り込み = P1、Rust の to_editor = P2。同じ規則で、FlowSubgraph { id, title, nodes, parent? })。枠が無ければ subgraphs を持たない。
         一覧の nodes には子の枠の ID も入るので、それを子の枠の parent にする (親は「自分の ID を nodes に持つ枠」)。subgraphs は親から順に並べ直す
         (mermaid.js・merman とも内側を先に返す。親が一覧に無い・輪になる枠は parent を外す)。nodes は直下のノードだけで、図のノードの順
         (mermaid.js は線の書き順の逆で返すことがある)。1 つのノードは 1 つの枠 (先に出た枠)。自分を nodes に持つ枠はその 1 件を無視。
@@ -115,8 +115,8 @@ EditorPayload:
         "double_arrow_point, thick": bidirectional-thick
       arrow_fallback: "stroke が invisible → invisible / double_* → bidirectional (thick なら -thick) / それ以外 → stroke に応じて arrow・thick・dotted"
       edge_to_subgraph: "subgraph 自体を指す辺はエディタに行き先が無いので落とし、dropped edge_to_subgraph"
-      subgraph_direction: "枠の中の direction はエディタに無い (図全体の向きで並べる)。direction を持つ枠の数を dropped subgraph_direction (spec 15 D6。TS は P1、Rust は P2)"
-      dropped_constructs: [edge_to_subgraph, subgraph_direction, classDef, class, style, click, tooltip, "shape:<名前>", "edge:<矢印>", edge_length, accessibility]   # direction は spec 07 で写すようにした。subgraph は spec 15 で写すようにした (Rust の to_editor は P2 まで subgraph を落として数える)
+      subgraph_direction: "枠の中の direction はエディタに無い (図全体の向きで並べる)。direction を持つ枠の数を dropped subgraph_direction (spec 15 D6。merman は dir が null でない枠)"
+      dropped_constructs: [edge_to_subgraph, subgraph_direction, classDef, class, style, click, tooltip, "shape:<名前>", "edge:<矢印>", edge_length, accessibility]   # direction は spec 07 で写すようにした。subgraph は spec 15 で写すようにした
     erDiagram:
       output: "ParsedMermaidERData { nodes: [{ id, name, columns: [{ name, type, pk, uk, fk? }] }], edges: [{ id: edge-N, type: erEdge, source, target, data: { label, cardinality } }], direction? }"
       direction: "flowchart と同じ GraphType。無ければ TD (spec 07 D1)"
@@ -135,7 +135,7 @@ EditorPayload:
       subgraph: "関係が subgraph を指すと、関係はその subgraph の id を指し、同じ名前のテーブルも現れうる。テーブルにせず、指す関係を落として dropped subgraph / edge_to_subgraph (spec 11。以前は形の誤りで止まった)"
       edge_id: "edge-N。N は落とした関係を除いて数える"
       dropped_constructs: [alias, attribute_comment, non_identifying, cardinality_unsupported, subgraph, edge_to_subgraph, classDef, class, style, accessibility]   # fk と direction は spec 07 で写すようにした
-    ts_mirror: "spec 15 P1〜P2 の間は flowchart の subgraph だけ食い違う (TS は枠にし、Rust は落として数える)。フォーク元の取り込み (spec 11) は同じ対応を TS で持つ: features/flowchart/utils/from-mermaid.ts・features/er-diagram/utils/from-mermaid.ts (mermaid.js の解析の結果から)。tests で Rust の tests/editor.rs と同じ入力で同じ出力を確かめる。TS だけの足し: click は class の clickable でも数える (strict では haveCallback が付かない) / @{ shape: rect | rounded | diam | hex } もエディタの形"
+    ts_mirror: "フォーク元の取り込み (spec 11) は同じ対応を TS で持つ: features/flowchart/utils/from-mermaid.ts・features/er-diagram/utils/from-mermaid.ts (mermaid.js の解析の結果から)。tests で Rust の tests/editor.rs と同じ入力で同じ出力を確かめる。TS だけの足し: click は class の clickable でも数える (strict では haveCallback が付かない) / @{ shape: rect | rounded | diam | hex } もエディタの形"
 
 EditorDirection:
   description: エディタの図の向き (spec 07 D1)。フォーク元の GraphType。エディタの状態がただ 1 つの持ち主で、ツールバー・パネル・コード生成のモーダルはそれを読み書きする
@@ -180,7 +180,10 @@ MermaidImport:
     labels: "components/ui/mermaid-dropped.ts の describeDropped / DroppedItem。lib/desktop/open-requests.ts (MCP の通知) はこれを再エクスポートする"
   generator: "ノードのラベルは ( ) [ ] { } | \" か #語; か direction + 空白 + 大文字の向き (TB / TD / BT / RL / LR) を含む時だけ \"…\" で囲み、中の \" は #quot;、#語; の # は #35;、その direction の後ろの空白 → #<符号位置>; (spec 15 D8。mermaid.js は囲みの中でも行のどこでもこの並びを向きの指定として取り、その行のノードと線が黙って消える。小文字の direction + 大文字の向きだけが当たる)。線のラベルも同じ並びを含む時は囲む。空のラベルは [\" \"]。< > はそのまま (mermaid はラベルを HTML として扱う)。フローチャートの枠 (spec 15 D2): subgraph <getSafeVariableName した ID>[\"<題>\"] … end で囲み、中身を 4 字ずつ下げる。題はいつも囲み (ID と同じでも)、囲み方はラベルと同じ、空の題は \" \"。線は全部、枠の外 (最後) に書く (ブロックの中の線は外のノードを枠へ引き込む)。枠を指す線は書かない。親子が輪になった枠は図の直下に書く。枠の無い図の出力は今までと一字一句同じ。ER 図 (spec 13 D1・D2): テーブル名・関係の両端・関係のラベルは quoteErName — ^[\\p{L}_][\\p{L}\\p{N}_-]*$ に合い、erdiagram / style / classdef / class / subgraph / end / direction / acctitle / accdescr / many / one / to で始まらず (大文字小文字を問わない前方一致)、u- / u. で始まらない時だけそのまま、ほかは \"…\" で囲む。囲んだ中は #語; の # → #35;、& → #38;、\" → #quot;、% → #37;、バックスラッシュ → #92;、direction + 空白 + 向き の空白 → #<符号位置>; の順。列は columnIssue が null の時だけ書く (名前・型とも mermaid.js の列の規則の形、PK / FK / UK で始まらない。型は ~ 2 つの総称型も可)。全部の列を書かない時は 名前 { } のまま"
   differs_from_export: "書き出し (SVG / PNG / PDF) は merman。描き手・書体・ラベルの描き方が違うので一致しない (LORELEI.md 既知の制約)"
-  generator_fixture: "crates/lorelei_core/tests/fixtures/er_names.json = [{ name, source }]。source は TS の ER 図の生成器の出力 (テーブル name と B、B → name の関係のラベルも name。名前の格子 50 通り)。__tests__/lorelei/er-names-fixture.test.ts が今の生成器と一字一句同じことを確かめ (LORELEI_UPDATE_FIXTURES=1 で書き直す)、Rust の editor.rs の er_generator_names_round_trip_through_merman が to_editor に通して名前・ラベルが戻ることを確かめる (spec 13 P3)"
+  generator_fixture: "crates/lorelei_core/tests/fixtures/er_names.json = [{ name, source }]。source は TS の ER 図の生成器の出力 (テーブル name と B、B → name の関係のラベルも name。名前の格子 50 通り)。__tests__/lorelei/er-names-fixture.test.ts が今の生成器と一字一句同じことを確かめ (LORELEI_UPDATE_FIXTURES=1 で書き直す)、Rust の editor.rs の er_generator_names_round_trip_through_merman が to_editor に通して名前・ラベルが戻ることを確かめる (spec 13 P3)。
+    フローチャートの枠 (spec 15 P2): crates/lorelei_core/tests/fixtures/flow_subgraphs.json = [{ name, source, nodes, subgraphs }]。source は TS の生成器の枠の出力 (入れ子・空の枠・安全な ID・題の格子 22 通り)、
+    nodes・subgraphs は戻るべき形。__tests__/lorelei/flow-subgraphs-fixture.test.ts が書き (LORELEI_UPDATE_FIXTURES=1)、editor.rs の flow_generator_frames_round_trip_through_merman が merman で同じ形に戻ることを確かめる
+    (mermaid.js で同じ期待値に戻ることは round-trip-mermaid.test.ts の「枠」)"
 
 ErUnwritableColumns:
   description: ER 図のエディタで Mermaid に書けない列を知らせる (spec 13 D2)。生成器はその列を書かない (MermaidImport.generator)。フォーク元の改善 (Web 版でも同じ。デスクトップのツールバーの「コード生成」も同じダイアログを開く)
@@ -320,7 +323,7 @@ DiagramSummary:   # MCP の出力の形 (snake_case)。GUI の Document / Docume
 Diagram:
   fields: "DiagramSummary の全項目 + source + original_source"
   source: >-
-    string。今の図の Mermaid (エディタの生成器の出力。subgraph・style などは落ちている。向きと FK は spec 07 で残るようにした)。
+    string。今の図の Mermaid (エディタの生成器の出力。style などは落ちている。向きと FK は spec 07、flowchart の subgraph は spec 15 で残るようにした)。
     空文字は「new の図: まだ一度も保存されていない」「ai / import の図: まだエディタに載っていない」(エラーにしない。注記の欄は設けない)。
     update_diagram の後、GUI で開く (載せ替える) までは届けた Mermaid そのもの (省かれる要素も残ったまま。spec 08 D1)
   original_source: "include_original=false ならキーごと出さない。true なら AI・インポートが最後に届けた原文 (update_diagram で置き換わる)。new の図は update_diagram されるまで null (spec 08 D1)"
@@ -385,7 +388,7 @@ Document:
     title: string                             # 同名は許す (区別は id)
     editor: { enum: [flowchart, erDiagram] }
     source: string                            # 今の図の Mermaid (フォーク元の生成器の出力)。origin: new の作成直後は空。update_diagram の後は GUI に載るまで届けた Mermaid そのもの (spec 08 D1)
-    layout: { type: "map<string, { x: float, y: float }>" }  # キー = Mermaid 上のノード ID (flowchart は getSafeVariableName した変数名、ER はエンティティ名)。無いノードは自動配置
+    layout: { type: "map<string, { x: float, y: float, width?: float, height?: float }>" }  # キー = Mermaid 上のノード ID (flowchart は getSafeVariableName した変数名、ER はエンティティ名。flowchart の枠は枠の ID)。無いノードは自動配置。位置は絶対座標 (spec 15 D4: 枠の中のノードの xyflow の position は親からの相対なので、保存は根まで足し、当てる時は親から順に相対へ直す。位置の無いノードは今の絶対位置のまま)。width / height は枠だけ (無ければ書かない。古いファイルはそのまま読める)
     origin: { enum: [new, ai, import] }       # 来歴。update_diagram でも変えない (spec 08 裁定 4)
     original_source: { type: string, nullable: true }  # AI・インポートが最後に届けた原文 (update_diagram で置き換わる, spec 08 D1)。new は update_diagram されるまで null
     created_at: { type: string, format: "RFC 3339" }
