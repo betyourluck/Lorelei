@@ -127,9 +127,22 @@ export const formatMermaidShape = (shapeType: MermaidShapeType, rawLabel: string
  * 引用符で囲んだラベルの中の " を mermaid の実体参照にする (`\"` は mermaid では通るが " が消えて \ が残る, spec 11 P0)
  */
 const ENTITY_HASH = new RegExp("#(?=[\\p{L}\\p{N}_]+;)", "gu");
+/**
+ * mermaid.js は囲みの中でも、小文字の `direction` + 空白 + 大文字の向きを行のどこでも向きの指定として食い、
+ * その行のノードと線が黙って消える (spec 15 D8。`Direction LR` や `direction lr` は食わない)。空白を実体参照にして避ける
+ */
+const DIRECTION_RUN = /(direction)(\s+)(?=(?:TB|TD|BT|RL|LR))/g;
+const HAS_DIRECTION_RUN = /direction\s+(?:TB|TD|BT|RL|LR)/;
 const escapeQuoted = (label: string): string =>
-  // mermaid は #語; を実体参照として読むので、その # は #35; にする
-  `"${label.replace(ENTITY_HASH, "#35;").replace(/"/g, "#quot;")}"`;
+  // mermaid は #語; を実体参照として読むので、その # は #35; にする。direction の空白の #…; はその後に入れる (書き換えられないように)
+  `"${label
+    .replace(ENTITY_HASH, "#35;")
+    .replace(/"/g, "#quot;")
+    .replace(
+      DIRECTION_RUN,
+      (_m, word: string, space: string) =>
+        word + Array.from(space, (c) => `#${c.codePointAt(0)};`).join("")
+    )}"`;
 
 /**
  * ノードのラベル。括弧・縦棒・引用符は囲まないと mermaid の文法の誤りになるので、その時だけ囲む (spec 11 D5)。
@@ -139,7 +152,9 @@ const escapeQuoted = (label: string): string =>
 const HAS_ENTITY = new RegExp("#[\\p{L}\\p{N}_]+;", "u");
 const quoteNodeLabel = (label: string): string => {
   if (label === "") return '" "';
-  return /[()[\]{}|"]/.test(label) || HAS_ENTITY.test(label) ? escapeQuoted(label) : label;
+  return /[()[\]{}|"]/.test(label) || HAS_ENTITY.test(label) || HAS_DIRECTION_RUN.test(label)
+    ? escapeQuoted(label)
+    : label;
 };
 
 /**
@@ -151,6 +166,11 @@ const sanitizeMermaidLabel = (label: string): string => {
   // 空文字列の場合はそのまま返す
   if (!label || label.trim() === "") {
     return label;
+  }
+
+  // direction + 空白 + 向き は囲んで空白を逃がす (spec 15 D8)
+  if (HAS_DIRECTION_RUN.test(label)) {
+    return escapeQuoted(label);
   }
 
   // 数字のみの場合は文字列として扱う（引用符は使わない）

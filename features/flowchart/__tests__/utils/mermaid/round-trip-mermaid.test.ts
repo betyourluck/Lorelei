@@ -14,6 +14,19 @@ vi.unmock("@/components/ui/mermaid-render");
 // `<b>` のような HTML は入れない: mermaid.js はラベルを HTML として扱い `<b></b>` に整える (`<br>` で改行したい人のために、生成器は < > をそのまま書く)
 const LABELS = ["処理(1)", "a:b", 'say "hi"', "x[y]", "{z}", "A;B", "#1", "#1;", "a|b", "100%", "API/データ取得", "ユーザー入力？", ""];
 
+// spec 15 D8: mermaid.js は囲みの中でも `direction` + 空白 + 向き を行のどこでも向きの指定として食い、その行のノードと線が黙って消える
+const DIRECTION_LABELS = [
+  "direction LR",
+  "x direction TB",
+  "direction  BT",
+  "direction\tRL",
+  "direction TD",
+  "Direction LR",
+  "DIRECTION LR",
+  "direction lr",
+  "向き direction LR (右へ)",
+];
+
 const flowData = (label: string, shapeType: MermaidShapeType, arrowType: MermaidArrowType): FlowData =>
   ({
     nodes: [
@@ -24,7 +37,7 @@ const flowData = (label: string, shapeType: MermaidShapeType, arrowType: Mermaid
   }) as unknown as FlowData;
 
 describe("コード生成 → インポートの往復 (mermaid.js)", () => {
-  test.each(LABELS)("ラベル %s が形・矢印ごとに元に戻る", async (label) => {
+  test.each([...LABELS, ...DIRECTION_LABELS])("ラベル %s が形・矢印ごとに元に戻る", async (label) => {
     for (const [shapeType, arrowType] of [
       ["rectangle", "arrow"],
       ["circle", "thick"],
