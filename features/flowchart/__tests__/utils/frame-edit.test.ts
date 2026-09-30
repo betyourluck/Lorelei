@@ -196,6 +196,19 @@ describe("planFrameDelete (裁定 3: 枠だけ消して中身は残す)", () => 
     expect(plan.kept).toBe(2); // I・C
   });
 
+  test("名指しの削除 (枠の ×) では、子が選ばれていても枠だけ消す", () => {
+    const nodes = all().map((n) => (n.id === "A" ? { ...n, selected: true } : n));
+    const plan = planFrameDelete(
+      nodes,
+      nodes.filter((n) => n.id !== "B"),
+      [edge("A", "B")],
+      { bySelection: false }
+    );
+    expect(plan.remove.map((n) => n.id)).toEqual(["O"]);
+    expect(plan.kept).toBe(3);
+    expect(plan.removeEdges).toEqual([]);
+  });
+
   test("枠の無い削除はそのまま", () => {
     const nodes = all();
     const plan = planFrameDelete(nodes, [byId(nodes, "B")], [edge("A", "B")]);

@@ -99,6 +99,8 @@ export function FlowEditor() {
   const [direction, setDirection] = useState<GraphType>("TD");
   // DownloadModalの状態管理はFlowPanelに移動
   const connectingNodeId = useRef<string | null>(null);
+  // メニューや枠の × で名指しして消している途中のノード (onBeforeDelete が読んで消す)
+  const namedDeleteRef = useRef<string | null>(null);
   const { screenToFlowPosition, deleteElements, getNodes, getViewport } = useReactFlow();
   const storeApi = useStoreApi();
   // 削除はメニューも Backspace も deleteElements → onBeforeDelete の確認を通す (つながる線も一緒に消える)
@@ -172,6 +174,8 @@ export function FlowEditor() {
   // ノード削除のハンドラー。確認は onBeforeDelete が出し、つながる線は xyflow が一緒に消す
   const handleNodeDelete = useCallback(
     (nodeId: string) => {
+      // メニューや枠の × で名指しした削除。onBeforeDelete は子の選択を見ない (spec 15 D5)
+      namedDeleteRef.current = nodeId;
       void deleteElements({ nodes: [{ id: nodeId }] });
     },
     [deleteElements]
@@ -429,7 +433,10 @@ export function FlowEditor() {
   const onBeforeDelete: OnBeforeDelete = useCallback(
     async ({ nodes: requested, edges: requestedEdges }) => {
       const all = getNodes();
-      const plan = planFrameDelete(all, requested, requestedEdges);
+      // 名指しの削除 (メニュー・枠の ×) か、選択の削除 (Backspace) か
+      const named = namedDeleteRef.current !== null;
+      namedDeleteRef.current = null;
+      const plan = planFrameDelete(all, requested, requestedEdges, { bySelection: !named });
       if (plan.frames.length === 0) return confirmNodeDelete({ nodes: requested, edges: requestedEdges });
       const others = plan.remove.length - plan.frames.length;
       const name = String((plan.frames[0].data as { title?: unknown }).title || (plan.frames[0].data as { variableName?: unknown }).variableName || "");

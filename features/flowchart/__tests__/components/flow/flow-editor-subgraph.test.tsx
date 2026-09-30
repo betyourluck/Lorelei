@@ -102,6 +102,21 @@ describe("フローチャートの枠の編集", { timeout: 30000 }, () => {
     );
   });
 
+  test("枠の × で消す時は、中のノードを選んでいても枠だけ消す (2026-09-30 tauri dev で利用者が見つけた)", async () => {
+    const { user } = editor();
+    await importCode(user, "flowchart TD\n  subgraph S\n    A --> B\n  end");
+    await waitFor(() => expect(nodeEl("S")).not.toBeNull());
+    fireEvent.click(nodeEl("A")!);
+    await waitFor(() => expect(nodeEl("A")!.classList.contains("selected")).toBe(true));
+    await user.click(screen.getByRole("button", { name: "枠を削除" }));
+    expect(await screen.findByText("枠『S』を削除しますか？")).toBeInTheDocument();
+    expect(screen.getByText(/中のノード・枠 2 個は残ります/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "削除" }));
+    await waitFor(() => expect(nodeEl("S")).toBeNull());
+    expect(nodeEl("A")).not.toBeNull();
+    expect(nodeEl("B")).not.toBeNull();
+  });
+
   test("「やめる」では何も消えない", async () => {
     const { user } = editor();
     await importCode(user, "flowchart TD\n  subgraph S\n    A\n  end");

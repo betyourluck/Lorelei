@@ -239,16 +239,19 @@ export interface FrameDeletePlan {
 /**
  * 枠を消す時の計画 (D5、裁定 3)。xyflow は親を消すと子も消す一覧を渡してくるので、選んでいない子は消す一覧から外し、
  * 消す枠の親 (無ければ図の直下) へ付け替えて残す。絶対位置は保つ。子の枠も中身ごと 1 段上へ (平らにはしない)。
- * 選ばれて (selected) いる子と、消す一覧の根 (親が消す一覧に無いもの = 呼び手が消すと言ったもの) は消す
+ * 消す一覧の根 (親が消す一覧に無いもの = 呼び手が消すと言ったもの) は消す。選ばれて (selected) いる子は、
+ * 選択を消した時 (Backspace) だけ一緒に消す。枠の × やメニューで名指しして消した時 (bySelection: false) は子の選択を見ない
+ * (× を押した時点では、直前に選んだ中のノードの選択がまだ残っている。2026-09-30 tauri dev で利用者が見つけた)
  */
 export function planFrameDelete(
   all: Node[],
   requested: Node[],
-  requestedEdges: Edge[]
+  requestedEdges: Edge[],
+  { bySelection = true }: { bySelection?: boolean } = {}
 ): FrameDeletePlan {
   const requestedIds = new Set(requested.map((n) => n.id));
   const isRoot = (n: Node) => n.parentId === undefined || !requestedIds.has(n.parentId);
-  const remove = requested.filter((n) => isRoot(n) || n.selected);
+  const remove = requested.filter((n) => isRoot(n) || (bySelection && n.selected));
   const removeIds = new Set(remove.map((n) => n.id));
   const frames = remove.filter((n) => isFrame(n));
   const frameIds = new Set(frames.map((f) => f.id));
