@@ -104,6 +104,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   受け入れ条件 1（配布ビルドのタイトルバー）と 3（VRT）は未確認のまま閉じた。図の一覧は `{app_data_dir}/documents/` を Rust だけが読み書きする
 - 開発コマンド: フロントの依存は `corepack pnpm@9 install --ignore-scripts`（pnpm が無い環境でも corepack で足りる。
   lefthook の hooks は入れていない）。GUI は `corepack pnpm@9 exec tauri dev` / `... tauri build --no-bundle`。
+  Web 版の画面の確かめは `.claude/launch.json` の `web-dev`（`next dev -p 3015`。Browser pane の preview_start で立てる。`.claude/` は git の対象外）。
+  配布版を起動する前に `tauri dev` と開発版の `lorelei.exe`・Next の開発サーバーを止める（single-instance。動いている exe は上書きできずビルドも失敗する）。
   Rust は `cargo test --workspace`（core / mcp）と `cd src-tauri && cargo test`（GUI の殻、独立 project）。
   静的書き出しが通るかの確かめは `TAURI_ENV_PLATFORM` を付けた `next build`（→ `out/`）。**素の `next build` は git の中の `docs/`（GitHub Pages）を上書きする**（failures #18）。
   ER 図の生成器を変えたら `LORELEI_UPDATE_FIXTURES=1` で vitest の `__tests__/lorelei/er-names-fixture.test.ts` を回して `crates/lorelei_core/tests/fixtures/er_names.json` を書き直し、
