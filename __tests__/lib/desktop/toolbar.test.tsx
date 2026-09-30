@@ -76,6 +76,30 @@ describe("ツールバー (spec 02 P2)", { timeout: 15000 }, () => {
     expect(code).toHaveBeenCalledTimes(1);
   });
 
+  it("パネルが「枠を追加」を登録した時だけ、ツールバーに出して呼べる (spec 15 D5)", async () => {
+    const addFrame = vi.fn();
+    const { user, unmount } = render(
+      <DesktopShell>
+        <Panel add={{ label: "ノード追加", run: vi.fn() }} code={vi.fn()} addFrame={addFrame} />
+      </DesktopShell>
+    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "枠を追加" })).toBeEnabled(), { timeout: 5000 });
+    await user.click(screen.getByRole("button", { name: "枠を追加" }));
+    expect(addFrame).toHaveBeenCalledTimes(1);
+    unmount();
+
+    // ER 図のパネルは登録しない
+    render(
+      <DesktopShell>
+        <Panel add={{ label: "テーブル追加", run: vi.fn() }} code={vi.fn()} />
+      </DesktopShell>
+    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "テーブル追加" })).toBeEnabled(), {
+      timeout: 5000,
+    });
+    expect(screen.queryByRole("button", { name: "枠を追加" })).toBeNull();
+  });
+
   it("エディタが登録した向きをツールバーで切り替える (spec 07 D3)", async () => {
     const setDirection = vi.fn();
     const { user } = render(

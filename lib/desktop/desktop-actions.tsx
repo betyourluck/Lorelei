@@ -15,6 +15,8 @@ export interface DesktopActions {
   direction?: GraphType;
   /** ツールバーから向きを変える */
   setDirection?: (direction: GraphType) => void;
+  /** 空の枠 (サブグラフ) を置く (spec 15 D5)。フローチャートだけ */
+  addFrame?: () => void;
 }
 
 /** 外枠が受け取る形。パネルの関数は毎回作り直されるので、呼ぶ時に最新のものを読む */
@@ -26,6 +28,8 @@ export interface RegisteredActions {
   direction: GraphType;
   /** 向きを変える。エディタが向きを持たなければ null (ツールバーに切り替えを出さない) */
   setDirection: ((direction: GraphType) => void) | null;
+  /** 枠を追加する。登録されなければ null (ツールバーに出さない) */
+  addFrame: (() => void) | null;
 }
 
 type Register = (actions: RegisteredActions | null) => void;
@@ -51,6 +55,7 @@ export function useDesktopActions(actions: DesktopActions): void {
   const label = actions.add.label;
   const direction = actions.direction ?? "TD";
   const hasDirection = Boolean(actions.setDirection);
+  const hasAddFrame = Boolean(actions.addFrame);
 
   // 向きが変わったら登録し直す (外枠はそれで保存し直す)
   useEffect(() => {
@@ -61,7 +66,8 @@ export function useDesktopActions(actions: DesktopActions): void {
       code: () => latest.current.code(),
       direction,
       setDirection: hasDirection ? (d) => latest.current.setDirection?.(d) : null,
+      addFrame: hasAddFrame ? () => latest.current.addFrame?.() : null,
     });
     return () => register(null);
-  }, [register, label, direction, hasDirection]);
+  }, [register, label, direction, hasDirection, hasAddFrame]);
 }

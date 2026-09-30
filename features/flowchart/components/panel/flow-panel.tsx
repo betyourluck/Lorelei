@@ -52,6 +52,7 @@ export const PanelContent: FC<PanelContentProps> = ({
     code: onOpenDownload,
     direction,
     setDirection: onDirectionChange,
+    addFrame: onAddFrame,
   });
 
   return (

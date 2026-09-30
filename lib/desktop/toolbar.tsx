@@ -1,6 +1,6 @@
 "use client";
 
-import { CodeIcon, FileInputIcon, PlusIcon, SaveIcon } from "@yamada-ui/lucide";
+import { CodeIcon, FileInputIcon, PlusIcon, SaveIcon, SquareDashedIcon } from "@yamada-ui/lucide";
 import { Box, Button, ButtonGroup, HStack } from "@yamada-ui/react";
 import type { FC } from "react";
 import { useState } from "react";
@@ -63,6 +63,12 @@ export const Toolbar: FC<Props> = ({ actions, current, onSwitchKind, onSave }) =
       >
         {actions?.addLabel ?? "追加"}
       </Button>
+      {/* 枠 (サブグラフ) を追加 (spec 15 D5)。フローチャートのパネルが登録した時だけ */}
+      {actions?.addFrame && (
+        <Button size="sm" variant="outline" startIcon={<SquareDashedIcon />} onClick={() => actions.addFrame?.()}>
+          枠を追加
+        </Button>
+      )}
       <Button
         size="sm"
         variant="outline"

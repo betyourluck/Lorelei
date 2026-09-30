@@ -5,6 +5,7 @@ import type { Edge, Node } from "@xyflow/react";
 import { generateERDiagramMermaidCode } from "@/features/er-diagram/utils/generate-mermaid-code";
 import { generateMermaidCode, getSafeVariableName } from "@/features/flowchart/hooks/mermaid";
 import type { GraphType } from "@/features/flowchart/types/types";
+import { absolutePositions, type Point } from "@/features/flowchart/utils/frame-edit";
 import { SUBGRAPH_NODE_TYPE } from "@/features/flowchart/utils/subgraph-tree";
 import type { EditorKind } from "./open-requests";
 
@@ -25,30 +26,7 @@ export const keyOf = (editor: EditorKind, node: Node): string => {
     : (data.name as string);
 };
 
-type Point = { x: number; y: number };
-
-/**
- * ノードの絶対位置 (spec 15 D4)。枠 (xyflow の親) の中のノードの position は親からの相対なので、親の position を根まで足す。
- * 親が見つからない・親子が輪になる所で足すのをやめる
- */
-const absolutePositions = (nodes: Node[]): Map<string, Point> => {
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const memo = new Map<string, Point>();
-  const abs = (n: Node, seen: Set<string>): Point => {
-    const known = memo.get(n.id);
-    if (known) return known;
-    const parent = n.parentId !== undefined ? byId.get(n.parentId) : undefined;
-    let p: Point = { x: n.position.x, y: n.position.y };
-    if (parent && !seen.has(parent.id)) {
-      const q = abs(parent, new Set(Array.from(seen).concat(n.id)));
-      p = { x: p.x + q.x, y: p.y + q.y };
-    }
-    memo.set(n.id, p);
-    return p;
-  };
-  nodes.forEach((n) => abs(n, new Set()));
-  return memo;
-};
+// 絶対位置 (spec 15 D4) の計算は、枠の編集 (spec 15 D5) と同じもの。枠の中のノードの position は親からの相対なので、親の position を根まで足す
 
 /** 枠の大きさ (取り込み時の配置が決めたもの、または人が変えたもの) */
 const frameSize = (n: Node): { width: number; height: number } | undefined => {
