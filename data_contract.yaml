@@ -95,7 +95,11 @@ EditorPayload:
         枠と同じ ID のノードは作らない (線が枠を指すと mermaid は同じ ID のノードも作る)
       editor_frame: >-
         エディタでは枠を xyflow の親ノード { type: subgraphNode, data: { variableName, title }, width?, height? } にし、中のノード・子の枠に parentId を付ける (親を前に並べる)。
-        P1 では deletable: false (xyflow は親を消すと子も消す。中身を残す消し方 (裁定 3) は P3)
+        GUI の編集 (spec 15 D5、P3。計算は features/flowchart/utils/frame-edit.ts):
+        「枠を追加」= 画面の中央に 320×200、ID は使っていない最小の group{N}、題 グループ{N}、配列の先頭 /
+        ドラッグを終えたら中心を含む一番内側の枠へ付け替え (自分と子孫の枠は除く。一緒にドラッグした祖先があるものは付け替えない)、枠の外なら図の直下、はみ出しただけなら枠を広げる (左・上は枠を動かし中身の絶対位置を保つ。親の枠へ繰り返す) /
+        題・ID は見出しのダブルクリック (ほかのノード・枠とぶつかる ID と空は確定させない) / 大きさは右・下・右下のつまみ (中身より小さくできない) /
+        消す時は onBeforeDelete で、xyflow が足した「選んでいない子」を消す一覧から外し、消す枠の親 (無ければ図の直下) へ先に付け替える (子の枠は中身ごと 1 段上)。確認に残る数を出す
       direction: "GraphType = TD | LR | RL | BT。無ければ TD (spec 07 D1)。merman の TB は TD にそろえる (同じ意味)。graph と flowchart は区別しない (生成器はいつも flowchart と書く)"
       node: "id = variableName = merman の id。label はそのまま (markdown の記法も文字列のまま)。TS の取り込み (spec 11) は mermaid の内部の符号と HTML の実体参照を戻した文字、空白だけなら空"
       edge_id: "{source}-{target}。使った ID の集合を持ち、ぶつかれば空くまで -2, -3 … を付ける (spec 11 で直した。以前は同じ組の数だけで、- を含む ID で a-b --> c と a --> b-c がぶつかった)"
@@ -155,6 +159,7 @@ DesktopActions:
     code: "() => void。コード生成のモーダルを開く"
     direction: "EditorDirection。今のエディタの向き (spec 07 D3)。外枠はツールバーの切り替えに出し、保存 (toSource) に使う"
     setDirection: "(EditorDirection) => void。ツールバーの切り替えから向きを変える (spec 07 D3)"
+    addFrame: "() => void (任意)。フローチャートのパネルだけが登録し、登録した時だけツールバーに「枠を追加」を出す (spec 15 D5)"
   autosave: "外枠は向きの変化でも自動保存する (ノード・辺が変わらなくても。spec 07 D3)"
 
 MermaidPreview:
