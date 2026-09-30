@@ -19,6 +19,13 @@ export interface Size {
 /** 枠の内側の余白と見出しの高さ (取り込み時の配置 nestedLayoutMetrics と同じ) */
 export const FRAME_PADDING = 24;
 export const FRAME_TITLE_HEIGHT = 28;
+/**
+ * 枠のノードの style。枠の本体は押す操作を受けない (見出し・つまみ・× だけが受ける)。
+ * xyflow は線のラベル (線のボタン) をノードより下の層に描くので、枠の本体が受けると、枠の中の線のボタン・線・空いている所が押せない
+ * (2026-09-30 配布ビルドで利用者が見つけた, failures #25)
+ */
+export const FRAME_NODE_STYLE = { pointerEvents: "none" } as const;
+
 /** 「枠を追加」の大きさ (D5) */
 export const NEW_FRAME_SIZE: Size = { width: 320, height: 200 };
 /** 描く前のノードの大きさの見積もり (w="xs" の 240、高さの最小 48。P1 で測った) */

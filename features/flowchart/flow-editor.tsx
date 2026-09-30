@@ -39,6 +39,7 @@ import {
   applyDrop,
   frameNameRejected,
   isFrame,
+  FRAME_NODE_STYLE,
   NEW_FRAME_SIZE,
   nextFrameName,
   planFrameDelete,
@@ -403,6 +404,7 @@ export function FlowEditor() {
       const frame: Node = {
         id: `frame-${variableName}-${Date.now()}`,
         type: SUBGRAPH_NODE_TYPE,
+        style: FRAME_NODE_STYLE,
         position: {
           x: middle.x - NEW_FRAME_SIZE.width / 2,
           y: middle.y - NEW_FRAME_SIZE.height / 2,
@@ -555,6 +557,7 @@ export function FlowEditor() {
         return {
           id: f.id,
           type: SUBGRAPH_NODE_TYPE,
+          style: FRAME_NODE_STYLE,
           position: positions.get(f.id) || { x: 0, y: 0 },
           ...(f.parent !== undefined ? { parentId: f.parent } : {}),
           ...(size ? { width: size.width, height: size.height } : {}),

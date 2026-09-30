@@ -117,6 +117,16 @@ describe("フローチャートの枠の編集", { timeout: 30000 }, () => {
     expect(nodeEl("B")).not.toBeNull();
   });
 
+  test("枠の本体は押す操作を受けず、見出しだけが受ける (枠の中の線のボタンを押せるように。2026-09-30 配布ビルドで利用者が見つけた)", async () => {
+    const { user } = editor();
+    await importCode(user, "flowchart TD\n  subgraph S\n    A --> B\n  end");
+    await waitFor(() => expect(nodeEl("S")).not.toBeNull());
+    expect(nodeEl("S")!.style.pointerEvents).toBe("none");
+    expect(within(nodeEl("S")!).getByTestId("subgraph-header").style.pointerEvents).toBe("all");
+    // 中のノードは今までどおり受ける
+    expect(nodeEl("A")!.style.pointerEvents).toBe("all");
+  });
+
   test("「やめる」では何も消えない", async () => {
     const { user } = editor();
     await importCode(user, "flowchart TD\n  subgraph S\n    A\n  end");

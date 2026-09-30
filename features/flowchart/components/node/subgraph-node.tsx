@@ -22,6 +22,9 @@ interface SubgraphNodeProps {
   selected?: boolean;
 }
 
+/** 大きさのつまみは押す操作を受ける (枠の本体は受けない) */
+const RESIZE_STYLE = { pointerEvents: "all" } as const;
+
 /** 枠の最小の大きさ (中身が無い時) */
 const MIN_SIZE = { width: 160, height: 100 };
 
@@ -94,7 +97,7 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
       position="relative"
       data-testid="subgraph-node"
     >
-      {/* 右・下・右下だけで大きさを変える */}
+      {/* 右・下・右下だけで大きさを変える。枠の本体は押す操作を受けない (FRAME_NODE_STYLE) ので、つまみは受けるように戻す */}
       {selected && (
         <>
           <NodeResizeControl
@@ -102,25 +105,37 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
             variant={ResizeControlVariant.Line}
             minWidth={minWidth}
             minHeight={minHeight}
+            style={RESIZE_STYLE}
           />
           <NodeResizeControl
             position="bottom"
             variant={ResizeControlVariant.Line}
             minWidth={minWidth}
             minHeight={minHeight}
+            style={RESIZE_STYLE}
           />
-          <NodeResizeControl position="bottom-right" minWidth={minWidth} minHeight={minHeight} />
+          <NodeResizeControl
+            position="bottom-right"
+            minWidth={minWidth}
+            minHeight={minHeight}
+            style={RESIZE_STYLE}
+          />
         </>
       )}
+      {/* 見出し: 枠を選ぶ・動かす・題と ID を変える・消す所。ここだけ押す操作を受ける */}
       <Box
         position="absolute"
-        top={1}
-        left={2}
-        right={2}
-        h={`${FRAME_TITLE_HEIGHT - 4}px`}
+        top={0}
+        left={0}
+        right={0}
+        h={`${FRAME_TITLE_HEIGHT}px`}
+        px={2}
         display="flex"
         gap={2}
         alignItems="center"
+        cursor="grab"
+        style={{ pointerEvents: "all" }}
+        data-testid="subgraph-header"
       >
         {editing === "id" ? (
           input("枠の ID")

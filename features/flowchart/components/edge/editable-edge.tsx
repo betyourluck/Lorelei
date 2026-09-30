@@ -1,7 +1,7 @@
 "use client";
 
 import type { EdgeProps, Edge } from "@xyflow/react";
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, useReactFlow } from "@xyflow/react";
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, useReactFlow, useStore } from "@xyflow/react";
 import { XIcon } from "@yamada-ui/lucide";
 import { Input, Box, IconButton, HStack } from "@yamada-ui/react";
 import type { MouseEvent, KeyboardEvent } from "react";
@@ -9,6 +9,7 @@ import { useState, useRef, useEffect } from "react";
 import { adjustEdgeLabelPosition, getCyclicEdgeStyle } from "../../hooks/edge-layout";
 import { getArrowTypeSymbol } from "../../hooks/mermaid";
 import type { MermaidArrowType } from "../../types/types";
+import { SUBGRAPH_NODE_TYPE } from "../../utils/subgraph-tree";
 import { ArrowTypeSelector } from "./arrow-type-selector";
 
 interface EditableEdgeProps extends EdgeProps {
@@ -28,9 +29,11 @@ interface EdgeContentProps {
   labelX: number;
   labelY: number;
   data?: EditableEdgeProps["data"];
+  /** ラベルの高さ。無ければ付けない */
+  zIndex?: number;
 }
 
-export function EdgeContent({ id, labelX, labelY, data }: EdgeContentProps) {
+export function EdgeContent({ id, labelX, labelY, data, zIndex }: EdgeContentProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [edgeLabel, setEdgeLabel] = useState(data?.label || "");
   const [isComposing, setIsComposing] = useState(false);
@@ -97,6 +100,7 @@ export function EdgeContent({ id, labelX, labelY, data }: EdgeContentProps) {
       transform={`translate(-50%, -50%) translate(${labelX}px,${labelY}px)`}
       pointerEvents="all"
       className="nodrag nopan"
+      zIndex={zIndex}
     >
       {isEditing ? (
         <Input
@@ -176,6 +180,15 @@ export function EditableEdge({
   const { getEdges, getNodes } = useReactFlow();
   const allEdges = getEdges();
   const allNodes = getNodes();
+  // 枠 (サブグラフ) がある図では、線のラベルを一番上の枠より上に描く。xyflow はラベルをノードより下の層に描くので、
+  // 半透明の枠に覆われて薄く見える (spec 15、failures #25)。枠の無い図は今までどおり (高さを付けない)
+  const labelZIndex = useStore((s) => {
+    let top = -Infinity;
+    s.nodeLookup.forEach((n) => {
+      if (n.type === SUBGRAPH_NODE_TYPE) top = Math.max(top, n.internals.z);
+    });
+    return top === -Infinity ? undefined : top + 1;
+  });
 
   const currentEdge = { id, source, target };
 
@@ -209,7 +222,13 @@ export function EditableEdge({
     <>
       <BaseEdge path={edgePath} markerEnd={markerEnd} style={cyclicStyle} />
       <EdgeLabelRenderer>
-        <EdgeContent id={id} labelX={adjustedX} labelY={adjustedY} data={data} />
+        <EdgeContent
+          id={id}
+          labelX={adjustedX}
+          labelY={adjustedY}
+          data={data}
+          zIndex={labelZIndex}
+        />
       </EdgeLabelRenderer>
     </>
   );
