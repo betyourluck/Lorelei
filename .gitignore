@@ -46,3 +46,6 @@ target/
 # tauri / next (Tauri 用の書き出し)
 /out/
 /src-tauri/gen/
+
+# Claude Code のローカル設定 (開発サーバーの launch.json・settings.local.json)
+/.claude/
