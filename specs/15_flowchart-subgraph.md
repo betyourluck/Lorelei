@@ -283,6 +283,8 @@ xyflow（ソース）:
 
 ### 未了（後の Phase）
 
-- デスクトップは P2 まで枠が出ない（MCP・デスクトップのインポートは Rust の `to_editor` が落とす。data_contract の `ts_mirror` に食い違いを書いた）
+- デスクトップは P2 まで枠が出ない（MCP・デスクトップのインポートは Rust の `to_editor` が落とす。data_contract の `ts_mirror` に食い違いを書いた）。
+  P2 で直す記述（grep 済み）: LORELEI.md の 3 か所（`read_diagram` の Mermaid・既知の制約・インポートの消えるもの）、MCP のツールの説明 3 か所（`crates/lorelei_mcp/src/lib.rs` の validate・open_in_editor・read_diagram）、
+  data_contract の `read_diagram` の source の説明
 - 枠の中のノードを枠の外へドラッグしても、見た目だけ外に出て親は変わらない（コード生成では枠の中に書く）。付け替えは P3
 - LR / RL / BT の画面は見ていない（配置のテストで 4 つの向きの収まりと重なりを確かめた）
