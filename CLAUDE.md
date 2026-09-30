@@ -65,7 +65,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   P0（mermaid.js と merman に 87 通り）・P1（フォーク元: 取り込み・入れ子の段組み・枠の表示・生成器。Web 版の画面で確認）・
   P2（Rust の `to_editor` が枠を返す・`Document.layout` は絶対座標で枠は大きさも持つ。`tauri dev` で MCP の往復と開き直しを確認）・
   P3（GUI の編集: 枠を追加・ドロップで出し入れ・題と ID・大きさ・中身を残す削除。計算は `features/flowchart/utils/frame-edit.ts`。Web 版の画面で確認）着地。
-  P0 で、ラベルの `direction LR` を mermaid.js が囲みの中でも行ごと食ってノードが消える今の生成器の穴を見つけて直した（failures #21）。次は P4（配布ビルドでデスクトップの編集を一通り）→ P5（任意: 枠を指す線・枠の中の向き）。
+  P0 で、ラベルの `direction LR` を mermaid.js が囲みの中でも行ごと食ってノードが消える今の生成器の穴を見つけて直した（failures #21）。P4（配布ビルドで MCP で開く → 利用者が枠を追加・出し入れ・題と ID・× で削除・大きさ → `read_diagram` と保存ファイルで確認）着地、受け入れ条件 1〜7 通過（未確認は spec 15「P4 結果」）。
+  P3 の後に `tauri dev` で利用者が、枠の × で選んでいた中のノードまで消す扱いを見つけて直した（failures #24）。P5（任意: 枠を指す線・枠の中の向き）は利用者の判断待ち。
   **xyflow は親を消すと子も消す**ので、枠の削除は `onBeforeDelete` で子を消す一覧から外して先に付け替えている（`planFrameDelete`）
 - 2026-09-29: [spec 14](specs/14_merman-er-word-boundary.md) **Done** — rev1（上流 PR [Latias94/merman#153](https://github.com/Latias94/merman/pull/153) は 2026-09-29 にマージ済み。merman の ER 図の字句解析が `many` / `one` / `to` を境界なしで取り、
   AI が書いた ER 図の `tokens` などのテーブル名を誤りにしていた（`A one to onerous : x` は名前が `rous` に化けた）。写しを mermaid.js の `\b` と同じ境界にした）
