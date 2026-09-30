@@ -55,6 +55,82 @@ describe("layout のキー (spec 02 D6: Mermaid 上のノード ID)", () => {
   });
 });
 
+// spec 15 D4: 枠 (xyflow の親) の中のノードの position は親からの相対。layout は絶対座標で持ち、枠は大きさも持つ
+describe("layout の枠 (spec 15 D4)", () => {
+  const frame = (id: string, x: number, y: number, parentId?: string, size = { width: 300, height: 200 }): Node => ({
+    id,
+    type: "subgraphNode",
+    position: { x, y },
+    ...(parentId ? { parentId } : {}),
+    ...size,
+    data: { variableName: id, title: id },
+  });
+  const child = (id: string, x: number, y: number, parentId: string): Node => ({
+    ...flowNode(id, id, x, y),
+    parentId,
+  });
+  // 外枠 O (100, 50) の中に内枠 I (+20, +30)、その中に A (+5, +7)。B は O の直下 (+40, +150)、C は図の直下
+  const nested = (): Node[] => [
+    frame("O", 100, 50),
+    frame("I", 20, 30, "O", { width: 250, height: 120 }),
+    child("A", 5, 7, "I"),
+    child("B", 40, 150, "O"),
+    flowNode("C", "C", 400, 500),
+  ];
+
+  it("位置は根まで足した絶対座標で、枠は大きさも持つ", () => {
+    expect(collectLayout("flowchart", nested())).toEqual({
+      O: { x: 100, y: 50, width: 300, height: 200 },
+      I: { x: 120, y: 80, width: 250, height: 120 },
+      A: { x: 125, y: 87 },
+      B: { x: 140, y: 200 },
+      C: { x: 400, y: 500 },
+    });
+  });
+
+  it("当てる時は親から順に相対へ直す (保存した絶対座標に戻る)。枠の大きさも戻る", () => {
+    const saved = {
+      O: { x: 10, y: 20, width: 500, height: 400 },
+      I: { x: 30, y: 60, width: 260, height: 140 },
+      A: { x: 40, y: 80 },
+      B: { x: 50, y: 300 },
+      C: { x: 1, y: 2 },
+    };
+    // 子を親より前に並べても計算の順に依らない
+    const nodes = withLayout("flowchart", [...nested()].reverse(), saved);
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    expect(byId.get("O")).toMatchObject({ position: { x: 10, y: 20 }, width: 500, height: 400 });
+    expect(byId.get("I")).toMatchObject({ position: { x: 20, y: 40 }, width: 260, height: 140 });
+    expect(byId.get("A")?.position).toEqual({ x: 10, y: 20 });
+    expect(byId.get("B")?.position).toEqual({ x: 40, y: 280 });
+    expect(byId.get("C")?.position).toEqual({ x: 1, y: 2 });
+    expect(collectLayout("flowchart", nodes)).toEqual(saved);
+  });
+
+  it("位置の無いノードは今の絶対位置のまま (親だけ動いても子は動かない)", () => {
+    const nodes = withLayout("flowchart", nested(), { O: { x: 0, y: 0 } });
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    // I は元の絶対位置 (120, 80) のまま = 新しい O (0, 0) から (120, 80)
+    expect(byId.get("I")?.position).toEqual({ x: 120, y: 80 });
+    expect(byId.get("O")).toMatchObject({ width: 300, height: 200 });
+  });
+
+  it("親子が輪になっていても止まる", () => {
+    const nodes = [frame("X", 1, 2, "Y"), frame("Y", 3, 4, "X")];
+    expect(Object.keys(collectLayout("flowchart", nodes)).sort()).toEqual(["X", "Y"]);
+    expect(withLayout("flowchart", nodes, {})).toHaveLength(2);
+  });
+
+  it("開く図のキーには枠の ID も入る", () => {
+    expect(
+      expectedKeys("flowchart", {
+        nodes: [{ variableName: "A" }],
+        subgraphs: [{ id: "O" }, { id: "I", parent: "O" }],
+      })
+    ).toEqual(["A", "O", "I"]);
+  });
+});
+
 describe("layoutReady — 位置を当ててよい時 (P0-4 / P3 の設計の補足 2)", () => {
   it("取り込みが済み、開く図のキーがストアに全部そろった時だけ", () => {
     const nodes = [flowNode("startNode", "startNode"), flowNode("B", "B")];

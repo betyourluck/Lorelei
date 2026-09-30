@@ -1,0 +1,401 @@
+[
+  {
+    "name": "入れ子・空の枠・枠の外のノード・枠をまたぐ線",
+    "source": "flowchart TD\n    subgraph O[\"外\"]\n        subgraph I[\"内\"]\n            A[a]\n        end\n        B[b]\n    end\n    subgraph E[\"空\"]\n    end\n    C[c]\n    A --> B\n    B --> C\n    A --> C\n",
+    "nodes": [
+      "A",
+      "B",
+      "C"
+    ],
+    "subgraphs": [
+      {
+        "id": "O",
+        "title": "外",
+        "nodes": [
+          "B"
+        ]
+      },
+      {
+        "id": "I",
+        "title": "内",
+        "nodes": [
+          "A"
+        ],
+        "parent": "O"
+      },
+      {
+        "id": "E",
+        "title": "空",
+        "nodes": []
+      }
+    ]
+  },
+  {
+    "name": "安全な ID (end)",
+    "source": "flowchart TD\n    subgraph node_end[\"e\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "node_end",
+        "title": "e",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"受付 審査\"",
+    "source": "flowchart TD\n    subgraph S[\"受付 審査\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "受付 審査",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"a(b)\"",
+    "source": "flowchart TD\n    subgraph S[\"a(b)\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "a(b)",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"a[b]\"",
+    "source": "flowchart TD\n    subgraph S[\"a[b]\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "a[b]",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"a{b}\"",
+    "source": "flowchart TD\n    subgraph S[\"a{b}\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "a{b}",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"say \\\"hi\\\"\"",
+    "source": "flowchart TD\n    subgraph S[\"say #quot;hi#quot;\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "say \"hi\"",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"#1;\"",
+    "source": "flowchart TD\n    subgraph S[\"#35;1;\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "#1;",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"#quot;\"",
+    "source": "flowchart TD\n    subgraph S[\"#35;quot;\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "#quot;",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"a;b\"",
+    "source": "flowchart TD\n    subgraph S[\"a;b\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "a;b",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"a:b\"",
+    "source": "flowchart TD\n    subgraph S[\"a:b\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "a:b",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"a|b\"",
+    "source": "flowchart TD\n    subgraph S[\"a|b\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "a|b",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"end\"",
+    "source": "flowchart TD\n    subgraph S[\"end\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "end",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"subgraph\"",
+    "source": "flowchart TD\n    subgraph S[\"subgraph\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "subgraph",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"direction LR\"",
+    "source": "flowchart TD\n    subgraph S[\"direction#32;LR\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "direction LR",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"x direction TB\"",
+    "source": "flowchart TD\n    subgraph S[\"x direction#32;TB\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "x direction TB",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"a-->b\"",
+    "source": "flowchart TD\n    subgraph S[\"a-->b\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "a-->b",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"\"",
+    "source": "flowchart TD\n    subgraph S[\" \"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"1abc\"",
+    "source": "flowchart TD\n    subgraph S[\"1abc\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "1abc",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"a\\\\b\"",
+    "source": "flowchart TD\n    subgraph S[\"a\\b\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "a\\b",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"50%\"",
+    "source": "flowchart TD\n    subgraph S[\"50%\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "50%",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"a&b\"",
+    "source": "flowchart TD\n    subgraph S[\"a&b\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "a&b",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"a%%b\"",
+    "source": "flowchart TD\n    subgraph S[\"a%%b\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "a%%b",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "題 \"S\"",
+    "source": "flowchart TD\n    subgraph S[\"S\"]\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "S",
+        "nodes": [
+          "A"
+        ]
+      }
+    ]
+  }
+]

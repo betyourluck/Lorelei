@@ -366,12 +366,13 @@ async fn update_diagram_writes_back_over_http() {
         &sid,
         3,
         "tools/call",
-        json!({"name":"update_diagram","arguments":{"id":NEW_ID,"source":"flowchart TD\n  subgraph S\n    A --> B\n  end\n","expected_updated_at":AT,"open":true}}),
+        json!({"name":"update_diagram","arguments":{"id":NEW_ID,"source":"flowchart TD\n  A --> B\n  style A fill:#f00\n","expected_updated_at":AT,"open":true}}),
     )
     .await;
     let out = &u["result"]["structuredContent"];
     assert_eq!(out["updated"], true, "{u}");
-    assert_eq!(out["dropped"][0]["construct"], "subgraph");
+    // subgraph は spec 15 で写すようになったので、省かれる要素の例は style
+    assert_eq!(out["dropped"][0]["construct"], "style");
     assert_eq!(out["open"], true);
     assert!(recorder.updates.lock().unwrap()[1].open);
     running.stop();

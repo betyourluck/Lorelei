@@ -26,10 +26,15 @@ pub enum Origin {
     Import,
 }
 
+/// 絶対座標 (spec 15 D4)。枠 (サブグラフ) だけ大きさも持つ。大きさの無い位置は width / height を書かない (今の版のファイルと同じ形)
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Pos {
     pub x: f64,
     pub y: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<f64>,
 }
 
 pub type Layout = BTreeMap<String, Pos>;
@@ -405,6 +410,28 @@ mod tests {
         s.save(id, source.into(), layout, &base)
     }
 
+    // spec 15 D4: 枠 (サブグラフ) は位置に加えて大きさを持つ。フロントから届いた width / height を保存し、読み戻す。
+    // 大きさの無い位置は width / height を書かない (今の版のファイルと同じ形)
+    #[test]
+    fn layout_keeps_frame_sizes_and_omits_them_for_plain_nodes() {
+        let s = store();
+        let d = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
+        let layout: Layout = serde_json::from_value(serde_json::json!({
+            "O": { "x": 1.0, "y": 2.0, "width": 300.0, "height": 200.0 },
+            "A": { "x": 3.0, "y": 4.0 }
+        }))
+        .unwrap();
+        sv(&s, &d.id, "flowchart TD\n    subgraph O[\"o\"]\n        A[A]\n    end\n", layout).unwrap();
+        let back = serde_json::to_value(&s.load(&d.id).unwrap().layout).unwrap();
+        assert_eq!(
+            back,
+            serde_json::json!({
+                "O": { "x": 1.0, "y": 2.0, "width": 300.0, "height": 200.0 },
+                "A": { "x": 3.0, "y": 4.0 }
+            })
+        );
+    }
+
     // spec 04 D4-2: AI の図がエディタの初期図で潰れた (現況 4)。門が漏れても保存の手前で止める保険
     #[test]
     fn an_ai_or_imported_diagram_is_not_overwritten_by_the_initial_figure() {
@@ -443,7 +470,7 @@ mod tests {
         let s = store();
         let d = s.create(Editor::Flowchart, Some("注文".into()), Origin::New, None).unwrap();
         let mut layout = BTreeMap::new();
-        layout.insert("A".to_string(), Pos { x: 1.0, y: 2.0 });
+        layout.insert("A".to_string(), Pos { x: 1.0, y: 2.0, width: None, height: None });
         sv(&s, &d.id, "flowchart TD\n    A[A]\n", layout.clone()).unwrap();
         s.mark_saved(&d.id).unwrap();
         let before = s.load(&d.id).unwrap();
@@ -537,7 +564,7 @@ mod tests {
 
         // 揃え書き (生成器の出力) は進めない
         let mut layout = BTreeMap::new();
-        layout.insert("A".to_string(), Pos { x: 3.0, y: 4.0 });
+        layout.insert("A".to_string(), Pos { x: 3.0, y: 4.0, width: None, height: None });
         let saved = sv(&s, &d.id, "flowchart LR\n    A[A]\n    B[B]\n    A --> B\n", layout).unwrap();
         assert_eq!(saved.updated_at, updated.updated_at);
         assert!(!s.load(&d.id).unwrap().normalize_pending, "印は消える");
@@ -657,7 +684,7 @@ mod tests {
             .create(Editor::Flowchart, None, Origin::Ai, Some("flowchart LR\n  A-->B\n".into()))
             .unwrap();
         let mut layout = BTreeMap::new();
-        layout.insert("A".to_string(), Pos { x: 1.5, y: 2.0 });
+        layout.insert("A".to_string(), Pos { x: 1.5, y: 2.0, width: None, height: None });
         let updated = sv(&s, &d.id, "flowchart TD\n    A[A]\n", layout.clone()).unwrap();
         let got = s.load(&d.id).unwrap();
         assert_eq!(got.source, "flowchart TD\n    A[A]\n");

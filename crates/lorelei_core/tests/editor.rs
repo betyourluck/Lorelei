@@ -1,6 +1,6 @@
 //! 意味モデル → エディタのデータ形 (spec 01 D5')。入力の多くは P0-5 でフォーク元パーサーが壊したもの。
 
-use lorelei_core::{EditorPayload, ErData, FlowData, to_editor, validate};
+use lorelei_core::{EditorPayload, ErData, FlowData, FlowSubgraph, to_editor, validate};
 
 fn flow(src: &str) -> (FlowData, Vec<(String, usize)>) {
     match to_editor(src).unwrap().expect("editable") {
@@ -71,7 +71,7 @@ fn ampersand_open_link_semicolon_and_inline_class_do_not_empty_the_diagram() {
 }
 
 #[test]
-fn subgraph_is_reported_and_does_not_become_a_node() {
+fn subgraph_becomes_a_frame_and_not_a_node() {
     // subgraph の ID は ASCII にする (merman は日本語のノード ID を受け付けない。spec 01 の P1 記録)
     let src = "flowchart TD\n  subgraph S1[受注]\n    A[受付] --> B[確認]\n  end\n  B --> C[出荷]\n  C --> S1\n";
     let (data, dropped) = flow(src);
@@ -81,7 +81,91 @@ fn subgraph_is_reported_and_does_not_become_a_node() {
         "end や subgraph がノードになっている"
     );
     assert_eq!(edge_pairs(&data), [("A", "B"), ("B", "C")]);
-    assert_eq!(dropped, [d("edge_to_subgraph", 1), d("subgraph", 1)]);
+    // spec 15 D1: 枠にする (TS の取り込み from-mermaid.ts と同じ)。枠を指す線は落とす
+    assert_eq!(data.subgraphs, [sg("S1", "受注", &["A", "B"], None)]);
+    assert_eq!(dropped, [d("edge_to_subgraph", 1)]);
+}
+
+fn sg(id: &str, title: &str, nodes: &[&str], parent: Option<&str>) -> FlowSubgraph {
+    FlowSubgraph {
+        id: id.to_string(),
+        title: title.to_string(),
+        nodes: nodes.iter().map(|n| n.to_string()).collect(),
+        parent: parent.map(str::to_string),
+    }
+}
+
+// ---------- flowchart: 枠 (spec 15 D1。TS の from-mermaid.test.ts の「枠」と同じ入力) ----------
+
+#[test]
+fn nested_frames_are_ordered_parent_first() {
+    let (data, _) = flow(
+        "flowchart TD\n  subgraph X[\"x\"]\n    subgraph Y[\"y\"]\n      subgraph Z[\"z\"]\n        A\n      end\n    end\n    B\n  end\n  C\n",
+    );
+    assert_eq!(
+        data.subgraphs,
+        [
+            sg("X", "x", &["B"], None),
+            sg("Y", "y", &[], Some("X")),
+            sg("Z", "z", &["A"], Some("Y")),
+        ]
+    );
+}
+
+#[test]
+fn a_node_belongs_to_one_frame() {
+    let (data, _) = flow("flowchart TD\n  subgraph X\n    A\n  end\n  subgraph Y\n    A\n  end\n");
+    assert_eq!(
+        data.subgraphs,
+        [sg("X", "X", &["A"], None), sg("Y", "Y", &[], None)]
+    );
+    let (data, _) =
+        flow("flowchart TD\n  subgraph X\n    A\n    subgraph Y\n      A\n    end\n  end\n");
+    assert_eq!(
+        data.subgraphs,
+        [sg("X", "X", &[], None), sg("Y", "Y", &["A"], Some("X"))]
+    );
+}
+
+#[test]
+fn a_frame_listing_itself_ignores_that_entry() {
+    let (data, _) = flow("flowchart TD\n  subgraph X[\"x\"]\n    X\n    A\n  end\n");
+    assert_eq!(node_ids(&data), ["A"]);
+    assert_eq!(data.subgraphs, [sg("X", "x", &["A"], None)]);
+}
+
+#[test]
+fn empty_frames_blank_titles_and_title_only_frames() {
+    let (data, _) =
+        flow("flowchart TD\n  subgraph X[\" \"]\n  end\n  subgraph 受付 審査\n    A\n  end\n");
+    assert_eq!(
+        data.subgraphs,
+        [
+            sg("X", "", &[], None),
+            sg("subGraph1", "受付 審査", &["A"], None)
+        ]
+    );
+}
+
+#[test]
+fn direction_inside_a_frame_is_dropped_and_members_follow_node_order() {
+    let (data, dropped) =
+        flow("flowchart TD\n  subgraph X\n    direction LR\n    A --> B\n  end\n");
+    assert_eq!(data.subgraphs, [sg("X", "X", &["A", "B"], None)]);
+    assert_eq!(dropped, [d("subgraph_direction", 1)]);
+}
+
+#[test]
+fn diagrams_without_frames_do_not_serialize_subgraphs() {
+    let json = serde_json::to_value(to_editor("flowchart TD\n  A --> B\n").unwrap()).unwrap();
+    assert!(json["data"].get("subgraphs").is_none());
+    let json =
+        serde_json::to_value(to_editor("flowchart TD\n  subgraph S\n    A\n  end\n").unwrap())
+            .unwrap();
+    assert_eq!(
+        json["data"]["subgraphs"],
+        serde_json::json!([{ "id": "S", "title": "S", "nodes": ["A"] }])
+    );
 }
 
 #[test]
@@ -261,9 +345,10 @@ fn other_diagram_types_are_not_editable() {
 
 #[test]
 fn validate_carries_the_same_dropped_list_as_the_payload() {
-    let src = "flowchart TD\n  subgraph S\n    A --> B\n  end\n";
+    let src = "flowchart TD\n  subgraph S\n    A --> B\n  end\n  B --> S\n  style A fill:#f00\n";
     let from_validate = validate(src).unwrap().editor.dropped;
     let from_payload = to_editor(src).unwrap().unwrap().dropped().to_vec();
+    assert!(!from_validate.is_empty());
     assert_eq!(from_validate, from_payload);
     assert!(validate(src).unwrap().editor.editable);
 }
@@ -306,6 +391,7 @@ fn japanese_ids_work_in_subgraph_class_style_and_click_statements() {
     let (data, dropped) = flow(src);
     assert_eq!(node_ids(&data), ["受付", "確認", "完了ー"]);
     assert_eq!(edge_pairs(&data), [("受付", "確認"), ("受付", "完了ー")]);
+    assert_eq!(data.subgraphs, [sg("受注", "受注", &["受付", "確認"], None)]);
     assert_eq!(
         dropped,
         [
@@ -314,7 +400,6 @@ fn japanese_ids_work_in_subgraph_class_style_and_click_statements() {
             d("click", 1),
             d("edge_to_subgraph", 1),
             d("style", 1),
-            d("subgraph", 1)
         ]
     );
 }
@@ -435,5 +520,31 @@ fn er_generator_names_round_trip_through_merman() {
             .collect();
         assert_eq!(edges, [("B", name, name)], "{source}");
         assert!(dropped.is_empty(), "{source}: {dropped:?}");
+    }
+}
+
+/// TS の生成器が書いた枠 (spec 15 D2) を merman で読み、fixture の nodes・subgraphs に戻る (TS の往復は mermaid.js で同じ期待値を検める)。
+/// fixture は __tests__/lorelei/flow-subgraphs-fixture.test.ts が書く (LORELEI_UPDATE_FIXTURES=1)
+#[test]
+fn flow_generator_frames_round_trip_through_merman() {
+    let cases: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/flow_subgraphs.json")).expect("fixture");
+    for case in cases.as_array().expect("array") {
+        let name = case["name"].as_str().unwrap();
+        let source = case["source"].as_str().unwrap();
+        let (data, dropped) = flow(source);
+        let expected_nodes: Vec<&str> = case["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n.as_str().unwrap())
+            .collect();
+        assert_eq!(node_ids(&data), expected_nodes, "{name}: {source}");
+        assert_eq!(
+            serde_json::to_value(&data.subgraphs).unwrap(),
+            case["subgraphs"],
+            "{name}: {source}"
+        );
+        assert!(dropped.is_empty(), "{name}: {dropped:?}");
     }
 }

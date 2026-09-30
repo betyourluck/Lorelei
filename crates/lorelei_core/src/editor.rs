@@ -53,6 +53,19 @@ pub struct FlowData {
     /// 図の向き (LR / RL / BT)。TD (と同じ意味の TB) の時は持たない (無ければ TD, spec 07 D1)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub direction: Option<String>,
+    /// サブグラフ (枠, spec 15 D1)。親が子より前に並ぶ。無ければ持たない
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub subgraphs: Vec<FlowSubgraph>,
+}
+
+/// フォーク元 `ParsedMermaidSubgraph` (spec 15 D1)。nodes は直下のノードの ID だけで、入れ子は子の枠の parent で表す
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FlowSubgraph {
+    pub id: String,
+    pub title: String,
+    pub nodes: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -206,7 +219,14 @@ fn accessibility_drop(drops: &mut Drops, model: &Value) {
 fn flowchart(model: &Value) -> Result<EditorPayload, CoreError> {
     let mut drops = Drops::default();
     accessibility_drop(&mut drops, model);
-    drops.add("subgraph", arr(model, "subgraphs").len());
+    // 枠は写す (spec 15 D1)。枠の中の direction はエディタに無い (図全体の向きで並べる, D6)
+    drops.add(
+        "subgraph_direction",
+        arr(model, "subgraphs")
+            .iter()
+            .filter(|s| non_empty(s, "dir"))
+            .count(),
+    );
     drops.add(
         "classDef",
         model
@@ -272,6 +292,7 @@ fn flowchart(model: &Value) -> Result<EditorPayload, CoreError> {
         });
     }
 
+    let node_order: Vec<String> = nodes.iter().map(|n| n.id.clone()).collect();
     let mut edges = Vec::new();
     // ID は {source}-{target}。ID に - を含むノードがあるとぶつかりうるので、使った ID を持ち、空くまで番号を足す
     // (spec 11 で見つけた穴。TS の取り込み from-mermaid.ts と同じ)
@@ -317,9 +338,102 @@ fn flowchart(model: &Value) -> Result<EditorPayload, CoreError> {
             nodes,
             edges,
             direction: direction_of(model),
+            subgraphs: subgraphs_of(model, &node_order),
         },
         dropped: drops.into_vec(),
     })
+}
+
+/// 枠 (spec 15 D1。TS の from-mermaid.ts の subgraphsOf と同じ)。merman の一覧の nodes には子の枠の ID も入るので、
+/// それを子の枠の親にする。自分自身を nodes に持つ枠はその 1 件を無視する。1 つのノードは 1 つの枠にだけ入れ (先に出た枠)、
+/// 枠の中のノードは図のノードの順に並べる。題は merman が解析の段階で元の文字に戻している (P0)。空白だけの題は空にする
+fn subgraphs_of(model: &Value, node_order: &[String]) -> Vec<FlowSubgraph> {
+    let subs = arr(model, "subgraphs");
+    let rank: HashMap<&str, usize> = node_order
+        .iter()
+        .enumerate()
+        .map(|(i, id)| (id.as_str(), i))
+        .collect();
+    let sub_ids: HashSet<&str> = subs.iter().map(|s| str_of(s, "id")).collect();
+    let mut parent_of: HashMap<&str, &str> = HashMap::new();
+    let mut claimed: HashSet<&str> = HashSet::new();
+    let mut items = Vec::new();
+    for s in subs {
+        let id = str_of(s, "id");
+        let mut members: Vec<&str> = Vec::new();
+        for m in arr(s, "nodes").iter().filter_map(Value::as_str) {
+            if m == id {
+                continue;
+            }
+            if sub_ids.contains(m) {
+                parent_of.entry(m).or_insert(id);
+            } else if rank.contains_key(m) && claimed.insert(m) {
+                members.push(m);
+            }
+        }
+        members.sort_by_key(|m| rank[m]);
+        let title = str_of(s, "title");
+        items.push(FlowSubgraph {
+            id: id.to_string(),
+            title: if title.trim().is_empty() {
+                String::new()
+            } else {
+                title.to_string()
+            },
+            nodes: members.into_iter().map(str::to_string).collect(),
+            parent: None,
+        });
+    }
+    for item in &mut items {
+        item.parent = parent_of.get(item.id.as_str()).map(|p| p.to_string());
+    }
+    order_parents_first(items)
+}
+
+/// 親が子より前に来るように並べ直す (TS の subgraph-tree.ts の orderParentsFirst と同じ)。
+/// 親が一覧に無い・親子が輪になる枠は、親を外して図の直下に置く
+fn order_parents_first(items: Vec<FlowSubgraph>) -> Vec<FlowSubgraph> {
+    let index: HashMap<String, usize> = items
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (s.id.clone(), i))
+        .collect();
+    let mut placed = vec![false; items.len()];
+    let mut path: HashSet<usize> = HashSet::new();
+    let mut out = Vec::with_capacity(items.len());
+    fn place(
+        i: usize,
+        items: &[FlowSubgraph],
+        index: &HashMap<String, usize>,
+        placed: &mut [bool],
+        path: &mut HashSet<usize>,
+        out: &mut Vec<FlowSubgraph>,
+    ) {
+        if placed[i] {
+            return;
+        }
+        let mut item = items[i].clone();
+        if let Some(parent) = &items[i].parent {
+            match index.get(parent) {
+                Some(&p) if !path.contains(&p) => {
+                    path.insert(i);
+                    place(p, items, index, placed, path, out);
+                    path.remove(&i);
+                    // 自分を親にした枠は、親を辿る途中で (親を外して) もう置かれている
+                    if placed[i] {
+                        return;
+                    }
+                }
+                _ => item.parent = None,
+            }
+        }
+        placed[i] = true;
+        out.push(item);
+    }
+    for i in 0..items.len() {
+        place(i, &items, &index, &mut placed, &mut path, &mut out);
+    }
+    out
 }
 
 fn arrow_type(edge: &Value, drops: &mut Drops) -> &'static str {

@@ -470,7 +470,7 @@ mod tests {
         let store = documents::Store::new(scratch());
         let opened = deliver(app.handle(), &store, "flowchart TD\n  A --> B\n".into(), Some("注文".into())).unwrap();
         let mut layout = documents::Layout::new();
-        layout.insert("A".into(), documents::Pos { x: 10.0, y: 20.0 });
+        layout.insert("A".into(), documents::Pos { x: 10.0, y: 20.0, width: None, height: None });
         store.save(&opened.id, "flowchart TD\n    A[A]\n    B[B]\n    A --> B\n".into(), layout, &opened.updated_at).unwrap();
         let cur = store.load(&opened.id).unwrap().updated_at;
         app.state::<PendingOpens>().0.lock().unwrap().clear();
@@ -572,10 +572,11 @@ mod tests {
 
     #[test]
     fn a_converted_request_reports_what_the_editor_drops() {
-        let r = request_from_source("flowchart TD\n  subgraph S\n    A --> B\n  end\n".into());
+        // subgraph は spec 15 で写すようになったので、省かれる要素の例は style
+        let r = request_from_source("flowchart TD\n  A --> B\n  style A fill:#f00\n".into());
         assert!(r.error.is_none(), "{r:?}");
         assert!(matches!(r.payload, Some(EditorPayload::Flowchart { .. })));
-        assert_eq!(r.dropped[0].construct, "subgraph");
+        assert_eq!(r.dropped[0].construct, "style");
     }
 
     #[test]
