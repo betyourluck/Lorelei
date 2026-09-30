@@ -2,7 +2,7 @@
 
 import { Panel } from "@xyflow/react";
 import type { Node, Edge } from "@xyflow/react";
-import { PlusIcon, CodeIcon, UploadIcon } from "@yamada-ui/lucide";
+import { PlusIcon, CodeIcon, UploadIcon, SquareDashedIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import { VStack, HStack, Text, Button, useDisclosure } from "@yamada-ui/react";
 import { NavigationMenu } from "@/components/ui";
@@ -15,6 +15,8 @@ import { DownloadModal } from "../mermaid/download-modal";
 
 interface FlowPanelProps {
   onAddNode: () => void;
+  /** 空の枠 (サブグラフ) を置く (spec 15 D5)。無ければボタンを出さない */
+  onAddFrame?: () => void;
   onImportMermaid: (data: ParsedMermaidData) => void;
   nodes: Node[];
   edges: Edge[];
@@ -35,6 +37,7 @@ export const FlowPanel: FC<FlowPanelProps> = (props) => {
 
 export const PanelContent: FC<PanelContentProps> = ({
   onAddNode,
+  onAddFrame,
   onImportMermaid,
   nodes,
   edges,
@@ -72,6 +75,11 @@ export const PanelContent: FC<PanelContentProps> = ({
           <Button startIcon={<PlusIcon />} colorScheme="blue" size="sm" onClick={onAddNode}>
             ノード追加
           </Button>
+          {onAddFrame && (
+            <Button startIcon={<SquareDashedIcon />} colorScheme="yellow" variant="outline" size="sm" onClick={onAddFrame}>
+              枠を追加
+            </Button>
+          )}
           <Button startIcon={<CodeIcon />} colorScheme="green" size="sm" onClick={onOpenDownload}>
             コード生成
           </Button>

@@ -1,7 +1,21 @@
 "use client";
 
-import type { Node, Edge, Connection, OnConnectStartParams, OnConnectEnd } from "@xyflow/react";
-import { ReactFlow, addEdge, useNodesState, useEdgesState, useReactFlow } from "@xyflow/react";
+import type {
+  Node,
+  Edge,
+  Connection,
+  OnBeforeDelete,
+  OnConnectStartParams,
+  OnConnectEnd,
+} from "@xyflow/react";
+import {
+  ReactFlow,
+  addEdge,
+  useNodesState,
+  useEdgesState,
+  useReactFlow,
+  useStoreApi,
+} from "@xyflow/react";
 import { Box, useToken } from "@yamada-ui/react";
 import { useCallback, useState, useRef, useEffect } from "react";
 import { FlowLayout } from "@/components/layout/";
@@ -21,6 +35,14 @@ import {
 import type { ParsedMermaidData } from "./hooks/mermaid";
 import type { MermaidArrowType } from "./types";
 import type { GraphType } from "./types/types";
+import {
+  applyDrop,
+  frameNameRejected,
+  isFrame,
+  NEW_FRAME_SIZE,
+  nextFrameName,
+  planFrameDelete,
+} from "./utils/frame-edit";
 import { layoutNested, type NestedLayoutMetrics } from "./utils/nested-layout";
 import { SUBGRAPH_NODE_TYPE } from "./utils/subgraph-tree";
 
@@ -77,9 +99,11 @@ export function FlowEditor() {
   const [direction, setDirection] = useState<GraphType>("TD");
   // DownloadModalの状態管理はFlowPanelに移動
   const connectingNodeId = useRef<string | null>(null);
-  const { screenToFlowPosition, deleteElements } = useReactFlow();
+  const { screenToFlowPosition, deleteElements, getNodes, getViewport } = useReactFlow();
+  const storeApi = useStoreApi();
   // 削除はメニューも Backspace も deleteElements → onBeforeDelete の確認を通す (つながる線も一緒に消える)
   const confirmDelete = useConfirmDelete("node", (n) => String((n.data as { label?: unknown }).label ?? ""));
+  const { onBeforeDelete: confirmNodeDelete, ask: askDelete } = confirmDelete;
 
   // ノードサイズをトークンから取得（フォールバック値あり）
   const nodeWidthToken = useToken("sizes", "xs");
@@ -107,15 +131,27 @@ export function FlowEditor() {
     [setNodes]
   );
 
-  // ノード変数名変更のハンドラー
+  // ノード変数名変更のハンドラー。枠の ID は、ほかのノード・枠とぶつかる名前と空を確定させない (spec 15 D5)
   const handleVariableNameChange = useCallback(
     (nodeId: string, newVariableName: string) => {
-      setNodes((nds) =>
-        nds.map((node) =>
+      setNodes((nds) => {
+        const target = nds.find((node) => node.id === nodeId);
+        if (isFrame(target) && frameNameRejected(nds, nodeId, newVariableName)) return nds;
+        return nds.map((node) =>
           node.id === nodeId
             ? { ...node, data: { ...node.data, variableName: newVariableName } }
             : node
-        )
+        );
+      });
+    },
+    [setNodes]
+  );
+
+  // 枠の題の変更 (spec 15 D5)
+  const handleFrameTitleChange = useCallback(
+    (nodeId: string, title: string) => {
+      setNodes((nds) =>
+        nds.map((node) => (node.id === nodeId ? { ...node, data: { ...node.data, title } } : node))
       );
     },
     [setNodes]
@@ -184,6 +220,7 @@ export function FlowEditor() {
           onVariableNameChange: handleVariableNameChange,
           onShapeTypeChange: handleShapeTypeChange,
           onDelete: handleNodeDelete,
+          onTitleChange: handleFrameTitleChange,
         },
       }))
     );
@@ -192,6 +229,7 @@ export function FlowEditor() {
     handleVariableNameChange,
     handleShapeTypeChange,
     handleNodeDelete,
+    handleFrameTitleChange,
     setNodes,
   ]);
 
@@ -350,6 +388,69 @@ export function FlowEditor() {
     handleNodeDelete,
   ]);
 
+  // 「枠を追加」(spec 15 D5、裁定 2)。空の枠を今の画面の中央に置く。枠はノードより下に描かせたいので配列の先頭に入れる
+  const addFrame = useCallback(() => {
+    // 画面 (xyflow の描画域) の中央を図の座標にする
+    const { width, height } = storeApi.getState();
+    const { x, y, zoom } = getViewport();
+    const middle = { x: (width / 2 - x) / zoom, y: (height / 2 - y) / zoom };
+    setNodes((nds) => {
+      const { variableName, title } = nextFrameName(nds);
+      const frame: Node = {
+        id: `frame-${variableName}-${Date.now()}`,
+        type: SUBGRAPH_NODE_TYPE,
+        position: {
+          x: middle.x - NEW_FRAME_SIZE.width / 2,
+          y: middle.y - NEW_FRAME_SIZE.height / 2,
+        },
+        ...NEW_FRAME_SIZE,
+        data: {
+          variableName,
+          title,
+          onVariableNameChange: handleVariableNameChange,
+          onTitleChange: handleFrameTitleChange,
+          onDelete: handleNodeDelete,
+        },
+      };
+      return [frame, ...nds];
+    });
+  }, [storeApi, getViewport, setNodes, handleVariableNameChange, handleFrameTitleChange, handleNodeDelete]);
+
+  // ドラッグを終えたら、中心を含む一番内側の枠へ付け替える (spec 15 D5)。自分と子孫の枠には入れない
+  const onNodeDragStop = useCallback(
+    (_: unknown, __: Node, dragged: Node[]) => {
+      setNodes((nds) => applyDrop(nds, dragged.map((n) => n.id)));
+    },
+    [setNodes]
+  );
+
+  // 削除の前の確認。枠を消す時は枠だけ消し、中身は 1 段上へ移して残す (spec 15 D5、裁定 3)。
+  // xyflow は親を消すと子も消す一覧を渡してくるので、消す一覧を計画で置き換え、先に子を付け替える
+  const onBeforeDelete: OnBeforeDelete = useCallback(
+    async ({ nodes: requested, edges: requestedEdges }) => {
+      const all = getNodes();
+      const plan = planFrameDelete(all, requested, requestedEdges);
+      if (plan.frames.length === 0) return confirmNodeDelete({ nodes: requested, edges: requestedEdges });
+      const others = plan.remove.length - plan.frames.length;
+      const name = String((plan.frames[0].data as { title?: unknown }).title || (plan.frames[0].data as { variableName?: unknown }).variableName || "");
+      const title =
+        plan.remove.length === 1
+          ? `枠『${name}』を削除しますか？`
+          : others === 0
+            ? `選択した ${plan.frames.length} 個の枠を削除しますか？`
+            : `選択した ${plan.remove.length} 個（枠 ${plan.frames.length} 個）を削除しますか？`;
+      const body = [
+        plan.kept > 0 ? `中のノード・枠 ${plan.kept} 個は残ります（外側へ移します）。` : "",
+        plan.removeEdges.length > 0 || others > 0 ? "消すノードにつながっている線も一緒に消えます。" : "",
+        "元に戻せません。",
+      ].join("");
+      if (!(await askDelete(title, body))) return false;
+      setNodes(plan.reparent);
+      return { nodes: plan.remove, edges: plan.removeEdges };
+    },
+    [getNodes, setNodes, confirmNodeDelete, askDelete]
+  );
+
   const handleImportMermaid = useCallback(
     (data: ParsedMermaidData) => {
       // 取り込んだ図の向き (無ければ TD)。配置もこの向きに合わせる
@@ -441,8 +542,7 @@ export function FlowEditor() {
       const positions = nested ? nested.positions : layoutNodes(data.nodes, data.edges);
       const parentOfNode = new Map(frames.flatMap((f) => f.nodes.map((n) => [n, f.id] as const)));
 
-      // 枠は xyflow の親。親は子より前に並べる (frames は親から順, spec 15 D1)。
-      // 枠を消すと xyflow は中身も消すので、中身を残す消し方 (裁定 3) ができるまで消せなくしておく (P3)
+      // 枠は xyflow の親。親は子より前に並べる (frames は親から順, spec 15 D1)。消す時は onBeforeDelete が中身を残す (裁定 3)
       const frameNodes: Node[] = frames.map((f) => {
         const size = nested?.frameSizes.get(f.id);
         return {
@@ -451,8 +551,13 @@ export function FlowEditor() {
           position: positions.get(f.id) || { x: 0, y: 0 },
           ...(f.parent !== undefined ? { parentId: f.parent } : {}),
           ...(size ? { width: size.width, height: size.height } : {}),
-          deletable: false,
-          data: { variableName: f.id, title: f.title },
+          data: {
+            variableName: f.id,
+            title: f.title,
+            onVariableNameChange: handleVariableNameChange,
+            onTitleChange: handleFrameTitleChange,
+            onDelete: handleNodeDelete,
+          },
         };
       });
 
@@ -504,6 +609,7 @@ export function FlowEditor() {
       handleEdgeLabelChange,
       handleEdgeArrowTypeChange,
       handleEdgeDelete,
+      handleFrameTitleChange,
     ]
   );
 
@@ -524,12 +630,14 @@ export function FlowEditor() {
         onConnectEnd={onConnectEnd}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        onBeforeDelete={confirmDelete.onBeforeDelete}
+        onBeforeDelete={onBeforeDelete}
+        onNodeDragStop={onNodeDragStop}
         fitView
       >
         <FlowLayout>
           <FlowPanel
             onAddNode={addNode}
+            onAddFrame={addFrame}
             onImportMermaid={handleImportMermaid}
             nodes={nodes}
             edges={edges}

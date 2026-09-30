@@ -25,8 +25,12 @@ export const needsDeleteConfirm = ({ nodes }: { nodes: Node[]; edges: Edge[] }):
 
 interface Pending {
   title: string;
+  /** 本文。無ければ線の文 (DEFAULT_BODY) */
+  body?: string;
   resolve: (ok: boolean) => void;
 }
+
+const DEFAULT_BODY = "つながっている線も一緒に消えます。元に戻せません。";
 
 /**
  * 削除の前の確認。xyflow の onBeforeDelete に渡すと、Backspace でも deleteElements でも同じ確認を通る
@@ -36,7 +40,12 @@ interface Pending {
 export function useConfirmDelete<N extends Node = Node>(
   kind: DeleteKind,
   nameOf: (node: N) => string
-): { onBeforeDelete: OnBeforeDelete<N, Edge>; dialog: ReactNode } {
+): {
+  onBeforeDelete: OnBeforeDelete<N, Edge>;
+  /** 題と本文を指定して尋ねる (フローチャートの枠の削除, spec 15 D5)。同じダイアログを使う */
+  ask: (title: string, body: string) => Promise<boolean>;
+  dialog: ReactNode;
+} {
   const [pending, setPending] = useState<Pending | null>(null);
   const nameOfRef = useRef(nameOf);
   nameOfRef.current = nameOf;
@@ -48,6 +57,11 @@ export function useConfirmDelete<N extends Node = Node>(
       return new Promise<boolean>((resolve) => setPending({ title, resolve }));
     },
     [kind]
+  );
+
+  const ask = useCallback(
+    (title: string, body: string) => new Promise<boolean>((resolve) => setPending({ title, body, resolve })),
+    []
   );
 
   const settle = (ok: boolean) => {
@@ -65,9 +79,9 @@ export function useConfirmDelete<N extends Node = Node>(
       onCancel={() => settle(false)}
       onSuccess={() => settle(true)}
     >
-      <Text>つながっている線も一緒に消えます。元に戻せません。</Text>
+      <Text>{pending?.body ?? DEFAULT_BODY}</Text>
     </Dialog>
   );
 
-  return { onBeforeDelete, dialog };
+  return { onBeforeDelete, ask, dialog };
 }
