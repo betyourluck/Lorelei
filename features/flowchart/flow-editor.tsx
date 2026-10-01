@@ -17,11 +17,15 @@ import {
   useStoreApi,
 } from "@xyflow/react";
 import { Box, useToken } from "@yamada-ui/react";
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useState, useRef, useEffect, useMemo } from "react";
 import { FlowLayout } from "@/components/layout/";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
 import { useDesktopOpen } from "@/lib/desktop";
-import { DirectionContext } from "./components/direction-context";
+import {
+  DirectionContext,
+  FrameDirectionsContext,
+  type FrameDirections,
+} from "./components/direction-context";
 import { edgeTypes } from "./components/edge/edge-types";
 import { nodeTypes } from "./components/node/node-types";
 import { FlowPanel } from "./components/panel/flow-panel";
@@ -35,6 +39,7 @@ import {
 import type { ParsedMermaidData } from "./hooks/mermaid";
 import type { MermaidArrowType } from "./types";
 import type { GraphType } from "./types/types";
+import { frameDirectionNotice, handleDirections } from "./utils/frame-direction";
 import {
   applyDrop,
   frameNameRejected,
@@ -546,8 +551,8 @@ export function FlowEditor() {
 
       // 枠 (サブグラフ) がある図は入れ子の段組みで並べる (spec 15 D3)。無い図は今までどおり
       const frames = data.subgraphs ?? [];
-      const nested =
-        frames.length > 0 ? layoutNested(data, importedDirection, nestedLayoutMetrics(importedDirection)) : null;
+      // 枠の中は枠の向きで並べ、寸法 (送り) もその向きのものを使う (spec 16 D5)
+      const nested = frames.length > 0 ? layoutNested(data, importedDirection, nestedLayoutMetrics) : null;
       const positions = nested ? nested.positions : layoutNodes(data.nodes, data.edges);
       const parentOfNode = new Map(frames.flatMap((f) => f.nodes.map((n) => [n, f.id] as const)));
 
@@ -564,6 +569,7 @@ export function FlowEditor() {
           data: {
             variableName: f.id,
             title: f.title,
+            ...(f.direction ? { direction: f.direction } : {}),
             onVariableNameChange: handleVariableNameChange,
             onTitleChange: handleFrameTitleChange,
             onDelete: handleNodeDelete,
@@ -626,10 +632,47 @@ export function FlowEditor() {
   // Lorelei: MCP の open_in_editor で届いた図を既存の取り込み処理へ流す (デスクトップ版のみ)
   useDesktopOpen<ParsedMermaidData>("flowchart", handleImportMermaid);
 
+  // 枠の向き (spec 16 D4・D6)。ドラッグで位置が変わるたびに全部のノードを描き直さないよう、
+  // 親子・枠の向き・線の端・図の向きが変わった時だけ作り直す
+  const frameStructure = useMemo(
+    () =>
+      JSON.stringify([
+        direction,
+        nodes.map((n) => [
+          n.id,
+          n.type,
+          n.parentId ?? null,
+          (n.data as { direction?: unknown }).direction ?? null,
+        ]),
+        edges.map((e) => [e.source, e.target]),
+      ]),
+    [nodes, edges, direction]
+  );
+  const frameDirections = useMemo((): FrameDirections => {
+    const [dir, ns, es] = JSON.parse(frameStructure) as [
+      GraphType,
+      [string, string | undefined, string | null, string | null][],
+      [string, string][],
+    ];
+    const structNodes: Node[] = ns.map(([id, type, parentId, frameDirection]) => ({
+      id,
+      type,
+      position: { x: 0, y: 0 },
+      ...(parentId !== null ? { parentId } : {}),
+      data: frameDirection !== null ? { direction: frameDirection } : {},
+    }));
+    const structEdges: Edge[] = es.map(([source, target], i) => ({ id: String(i), source, target }));
+    return {
+      handles: handleDirections(structNodes, dir),
+      notices: frameDirectionNotice(structNodes, structEdges, dir),
+    };
+  }, [frameStructure]);
+
   return (
     <Box h="var(--lorelei-editor-h, 100vh)" w="full">
-      {/* ノードが接続点の位置を向きに合わせるのに使う */}
+      {/* ノードが接続点の位置を向きに合わせるのに使う。枠の中は枠の向き (spec 16 D6) */}
       <DirectionContext.Provider value={direction}>
+      <FrameDirectionsContext.Provider value={frameDirections}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -656,6 +699,7 @@ export function FlowEditor() {
           />
         </FlowLayout>
       </ReactFlow>
+      </FrameDirectionsContext.Provider>
       </DirectionContext.Provider>
       {confirmDelete.dialog}
     </Box>

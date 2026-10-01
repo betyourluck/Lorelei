@@ -1,18 +1,23 @@
 "use client";
 
-import { NodeResizeControl, ResizeControlVariant, useStore } from "@xyflow/react";
+import { Handle, NodeResizeControl, ResizeControlVariant, useStore } from "@xyflow/react";
 import { XIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import { Box, IconButton, Input, Text } from "@yamada-ui/react";
 import type { KeyboardEvent } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { handlePositions } from "../../hooks/direction";
+import { useUpdateNodeInternals } from "../../hooks/use-update-node-internals";
 import { FRAME_PADDING, FRAME_TITLE_HEIGHT } from "../../utils/frame-edit";
+import { useFrameNotice, useHandleDirection } from "../direction-context";
 
 interface SubgraphNodeProps {
   data: {
     /** Mermaid 上の ID */
     variableName?: string;
     title?: string;
+    /** 枠の中に書いた向き (spec 16 D1。書いていなければ持たない) */
+    direction?: string;
     onTitleChange?: (nodeId: string, title: string) => void;
     /** ID を変える。ほかのノード・枠とぶつかる名前はエディタが確定させない */
     onVariableNameChange?: (nodeId: string, variableName: string) => void;
@@ -24,6 +29,11 @@ interface SubgraphNodeProps {
 
 /** 大きさのつまみは押す操作を受ける (枠の本体は受けない) */
 const RESIZE_STYLE = { pointerEvents: "all" } as const;
+/**
+ * 接続点も押す操作を受ける (spec 16 D6)。見出し・つまみより後ろの DOM に置くと、接続点の円の上では接続点が一番上になり、
+ * 円から離れた所は見出し・つまみが受ける (P0 の 5 で測った。z の指定も外へのずらしも要らない)
+ */
+const HANDLE_STYLE = { pointerEvents: "all" } as const;
 
 /** 枠の最小の大きさ (中身が無い時) */
 const MIN_SIZE = { width: 160, height: 100 };
@@ -51,6 +61,12 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
     .split(",")
     .map(Number);
   const title = data.title ?? "";
+  // 接続点は枠が置かれている入れ物 (外の枠、無ければ図) の向き (spec 16 D6)。変わったら位置を測り直させる
+  const handleDirection = useHandleDirection(id);
+  const { target, source } = handlePositions(handleDirection);
+  const updateNodeInternals = useUpdateNodeInternals();
+  useEffect(() => updateNodeInternals(id), [handleDirection, id, updateNodeInternals]);
+  const notice = useFrameNotice(id);
   const [editing, setEditing] = useState<Editing>(null);
   const [draft, setDraft] = useState("");
   const composing = useRef(false);
@@ -164,6 +180,12 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
             {title || "（題なし）"}
           </Text>
         )}
+        {data.direction && (
+          // 枠の中に書いた向き (spec 16。変えるメニューは P3)
+          <Text fontSize="xs" color="gray.500" flexShrink={0} title="枠の中の向き">
+            {data.direction}
+          </Text>
+        )}
         {data.onDelete && (
           <IconButton
             className="nodrag"
@@ -177,6 +199,25 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
           />
         )}
       </Box>
+      {notice && empty !== 1 && (
+        // 描画で効く向きがエディタの向きと違う (spec 16 D4)。見出しのすぐ下に薄く書く。押す操作は受けない
+        <Text
+          position="absolute"
+          top={`${FRAME_TITLE_HEIGHT}px`}
+          left={2}
+          right={2}
+          fontSize="2xs"
+          color="gray.500"
+          lineClamp={2}
+          pointerEvents="none"
+          data-testid="subgraph-direction-notice"
+        >
+          {notice}
+        </Text>
+      )}
+      {/* 枠を指す線の接続点 (spec 16 D6)。見出し・つまみより後ろに置く */}
+      <Handle type="target" position={target} style={HANDLE_STYLE} />
+      <Handle type="source" position={source} style={HANDLE_STYLE} />
       {empty === 1 && (
         // 空の枠は、Mermaid の描画 (mermaid.js・書き出し) では枠ではなく四角いノードになる (spec 15 D7、裁定 4)
         <Text

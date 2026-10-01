@@ -178,3 +178,57 @@ describe("フローチャートの枠の編集", { timeout: 30000 }, () => {
     );
   });
 });
+
+const handleSides = (id: string) =>
+  Array.from(
+    nodeEl(id)!.querySelectorAll(":scope > .react-flow__handle, :scope .react-flow__handle")
+  )
+    .filter((h) => h.closest(".react-flow__node") === nodeEl(id))
+    .map(
+      (h) =>
+        `${h.classList.contains("source") ? "source" : "target"}:${(h.className.match(/react-flow__handle-(top|bottom|left|right)/) ?? [])[1]}`
+    )
+    .sort();
+
+// spec 16 P1: 枠の中の向きと枠を指す線を取り込み、枠の中は書いた向きで並べ、接続点もその向き。描画で効く向きが違えば見出しで知らせる
+describe("フローチャートの枠の向きと枠を指す線", { timeout: 30000 }, () => {
+  test("枠の中の向きで並べ・接続点を向け、枠を指す線を持ち、コード生成で残す", async () => {
+    const { user } = editor();
+    await importCode(
+      user,
+      "flowchart TD\n  X\n  subgraph S\n    direction LR\n    a --> b\n  end\n  X --> S\n  S --> Y\n"
+    );
+    await waitFor(() => expect(nodeEl("S")).not.toBeNull());
+    // S の中は LR: a の右に b
+    expect(translate("b").x).toBeGreaterThan(translate("a").x);
+    // 中のノードの接続点は枠の向き (入口 左・出口 右)、枠と枠の外のノードは図の向き (入口 上・出口 下)
+    await waitFor(() => expect(handleSides("a")).toEqual(["source:right", "target:left"]));
+    expect(handleSides("S")).toEqual(["source:bottom", "target:top"]);
+    expect(handleSides("X")).toEqual(["source:bottom", "target:top"]);
+    // 枠を指す線が描かれるかは jsdom では見られない (ノードの大きさを測れず、xyflow が線を描かない)。Web 版の画面で確かめる。
+    // 線がエディタに入っていることは下のコード生成で確かめる
+    // 枠を指す線だけなら S の中の向きは描画でも効くので、知らせは出ない
+    expect(within(nodeEl("S")!).queryByTestId("subgraph-direction-notice")).toBeNull();
+    expect(within(nodeEl("S")!).getByText("LR")).toBeInTheDocument();
+    expect(await generatedCode(user)).toHaveTextContent(
+      /subgraph S\["S"\]\s+direction LR\s+a\[a\]\s+b\[b\]\s+end\s+X\[X\]\s+Y\[Y\]\s+a --> b\s+X --> S\s+S --> Y/
+    );
+  });
+
+  test("描画で効く向きが違う枠は、見出しで理由とともに知らせる", async () => {
+    const { user } = editor();
+    await importCode(
+      user,
+      "flowchart TD\n  subgraph S\n    direction LR\n    a --> b\n  end\n  b --> Y\n  subgraph T\n    c --> d\n  end\n"
+    );
+    await waitFor(() => expect(nodeEl("T")).not.toBeNull());
+    expect(within(nodeEl("S")!).getByTestId("subgraph-direction-notice")).toHaveTextContent(
+      "中のノードが枠の外とつながっているので、描画ではこの向き（LR）は効きません（TB で並びます）"
+    );
+    // T は向きを書いておらず外とつながらないので、描画では横に並ぶ (エディタは図の向きの縦)
+    expect(translate("d").y).toBeGreaterThan(translate("c").y);
+    expect(within(nodeEl("T")!).getByTestId("subgraph-direction-notice")).toHaveTextContent(
+      "描画では、この枠の中は LR（左から右）に並びます"
+    );
+  });
+});

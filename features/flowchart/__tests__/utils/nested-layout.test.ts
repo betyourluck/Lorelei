@@ -133,6 +133,64 @@ describe("layoutNested", () => {
   });
 });
 
+// spec 16 D5: 枠の中は枠に書いた向き、無ければ置かれている側の向き (裁定 1 の案 B)
+describe("layoutNested — 枠の中の向き", () => {
+  const chain = data(
+    ["a1", "a2", "b1", "b2", "c1", "c2"],
+    [
+      ["a1", "a2"],
+      ["b1", "b2"],
+      ["c1", "c2"],
+    ],
+    [
+      { id: "A", title: "", nodes: ["a1", "a2"], direction: "LR" },
+      { id: "B", title: "", nodes: ["b1", "b2"], parent: "A" },
+      { id: "C", title: "", nodes: ["c1", "c2"], parent: "A", direction: "BT" },
+    ]
+  );
+
+  test("書いた向きで並べ、書いていない枠は外の枠の向きを継ぐ", () => {
+    const b = boxes(chain, "TD");
+    // 次の段は向きの側の、前の段の外にある (同じ段の中は並びの中心に揃えるので、もう一方の軸は揃わないことがある)
+    const right = (a: string, c: string) => b.get(c)!.x >= b.get(a)!.x + b.get(a)!.width;
+    const above = (a: string, c: string) => b.get(c)!.y + b.get(c)!.height <= b.get(a)!.y;
+    // A は LR: 中の a1 → a2 は横
+    expect(right("a1", "a2")).toBe(true);
+    // B は書いていないので A の LR を継ぐ
+    expect(right("b1", "b2")).toBe(true);
+    // C は BT: c2 が c1 の上
+    expect(above("c1", "c2")).toBe(true);
+    for (const [inner, outer] of [
+      ["B", "A"],
+      ["C", "A"],
+      ["a1", "A"],
+      ["b2", "B"],
+      ["c1", "C"],
+    ])
+      expect(inside(b.get(inner)!, b.get(outer)!), `${inner} が ${outer} の中`).toBe(true);
+  });
+
+  test("向きごとの寸法で並べる (横の向きは段の送りが広い)", () => {
+    const metricsOf = (d: GraphType): NestedLayoutMetrics =>
+      d === "LR" || d === "RL" ? { ...METRICS, pitchAlong: 450, pitchAcross: 150 } : METRICS;
+    const { positions } = layoutNested(
+      data(
+        ["a1", "a2"],
+        [["a1", "a2"]],
+        [{ id: "A", title: "", nodes: ["a1", "a2"], direction: "LR" }]
+      ),
+      "TD",
+      metricsOf
+    );
+    expect(positions.get("a2")!.x - positions.get("a1")!.x).toBe(450);
+  });
+
+  test("枠を指す線は枠を 1 つのノードとして段を決める", () => {
+    const b = boxes(data(["X", "s1"], [["X", "S"]], [{ id: "S", title: "", nodes: ["s1"] }]), "TD");
+    expect(b.get("S")!.y).toBeGreaterThan(b.get("X")!.y + b.get("X")!.height);
+  });
+});
+
 describe("levelsOf (今の段組みと同じ段の数え方)", () => {
   test("入る線の無いものが 0 段、輪は止まる", () => {
     const levels = levelsOf(

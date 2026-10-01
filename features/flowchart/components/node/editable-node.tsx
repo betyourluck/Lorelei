@@ -9,7 +9,7 @@ import { handlePositions } from "../../hooks/direction";
 import { useUpdateNodeInternals } from "../../hooks/use-update-node-internals";
 import type { MermaidShapeType } from "../../types/types";
 import { UI_CONSTANTS } from "../../types/types";
-import { useDirection } from "../direction-context";
+import { useHandleDirection } from "../direction-context";
 import { VariableNameEditor, LabelEditor } from "../editor";
 import { NodeMenu } from "./node-menu";
 
@@ -27,8 +27,8 @@ interface EditableNodeProps {
 }
 
 export const EditableNode: FC<EditableNodeProps> = (props) => {
-  // 接続点は図の向きに合わせる (LR なら入口 左・出口 右)。変わったら xyflow に位置を測り直させる
-  const direction = useDirection();
+  // 接続点は置かれている入れ物 (枠、無ければ図) の向きに合わせる (LR なら入口 左・出口 右, spec 16 D6)。変わったら xyflow に位置を測り直させる
+  const direction = useHandleDirection(props.id);
   const { target, source } = handlePositions(direction);
   const updateNodeInternals = useUpdateNodeInternals();
   useEffect(() => updateNodeInternals(props.id), [direction, props.id, updateNodeInternals]);
