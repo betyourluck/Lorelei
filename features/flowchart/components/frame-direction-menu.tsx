@@ -17,7 +17,7 @@ interface FrameDirectionMenuProps {
 
 /**
  * 枠の中の向きのメニュー (spec 16 D7)。図の向きのメニュー (DirectionMenu) と違い「指定なし」があり、
- * 枠の見出し (28px) に入る大きさにする。変えても並べ直さない (接続点だけが動く)
+ * 枠の見出し (28px) に入る大きさにする。変えると、その枠の中だけを新しい向きで並べ直す (呼び出し側の relayoutFrame)
  */
 export const FrameDirectionMenu: FC<FrameDirectionMenuProps> = ({ value, onChange }) => {
   const Current = value ? DIRECTION_ARROW[toGraphType(value)] : null;
