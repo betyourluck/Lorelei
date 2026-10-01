@@ -3,7 +3,9 @@
  * 枠は xyflow の親ノードで、中のノードの position は親からの相対。親は子より前に並べる (xyflow の決まり)
  */
 import type { Edge, Node } from "@xyflow/react";
-import { getSafeVariableName } from "../hooks/mermaid";
+import { getSafeVariableName, type ParsedMermaidData } from "../hooks/mermaid";
+import type { GraphType, SubgraphDirection } from "../types/types";
+import { layoutNested, type NestedLayoutMetrics } from "./nested-layout";
 import { edgeIntoOwnFrame, SUBGRAPH_NODE_TYPE } from "./subgraph-tree";
 
 export interface Point {
@@ -374,6 +376,78 @@ export function frameSelfLoopPath(
     labelX: box.x + box.width / 2,
     labelY: below,
   };
+}
+
+/**
+ * 枠の向きを変えた時に、その枠の中だけを取り込み時と同じ段組み (layoutNested) で並べ直す (spec 16 P5、裁定 4)。
+ * direction はその枠の中の新しい向き (「指定なし」なら置かれている側の向き)。枠の左上は動かさず、大きさは中身に合わせ、
+ * 中の枠も並べ直す (向きを書いていない中の枠は新しい向きを継ぐ)。広がって外側の枠からはみ出したら外側を広げる
+ */
+export function relayoutFrame(
+  nodes: Node[],
+  edges: Edge[],
+  frameId: string,
+  direction: GraphType,
+  metrics: NestedLayoutMetrics | ((direction: GraphType) => NestedLayoutMetrics)
+): Node[] {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  if (!isFrame(byId.get(frameId))) return nodes;
+  const inside = descendantsOf(nodes, frameId);
+  const members = nodes.filter((n) => inside.has(n.id));
+  const directOf = (parent: string) =>
+    members.filter((n) => n.parentId === parent && !isFrame(n)).map((n) => n.id);
+  const writtenOf = (n: Node): SubgraphDirection | undefined => {
+    const d = (n.data as { direction?: unknown }).direction;
+    return d === "TB" || d === "BT" || d === "LR" || d === "RL" ? d : undefined;
+  };
+  const data: ParsedMermaidData = {
+    nodes: members
+      .filter((n) => !isFrame(n))
+      .map((n) => ({ id: n.id, variableName: n.id, label: "", shapeType: "rectangle" })),
+    edges: edges
+      .filter((e) => inside.has(e.source) && inside.has(e.target))
+      .map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        label: "",
+        arrowType: "arrow",
+      })),
+    subgraphs: [
+      {
+        id: frameId,
+        title: "",
+        nodes: directOf(frameId),
+        direction: direction === "TD" ? "TB" : direction,
+      },
+      ...members.filter(isFrame).map((f) => {
+        const written = writtenOf(f);
+        return {
+          id: f.id,
+          title: "",
+          nodes: directOf(f.id),
+          ...(f.parentId !== undefined ? { parent: f.parentId } : {}),
+          ...(written ? { direction: written } : {}),
+        };
+      }),
+    ],
+  };
+  const { positions, frameSizes } = layoutNested(data, direction, metrics);
+  const moved = nodes.map((n) => {
+    if (n.id === frameId) {
+      const size = frameSizes.get(n.id);
+      return size ? { ...n, width: size.width, height: size.height } : n;
+    }
+    if (!inside.has(n.id)) return n;
+    const p = positions.get(n.id);
+    const size = frameSizes.get(n.id);
+    return {
+      ...n,
+      ...(p ? { position: p } : {}),
+      ...(size ? { width: size.width, height: size.height } : {}),
+    };
+  });
+  return fitFrames(moved, parentIdOf(byId, byId.get(frameId)!));
 }
 
 /** 使っていない最小の番号で、新しい枠の Mermaid 上の ID (group{N}) と題 (グループ{N}) を決める (D5) */

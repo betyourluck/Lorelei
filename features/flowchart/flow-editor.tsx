@@ -39,7 +39,7 @@ import {
 import type { ParsedMermaidData } from "./hooks/mermaid";
 import type { MermaidArrowType } from "./types";
 import type { GraphType, SubgraphDirection } from "./types/types";
-import { frameDirectionNotice, handleDirections } from "./utils/frame-direction";
+import { frameDirectionNotice, frameInnerDirections, handleDirections } from "./utils/frame-direction";
 import {
   applyDrop,
   edgesBrokenByDrop,
@@ -50,6 +50,7 @@ import {
   NEW_FRAME_SIZE,
   nextFrameName,
   planFrameDelete,
+  relayoutFrame,
 } from "./utils/frame-edit";
 import { layoutNested, type NestedLayoutMetrics } from "./utils/nested-layout";
 import { SUBGRAPH_NODE_TYPE } from "./utils/subgraph-tree";
@@ -167,18 +168,23 @@ export function FlowEditor() {
     [setNodes]
   );
 
-  // 枠の中の向きの変更 (spec 16 D7)。undefined で「指定なし」(direction を持たない)。並べ直さない (接続点だけが動く)
+  // 枠の中の向きの変更 (spec 16 D7)。undefined で「指定なし」(direction を持たない)。
+  // その枠の中だけを新しい向き (指定なしなら置かれている側の向き) で並べ直す (P5、裁定 4。図全体の向きの変更は並べ直さない)
+  const directionRef = useRef<GraphType>(direction);
+  directionRef.current = direction;
   const handleFrameDirectionChange = useCallback(
     (nodeId: string, frameDirection: SubgraphDirection | undefined) => {
-      setNodes((nds) =>
-        nds.map((node) => {
+      setNodes((nds) => {
+        const updated = nds.map((node) => {
           if (node.id !== nodeId) return node;
           const { direction: _old, ...rest } = node.data as Record<string, unknown>;
           return { ...node, data: frameDirection ? { ...rest, direction: frameDirection } : rest };
-        })
-      );
+        });
+        const inner = frameInnerDirections(updated, directionRef.current).get(nodeId) ?? directionRef.current;
+        return relayoutFrame(updated, getEdges(), nodeId, inner, nestedLayoutMetrics);
+      });
     },
-    [setNodes]
+    [setNodes, getEdges]
   );
 
   // ノード形状変更のハンドラー

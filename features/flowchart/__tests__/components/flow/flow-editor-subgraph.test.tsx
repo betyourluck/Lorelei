@@ -296,4 +296,18 @@ describe("フローチャートの枠の向きと枠を指す線の編集", { ti
       "中のノードが枠の外とつながっているので、描画ではこの向き（LR）は効きません（TB で並びます）"
     );
   });
+  test("見出しのメニューで向きを変えると、その枠の中だけ新しい向きに並べ直す (P5、裁定 4)", async () => {
+    const { user } = editor();
+    await importCode(user, "flowchart TD\n  X\n  subgraph S\n    a --> b\n  end\n  X --> S");
+    await waitFor(() => expect(nodeEl("S")).not.toBeNull());
+    expect(translate("b").y).toBeGreaterThan(translate("a").y);
+    const before = { s: translate("S"), x: translate("X") };
+    fireEvent.click(within(nodeEl("S")!).getByRole("button", { name: "枠の中の向き: 指定なし" }));
+    await user.click(await screen.findByRole("menuitem", { name: "LR" }, { timeout: 3000 }));
+    await waitFor(() => expect(translate("b").x).toBeGreaterThan(translate("a").x + 100));
+    expect(translate("b").y).toBe(translate("a").y);
+    // 枠の左上と枠の外のノードは動かない
+    expect(translate("S")).toEqual(before.s);
+    expect(translate("X")).toEqual(before.x);
+  });
 });

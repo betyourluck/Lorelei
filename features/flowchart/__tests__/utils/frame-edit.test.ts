@@ -15,6 +15,7 @@ import {
   frameSelfLoopPath,
   intoOwnFrame,
   nextFrameName,
+  relayoutFrame,
   planFrameDelete,
   sortParentsFirst,
 } from "@/features/flowchart/utils/frame-edit";
@@ -299,5 +300,75 @@ describe("frameSelfLoopPath", () => {
     );
     expect(labelY).toBeGreaterThan(box.y + box.height);
     expect(labelX).toBe(box.x + box.width / 2);
+  });
+});
+
+// spec 16 P5 (裁定 4): 枠の向きを変えたら、その枠の中だけ取り込み時と同じ段組みで並べ直す
+describe("relayoutFrame", () => {
+  const METRICS = {
+    node: { width: 240, height: 48 },
+    pitchAlong: 150,
+    pitchAcross: 250,
+    start: 50,
+    center: 300,
+    padding: FRAME_PADDING,
+    titleHeight: FRAME_TITLE_HEIGHT,
+  };
+  const withDir = (n: Node, direction?: string): Node => ({
+    ...n,
+    data: { ...n.data, ...(direction ? { direction } : {}) },
+  });
+  // 枠 F の中に a1 → a2 (縦に並んでいる)、中の枠 G に g1 → g2、外にノード x
+  const base = (gDirection?: string): Node[] => [
+    frame("F", 100, 50, 300, 400),
+    node("a1", 24, 52, "F"),
+    node("a2", 24, 200, "F"),
+    withDir(frame("G", 24, 260, 250, 120, "F"), gDirection),
+    node("g1", 24, 52, "G"),
+    node("g2", 24, 120, "G"),
+    node("x", 600, 0),
+  ];
+  const edges = [edge("a1", "a2"), edge("g1", "g2"), edge("a2", "x")];
+
+  test("新しい向きで中を並べ直し、枠の左上は動かさず、大きさは中身に合わせる", () => {
+    const out = relayoutFrame(base(), edges, "F", "LR", METRICS);
+    const byId = new Map(out.map((n) => [n.id, n]));
+    const abs = absolutePositions(out);
+    expect(byId.get("F")!.position).toEqual({ x: 100, y: 50 });
+    // a1 の次の段の a2 は右
+    expect(abs.get("a2")!.x).toBeGreaterThan(abs.get("a1")!.x + 100);
+    // 向きを書いていない中の枠 G も LR を継ぐ
+    expect(abs.get("g2")!.x).toBeGreaterThan(abs.get("g1")!.x + 100);
+    // 中のものは枠に収まる (余白と見出しの分を空ける)
+    const f = byId.get("F")!;
+    for (const id of ["a1", "a2", "G"]) {
+      const n = byId.get(id)!;
+      expect(n.position.x).toBeGreaterThanOrEqual(FRAME_PADDING);
+      expect(n.position.y).toBeGreaterThanOrEqual(FRAME_PADDING + FRAME_TITLE_HEIGHT);
+      expect(n.position.x + (n.width ?? 240)).toBeLessThanOrEqual(f.width!);
+    }
+    // 外のノードは動かない
+    expect(byId.get("x")!.position).toEqual({ x: 600, y: 0 });
+  });
+
+  test("向きを書いた中の枠は自分の向きのまま", () => {
+    const out = relayoutFrame(base("TB"), edges, "F", "LR", METRICS);
+    const abs = absolutePositions(out);
+    expect(abs.get("g2")!.y).toBeGreaterThan(abs.get("g1")!.y + 40);
+  });
+
+  test("広がった枠からはみ出したら、外側の枠も広げる", () => {
+    const outer = [
+      frame("O", 0, 0, 360, 500),
+      { ...frame("F", 24, 52, 300, 400), parentId: "O" },
+      node("a1", 24, 52, "F"),
+      node("a2", 24, 200, "F"),
+      node("a3", 24, 300, "F"),
+    ];
+    const out = relayoutFrame(outer, [edge("a1", "a2"), edge("a2", "a3")], "F", "LR", METRICS);
+    const byId = new Map(out.map((n) => [n.id, n]));
+    expect(byId.get("O")!.width!).toBeGreaterThanOrEqual(
+      24 + byId.get("F")!.width! + FRAME_PADDING
+    );
   });
 });
