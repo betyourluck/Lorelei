@@ -102,7 +102,11 @@ EditorPayload:
         枠の向き (spec 16 D4・D6、裁定 1 の案 B。計算は features/flowchart/utils/frame-direction.ts): 取り込み時の配置と接続点は「書いた向き、無ければ置かれている側の向き」。
         ノード・枠の接続点は置かれている入れ物 (親の枠、無ければ図) の向き。枠にも入口と出口の接続点がある (pointer-events: all、見出し・つまみより後ろの DOM)。
         描画で効く向き (effectiveDirections。P0 で mermaid.js と merman の描画 520 点と一致した規則) がエディタの向きと違う枠は、見出しの下に理由を出す。
-        線の操作・向きの変更では並べ直さない (接続点だけ動く)。
+        線の操作・向きの変更では並べ直さない (接続点だけ動く)。知らせは中身が 2 つ以上の枠だけ (1 つならどの向きでも同じ)、見出しの下に 1 行 (全文は title)。
+        GUI の編集 (spec 16 D7、P3): 見出しの向きのメニュー (指定なし・TB・LR・RL・BT。項目のリストは Portal で文書の直下) /
+        枠と自分の子孫を結ぶ線は isValidConnection で繋がせない (frame-edit.ts の intoOwnFrame)。接続点・ノードの上で離して断られた時は新しいノードを作らない (onConnectEnd の connectionState.toHandle / toNode) /
+        ドラッグの付け替えで新たにそうなる線 (edgesBrokenByDrop) は確認してから消し、やめたらドラッグの前の位置へ戻す /
+        枠を消す確認に枠につながる線の本数 / 枠の自己ループは枠の外を回す (frameSelfLoopPath: 出口と入口が上下なら右、左右なら下)
         GUI の編集 (spec 15 D5、P3。計算は features/flowchart/utils/frame-edit.ts):
         「枠を追加」= 画面の中央に 320×200、ID は使っていない最小の group{N}、題 グループ{N}、配列の先頭 /
         ドラッグを終えたら中心を含む一番内側の枠へ付け替え (自分と子孫の枠は除く。一緒にドラッグした祖先があるものは付け替えない)、枠の外なら図の直下、はみ出しただけなら枠を広げる (左・上は枠を動かし中身の絶対位置を保つ。親の枠へ繰り返す) /
