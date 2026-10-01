@@ -65,6 +65,23 @@ export function emptyFrameNames(nodes: FrameLike[]): string[] {
     .map((n) => String(n.data.title || n.data.variableName || n.id));
 }
 
+/**
+ * 枠と自分の中 (子孫) を結ぶ線か (spec 16 裁定 2)。mermaid.js も merman も誤りにしないが、描画では長さ 0 の線になって見えず、
+ * それでいて枠を「外とつながる」扱いにして中の向きを変える (P0)。枠の自己ループ (端が同じ枠) は描かれるので当たらない
+ */
+export function edgeIntoOwnFrame(
+  source: string,
+  target: string,
+  isFrame: (id: string) => boolean,
+  parentOf: (id: string) => string | undefined
+): boolean {
+  if (source === target) return false;
+  return (
+    (isFrame(source) && ancestorsOf(target, parentOf).includes(source)) ||
+    (isFrame(target) && ancestorsOf(source, parentOf).includes(target))
+  );
+}
+
 /** 自分から根までの祖先の ID (近い順)。輪になっていても止まる */
 export function ancestorsOf(id: string, parentOf: (id: string) => string | undefined): string[] {
   const out: string[] = [];

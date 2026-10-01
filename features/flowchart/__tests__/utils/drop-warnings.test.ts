@@ -41,13 +41,14 @@ describe("flowchartDropWarnings", () => {
     expect(lines(text)).toEqual([5, 6, 7, 8, 9, 10]);
   });
 
-  test("枠を指す線と枠の中の direction (spec 15 D6)", () => {
+  test("枠を指す線と枠の中の direction は取り込む。枠と自分の中を結ぶ線にだけ印 (spec 16 D8)", () => {
     const text = [
       "flowchart TD",
       "  subgraph S[倉庫]",
       "    direction LR",
       "    subgraph T",
       "      direction BT",
+      "      X",
       "    end",
       "    A --> B",
       "  end",
@@ -55,18 +56,25 @@ describe("flowchartDropWarnings", () => {
       "  C --> S",
       "  T -->|入る| D",
       "  E & S --> F",
+      "  S --> A",
+      "  X --> T",
+      "  S -->|中へ| X",
+      "  T --> S",
       "  subgraph 受付 審査",
       "    G",
       "  end",
       "  受付 --> G",
       "  C --> D",
     ].join("\n");
-    // 図全体の direction (9 行目) と、題だけの枠 (ID を持たない) の題の語 (16 行目) には付けない
-    expect(lines(text)).toEqual([3, 5, 10, 11, 12]);
-    expect(messageAt(text, 3)).toContain("サブグラフの中の向きは取り込まれません");
-    expect(messageAt(text, 10)).toContain("サブグラフを指す線は取り込まれません");
+    // 枠とその中: S と A (S の中)、X と T (T の中)、S と X (T の中の T の中)、T と S (T は S の中)
+    expect(lines(text)).toEqual([14, 15, 16, 17]);
+    expect(messageAt(text, 14)).toContain("枠とその中を結ぶ線は描画されないので取り込みません");
   });
 
+  test("ブロックの中に書いた、自分の枠を指す線にも印", () => {
+    const text = ["flowchart TD", "  subgraph S", "    A --> S", "  end"].join("\n");
+    expect(lines(text)).toEqual([3]);
+  });
   test("エディタに無い形", () => {
     const text = "flowchart TD\n  A[(DB)] --> B[[sub]]\n  C>旗] --> D[/台形/]\n";
     expect(lines(text)).toEqual([2, 3]);

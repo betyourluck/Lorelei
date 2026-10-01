@@ -58,30 +58,52 @@ const edgeEnds = (code: string): string[] => {
   });
 };
 
+/** 行の中のノードの ID (目安。線の端と、線の無い行の先頭の ID) */
+const idsOnLine = (code: string): string[] => {
+  const ends = edgeEnds(code);
+  if (ends.length > 0) return ends;
+  const m = LEADING_ID.exec(code);
+  return m && !/^(?:subgraph|end|direction|classDef|class|style|linkStyle|click)$/.test(m[1]) ? [m[1]] : [];
+};
+
 export function flowchartDropWarnings(text: string): DropWarning[] {
   const warnings: DropWarning[] = [];
   const all = text.split("\n");
   const front = frontmatterLines(all);
-  // 枠は取り込む (spec 15)。落ちるのは枠を指す線と、枠の中の direction (D6)
+  // 枠は取り込む (spec 15)。枠を指す線と枠の中の direction も取り込む (spec 16)。
+  // 落ちるのは枠と自分の中を結ぶ線 (描画されない, spec 16 裁定 2)。中にあるかは、ID が最初に出た時に開いていた枠で決める (目安)
   const subgraphIds = new Set<string>();
+  const enclosing = new Map<string, string[]>();
+  const open: string[] = [];
   all.forEach((raw, i) => {
-    const m = front.has(i) ? null : SUBGRAPH_ID.exec(raw.trim());
-    if (m) subgraphIds.add(m[1]);
+    if (front.has(i)) return;
+    const line = raw.trim();
+    if (!line || line.startsWith("%%")) return;
+    if (/^subgraph\b/.test(line)) {
+      const m = SUBGRAPH_ID.exec(line);
+      const id = m ? m[1] : `\u0000${i}`;
+      if (m) subgraphIds.add(id);
+      if (!enclosing.has(id)) enclosing.set(id, [...open]);
+      open.push(id);
+    } else if (/^end\s*;?$/.test(line)) open.pop();
+    else idsOnLine(stripTexts(line)).forEach((id) => !enclosing.has(id) && enclosing.set(id, [...open]));
   });
-  let depth = 0;
+  const intoOwn = (a: string, b: string) =>
+    a !== b &&
+    ((subgraphIds.has(a) && (enclosing.get(b) ?? []).includes(a)) ||
+      (subgraphIds.has(b) && (enclosing.get(a) ?? []).includes(b)));
   all.forEach((raw, i) => {
     const line = raw.trim();
     if (!line || line.startsWith("%%") || front.has(i)) return;
     const messages: string[] = [];
-    if (/^subgraph\b/.test(line)) depth++;
-    else if (/^end\s*;?$/.test(line)) depth = Math.max(0, depth - 1);
-    else if (depth > 0 && /^direction\s/.test(line))
-      messages.push("サブグラフの中の向きは取り込まれません（図全体の向きで並べます）");
     for (const [re, message] of STATEMENTS) if (re.test(line)) messages.push(message);
     if (messages.length === 0) {
       const code = stripTexts(line);
       for (const [re, message] of INLINE) if (re.test(code)) messages.push(message);
-      if (edgeEnds(code).some((id) => subgraphIds.has(id))) messages.push("サブグラフを指す線は取り込まれません");
+      const ends = edgeEnds(code);
+      // 隣り合う端どうし (連鎖 A --> B --> C の A と C は結ばない。& の行は目安のまま)
+      if (ends.some((a, k) => k > 0 && intoOwn(ends[k - 1], a)))
+        messages.push("枠とその中を結ぶ線は描画されないので取り込みません");
     }
     if (messages.length) warnings.push({ line: i + 1, message: messages.join("。") });
   });

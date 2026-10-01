@@ -162,7 +162,7 @@ describe("ImportModal のプレビュー", () => {
 
 // spec 11 D4: 取り込むと消えるものの警告
 const SUBGRAPH_CODE =
-  "flowchart TD\n  subgraph S\n    direction LR\n    A --> B\n  end\n  C --> S\n  style A fill:#f00";
+  "flowchart TD\n  subgraph S\n    direction LR\n    A --> B\n  end\n  C --> S\n  style A fill:#f00\n  B --> S";
 
 describe("ImportModal の警告", () => {
   test("取り込むと消えるものを、取り込む前に要約で知らせる", async () => {
@@ -170,15 +170,13 @@ describe("ImportModal の警告", () => {
     setCode(SUBGRAPH_CODE);
 
     const status = await screen.findByRole("status", {}, { timeout: 3000 });
-    // 枠は取り込む (spec 15)。落ちるのは枠を指す線と枠の中の向き。並びは名前の順 (MCP の通知と同じ)
-    expect(status).toHaveTextContent(
-      "取り込むと消えるもの: サブグラフへの矢印 ×1、style 指定 ×1、サブグラフの中の向き ×1"
-    );
+    // 枠・枠を指す線・枠の中の向きは取り込む (spec 15・16)。落ちるのは枠とその中を結ぶ線 (B --> S)。並びは名前の順 (MCP の通知と同じ)
+    expect(status).toHaveTextContent("取り込むと消えるもの: 枠とその中を結ぶ線 ×1、style 指定 ×1");
   });
 
   test("消える書き方の行に印を付ける", () => {
     render(<ImportModal open onClose={vi.fn()} onImport={vi.fn()} />);
     setCode(SUBGRAPH_CODE);
-    expect(screen.getByTestId("code-editor")).toHaveAttribute("data-warnings", "3,6,7");
+    expect(screen.getByTestId("code-editor")).toHaveAttribute("data-warnings", "7,8");
   });
 });

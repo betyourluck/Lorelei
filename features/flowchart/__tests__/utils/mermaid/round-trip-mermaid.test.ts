@@ -63,12 +63,12 @@ const node = (id: string, parentId?: string) => ({
   ...(parentId ? { parentId } : {}),
   data: { label: id.toLowerCase(), variableName: id, shapeType: "rectangle" },
 });
-const frame = (id: string, title: string, parentId?: string) => ({
+const frame = (id: string, title: string, parentId?: string, direction?: string) => ({
   id: `f-${id}`,
   type: "subgraphNode",
   position: { x: 0, y: 0 },
   ...(parentId ? { parentId: `f-${parentId}` } : {}),
-  data: { variableName: id, title },
+  data: { variableName: id, title, ...(direction ? { direction } : {}) },
 });
 const edge = (source: string, target: string) => ({
   id: `${source}-${target}`,
@@ -179,5 +179,84 @@ describe("枠のコード生成 → インポートの往復 (mermaid.js)", () =
     } as unknown as FlowData);
     expect(data.nodes.map((n) => n.id)).toEqual(["A"]);
     expect(data.subgraphs?.map((s) => s.id).sort()).toEqual(["X", "Y"]);
+  });
+});
+
+// spec 16 D3: 枠の中の向きと、枠を指す線の往復。向きは subgraph の次の行、枠を指す線も全部最後に外
+describe("枠の向き・枠を指す線のコード生成 → インポートの往復 (mermaid.js)", () => {
+  test("向きと枠を指す線 (外 → 枠・枠 → 枠・枠 → 外・自己ループ) が戻る", async () => {
+    const flowData = {
+      nodes: [
+        frame("S", "受付", undefined, "LR"),
+        frame("T", "審査", "S", "BT"),
+        frame("U", "通知"),
+        node("A", "f-S"),
+        node("B", "f-T"),
+        node("C"),
+      ],
+      edges: [edge("C", "f-S"), edge("f-S", "f-U"), edge("f-U", "C"), edge("f-U", "f-U"), edge("A", "B")],
+    } as unknown as FlowData;
+    const { code, data, dropped } = await readBack(flowData);
+    expect(code).toBe(
+      [
+        "flowchart TD",
+        '    subgraph S["受付"]',
+        "        direction LR",
+        '        subgraph T["審査"]',
+        "            direction BT",
+        "            B[b]",
+        "        end",
+        "        A[a]",
+        "    end",
+        '    subgraph U["通知"]',
+        "    end",
+        "    C[c]",
+        "    C --> S",
+        "    S --> U",
+        "    U --> C",
+        "    U --> U",
+        "    A --> B",
+        "",
+      ].join("\n")
+    );
+    expect(data.subgraphs).toEqual([
+      { id: "S", title: "受付", nodes: ["A"], direction: "LR" },
+      { id: "T", title: "審査", nodes: ["B"], parent: "S", direction: "BT" },
+      { id: "U", title: "通知", nodes: [] },
+    ]);
+    expect(data.edges.map((e) => [e.source, e.target])).toEqual([
+      ["C", "S"],
+      ["S", "U"],
+      ["U", "C"],
+      ["U", "U"],
+      ["A", "B"],
+    ]);
+    expect(dropped).toEqual([]);
+  });
+
+  test.each(["TB", "BT", "LR", "RL"])("向き %s が戻る", async (direction) => {
+    const { code, data, dropped } = await readBack({
+      nodes: [frame("S", "s", undefined, direction), node("A", "f-S")],
+      edges: [],
+    } as unknown as FlowData);
+    expect(data.subgraphs, code).toEqual([{ id: "S", title: "s", nodes: ["A"], direction }]);
+    expect(dropped, code).toEqual([]);
+  });
+
+  test("枠を指す線の端は枠の安全な変数名で書く", async () => {
+    const { code, data } = await readBack({
+      nodes: [frame("end", "e"), node("A", "f-end"), node("B")],
+      edges: [edge("B", "f-end")],
+    } as unknown as FlowData);
+    expect(code).toContain("    B --> node_end\n");
+    expect(data.edges.map((e) => [e.source, e.target])).toEqual([["B", "node_end"]]);
+  });
+
+  test("枠と自分の中を結ぶ線は書かない (描画されない, 裁定 2)", async () => {
+    const { code } = await readBack({
+      nodes: [frame("P", "p"), frame("S", "s", "P"), node("A", "f-S"), node("B")],
+      edges: [edge("f-P", "A"), edge("A", "f-S"), edge("f-P", "f-S"), edge("B", "A")],
+    } as unknown as FlowData);
+    expect(code.split("\n").filter((l) => l.includes("-->"))).toEqual(["    B --> A"]);
   });
 });

@@ -16,6 +16,12 @@ export type MermaidShapeType =
 
 export type GraphType = "TD" | "LR" | "RL" | "BT";
 
+/**
+ * 枠 (サブグラフ) の中の向き (spec 16 D1)。書いていない時は持たない (図の向きの GraphType とは別: 枠では「書いていない」と「TB と書いた」が
+ * Mermaid の描画で違う)。TD は TB と同じ意味なので TB にそろえる (裁定 3)
+ */
+export type SubgraphDirection = "TB" | "BT" | "LR" | "RL";
+
 // UI定数
 export const UI_CONSTANTS = {
   DOUBLE_CLICK_THRESHOLD: 300,

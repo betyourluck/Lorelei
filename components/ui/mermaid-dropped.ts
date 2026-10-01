@@ -13,6 +13,7 @@ export interface DroppedItem {
 const LABELS: Record<string, string> = {
   subgraph: "サブグラフ",
   edge_to_subgraph: "サブグラフへの矢印",
+  edge_into_own_subgraph: "枠とその中を結ぶ線",
   subgraph_direction: "サブグラフの中の向き",
   classDef: "classDef",
   class: "class 指定",

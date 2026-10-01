@@ -1,6 +1,11 @@
 import type { Node } from "@xyflow/react";
-import type { MermaidArrowType, MermaidShapeType, GraphType } from "../types/types";
-import { SUBGRAPH_NODE_TYPE } from "../utils/subgraph-tree";
+import type {
+  MermaidArrowType,
+  MermaidShapeType,
+  GraphType,
+  SubgraphDirection,
+} from "../types/types";
+import { edgeIntoOwnFrame, SUBGRAPH_NODE_TYPE } from "../utils/subgraph-tree";
 import type { FlowData } from "./flow-helpers";
 
 /**
@@ -16,13 +21,15 @@ export interface ParsedMermaidData {
 }
 
 /**
- * サブグラフ (枠) の型定義 (spec 15 D1)。nodes は直下のノードの ID だけで、入れ子は子の枠の parent で表す
+ * サブグラフ (枠) の型定義 (spec 15 D1)。nodes は直下のノードの ID だけで、入れ子は子の枠の parent で表す。
+ * direction は枠の中に書いた向き (spec 16 D1。書いていなければ持たない)
  */
 export interface ParsedMermaidSubgraph {
   id: string;
   title: string;
   nodes: string[];
   parent?: string;
+  direction?: SubgraphDirection;
 }
 
 /**
@@ -317,40 +324,47 @@ export const generateMermaidCode = (flowData: FlowData, direction: GraphType = "
     const parent = isFrame(node) && inCycle(node.id) ? undefined : parentOf(node.id);
     children.set(parent, [...(children.get(parent) ?? []), node]);
   });
+  // 枠と自分の中を結ぶ線を見分けるための親 (輪になった枠は図の直下に書くので親を持たない)
+  const writtenParentOf = (id: string): string | undefined => {
+    const node = byId.get(id);
+    return node && isFrame(node) && inCycle(id) ? undefined : parentOf(id);
+  };
+  const nameOf = (node: Node): string =>
+    getSafeVariableName(
+      (node.data.variableName as string) || (isFrame(node) ? `group${node.id}` : `node${node.id}`)
+    );
   const writeNodes = (parent: string | undefined, indent: string): void => {
     (children.get(parent) ?? []).forEach((node) => {
       if (isFrame(node)) {
-        const frameName = getSafeVariableName(
-          (node.data.variableName as string) || `group${node.id}`
-        );
-        code += `${indent}subgraph ${frameName}[${quoteSubgraphTitle((node.data.title as string) || "")}]\n`;
+        code += `${indent}subgraph ${nameOf(node)}[${quoteSubgraphTitle((node.data.title as string) || "")}]\n`;
+        // 枠の中の向きは subgraph の次の行に 1 回だけ (spec 16 D3。どこに書いても効き、2 回なら最後が勝つ, P0)
+        const frameDirection = node.data.direction as string | undefined;
+        if (frameDirection) code += `${indent}    direction ${frameDirection}\n`;
         writeNodes(node.id, `${indent}    `);
         code += `${indent}end\n`;
         return;
       }
-      const variableName = (node.data.variableName as string) || `node${node.id}`;
-      const safeVariableName = getSafeVariableName(variableName);
       const shapeType = (node.data.shapeType as MermaidShapeType) || "rectangle";
       const label = (node.data.label as string) || "";
       const shapeCode = formatMermaidShape(shapeType, label);
-      code += `${indent}${safeVariableName}${shapeCode}\n`;
+      code += `${indent}${nameOf(node)}${shapeCode}\n`;
     });
   };
   writeNodes(undefined, "    ");
 
-  // エッジの定義。線は全部、枠の外 (最後) に書く (ブロックの中に書くと外のノードを枠へ引き込む, spec 15 D2)
+  // エッジの定義。線は全部、枠の外 (最後) に書く (ブロックの中に書くと外のノードを枠へ引き込む, spec 15 D2)。
+  // 枠を指す線も同じく書く (spec 16 D3)。枠と自分の中を結ぶ線は描画されないので書かない (裁定 2)
   flowData.edges.forEach((edge) => {
     const sourceNode = byId.get(edge.source);
     const targetNode = byId.get(edge.target);
 
-    // 枠を指す線はエディタでは作れない (spec 15 D6)。あっても書かない
-    if (sourceNode && targetNode && !isFrame(sourceNode) && !isFrame(targetNode)) {
-      const sourceVariableName = getSafeVariableName(
-        (sourceNode.data.variableName as string) || `node${sourceNode.id}`
-      );
-      const targetVariableName = getSafeVariableName(
-        (targetNode.data.variableName as string) || `node${targetNode.id}`
-      );
+    if (
+      sourceNode &&
+      targetNode &&
+      !edgeIntoOwnFrame(edge.source, edge.target, (id) => isFrame(byId.get(id)), writtenParentOf)
+    ) {
+      const sourceVariableName = nameOf(sourceNode);
+      const targetVariableName = nameOf(targetNode);
       const edgeLabel = edge.data?.label as string | undefined;
       const arrowType = (edge.data?.arrowType as MermaidArrowType) || "arrow";
 
