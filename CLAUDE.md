@@ -28,7 +28,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   CSP は style-src の自動ハッシュ追記を止めている
 - **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは spec 01 の 4 ファイル・8 行 + spec 02 の 5 ファイル・12 行（`app/layout.tsx` の外枠、エディタ 2 つの高さ、パネル 2 つの `useDesktopActions`。重なりを除いて計 7 ファイル）+ spec 04 P0 でエディタ 2 つの初期図を export（`initialFlowNodes` / `initialERNodes`。初期図の突き合わせ用。ファイルは既存の 7 つに含まれる）+ spec 07 P2 でパネル 2 つの `useDesktopActions` に向き（`direction` / `setDirection`）を足した（同じ 2 ファイル）+ spec 15 P3 でフローチャートのパネルの `useDesktopActions` に `addFrame` を足した（同じファイル）
 - **フロント（`app/` `features/` `components/`）**: フォーク元のコード。直してよい（下の掟の「フォーク元は必要なら直してよい」）。
-  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」「P4 結果」、spec 15（フローチャートのサブグラフ）の「P1 結果」「P3 結果」に一覧がある。PR を出すかは利用者が決める。
+  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」「P4 結果」、spec 15（フローチャートのサブグラフ）の「P1 結果」「P3 結果」、spec 16（枠を指す線・枠の中の向き）の「P1 結果」に一覧がある。PR を出すかは利用者が決める。
   **フォーク元へ出した PR**: [illionillion/mermaid-editor#74](https://github.com/illionillion/mermaid-editor/pull/74)（spec 13 の生成器の直しだけを移植。Lorelei のコミットはデスクトップの差し込みの上で作ったので cherry-pick では載らない — spec 13「フォーク元への PR」）。
   **デスクトップではフォーク元のパネル（インポートを含む）を隠し、ツールバーから `lib/desktop/` のダイアログを開く** — フォーク元の部品を直したら、デスクトップのどの操作がどの部品を開くかを確かめる（failures #17）
 
@@ -61,6 +61,10 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
+- 2026-10-01: [spec 16](specs/16_subgraph-edges-and-direction.md) **P1 着地**（rev3。spec 15 P5 の持ち越し: サブグラフを指す線と枠の中の `direction` をエディタで扱う。裁定 1〜3 済み）。
+  P0 で mermaid.js と merman に 173 通りを通し、**描画で枠の中が並ぶ向きの規則**（中のノードが外とつながる枠は書いた向きが効かず、外とつながらない向きの無い枠は図と逆向き）を描画 520 点で確定した。
+  エディタは書いた向きで並べ、描画と違う枠は見出しで知らせる（裁定 1 の案 B。計算は `features/flowchart/utils/frame-direction.ts`）。枠と自分の中を結ぶ線は描画で見えないので落とす（裁定 2、`edge_into_own_subgraph`）。枠の中の `TD` は `TB` にそろえる（裁定 3）。
+  P1（フォーク元: 往復と表示。Web 版の画面で確認）。次は P2（Rust の `to_editor`・MCP・LORELEI.md）。**Browser pane は窓が後ろにあると描画されず、xyflow の線も出ない**（failures #26）
 - 2026-09-30: [spec 15](specs/15_flowchart-subgraph.md) **Done** — rev2（フローチャートの subgraph をエディタの枠（xyflow の親ノード）にし、保存・読み戻し・コード生成で落とさない。裁定 1〜5 済み）。
   P0（mermaid.js と merman に 87 通り）・P1（フォーク元: 取り込み・入れ子の段組み・枠の表示・生成器。Web 版の画面で確認）・
   P2（Rust の `to_editor` が枠を返す・`Document.layout` は絶対座標で枠は大きさも持つ。`tauri dev` で MCP の往復と開き直しを確認）・

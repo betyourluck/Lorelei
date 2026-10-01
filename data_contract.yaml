@@ -85,7 +85,7 @@ EditorPayload:
     dropped: "EditorCompat.dropped"
   mapping:
     flowchart:
-      output: "ParsedMermaidData { nodes: [{ id, variableName, label, shapeType }], edges: [{ id, source, target, label, arrowType }], direction?, subgraphs?: [{ id, title, nodes, parent? }] }"
+      output: "ParsedMermaidData { nodes: [{ id, variableName, label, shapeType }], edges: [{ id, source, target, label, arrowType }], direction?, subgraphs?: [{ id, title, nodes, parent?, direction? }] }"
       subgraph: >-
         spec 15 D1 (TS の取り込み = P1、Rust の to_editor = P2。同じ規則で、FlowSubgraph { id, title, nodes, parent? })。枠が無ければ subgraphs を持たない。
         一覧の nodes には子の枠の ID も入るので、それを子の枠の parent にする (親は「自分の ID を nodes に持つ枠」)。subgraphs は親から順に並べ直す
@@ -93,8 +93,16 @@ EditorPayload:
         (mermaid.js は線の書き順の逆で返すことがある)。1 つのノードは 1 つの枠 (先に出た枠)。自分を nodes に持つ枠はその 1 件を無視。
         title は mermaid の内部の符号と実体参照を戻した文字、空白だけなら空。題の無い枠は title = id、題だけの枠 (subgraph 受付 審査) は id が subGraphN。
         枠と同じ ID のノードは作らない (線が枠を指すと mermaid は同じ ID のノードも作る)
+      subgraph_direction_value: >-
+        spec 16 D1。枠の direction? は SubgraphDirection = TB | BT | LR | RL (枠の中に書いた向き。書いていなければ持たない)。図の向きの GraphType とは別の型
+        (枠では「書いていない」と「TB と書いた」が Mermaid の描画で違う)。TD は TB にそろえる (裁定 3。mermaid.js も merman も TD を TD のまま持つが、
+        そろえると入れ子の中の向きの無い枠の描画が両方の実装で一致する, P0)。小文字の direction lr は両方の実装で文法の誤りなので来ない。2 回書けば最後が勝つ
       editor_frame: >-
-        エディタでは枠を xyflow の親ノード { type: subgraphNode, data: { variableName, title }, width?, height? } にし、中のノード・子の枠に parentId を付ける (親を前に並べる)。
+        エディタでは枠を xyflow の親ノード { type: subgraphNode, data: { variableName, title, direction? }, width?, height? } にし、中のノード・子の枠に parentId を付ける (親を前に並べる)。
+        枠の向き (spec 16 D4・D6、裁定 1 の案 B。計算は features/flowchart/utils/frame-direction.ts): 取り込み時の配置と接続点は「書いた向き、無ければ置かれている側の向き」。
+        ノード・枠の接続点は置かれている入れ物 (親の枠、無ければ図) の向き。枠にも入口と出口の接続点がある (pointer-events: all、見出し・つまみより後ろの DOM)。
+        描画で効く向き (effectiveDirections。P0 で mermaid.js と merman の描画 520 点と一致した規則) がエディタの向きと違う枠は、見出しの下に理由を出す。
+        線の操作・向きの変更では並べ直さない (接続点だけ動く)。
         GUI の編集 (spec 15 D5、P3。計算は features/flowchart/utils/frame-edit.ts):
         「枠を追加」= 画面の中央に 320×200、ID は使っていない最小の group{N}、題 グループ{N}、配列の先頭 /
         ドラッグを終えたら中心を含む一番内側の枠へ付け替え (自分と子孫の枠は除く。一緒にドラッグした祖先があるものは付け替えない)、枠の外なら図の直下、はみ出しただけなら枠を広げる (左・上は枠を動かし中身の絶対位置を保つ。親の枠へ繰り返す) /
@@ -120,9 +128,10 @@ EditorPayload:
         "double_arrow_point, normal": bidirectional
         "double_arrow_point, thick": bidirectional-thick
       arrow_fallback: "stroke が invisible → invisible / double_* → bidirectional (thick なら -thick) / それ以外 → stroke に応じて arrow・thick・dotted"
-      edge_to_subgraph: "subgraph 自体を指す辺はエディタに行き先が無いので落とし、dropped edge_to_subgraph"
-      subgraph_direction: "枠の中の direction はエディタに無い (図全体の向きで並べる)。direction を持つ枠の数を dropped subgraph_direction (spec 15 D6。merman は dir が null でない枠)"
-      dropped_constructs: [edge_to_subgraph, subgraph_direction, classDef, class, style, click, tooltip, "shape:<名前>", "edge:<矢印>", edge_length, accessibility]   # direction は spec 07 で写すようにした。subgraph は spec 15 で写すようにした
+      edge_to_subgraph: "枠を指す線は、線の端を枠の ID にして写す (spec 16 D2。外 → 枠・枠 → 外・枠 → 枠・枠の自己ループ。線が枠の定義より前にあっても同じ)。生成器も線を全部最後に外へ書く"
+      edge_into_own_subgraph: "枠と自分の子孫 (中のノード・中の枠) を結ぶ線は落として dropped edge_into_own_subgraph (spec 16 裁定 2。mermaid.js・merman とも誤りにしないが、描画では長さ 0 の線で見えず、枠を外とつながる扱いにして中の向きを変える, P0)。生成器も書かない。枠の自己ループは当たらない"
+      subgraph_direction: "枠の中の direction を枠の direction? に写す (spec 16。subgraph_direction_value)"
+      dropped_constructs: [edge_into_own_subgraph, classDef, class, style, click, tooltip, "shape:<名前>", "edge:<矢印>", edge_length, accessibility]   # direction は spec 07、subgraph は spec 15、枠を指す線と枠の中の向きは spec 16 で写すようにした (Rust の to_editor は spec 16 P2 まで edge_to_subgraph・subgraph_direction を落とす。ts_mirror)
     erDiagram:
       output: "ParsedMermaidERData { nodes: [{ id, name, columns: [{ name, type, pk, uk, fk? }] }], edges: [{ id: edge-N, type: erEdge, source, target, data: { label, cardinality } }], direction? }"
       direction: "flowchart と同じ GraphType。無ければ TD (spec 07 D1)"
@@ -141,7 +150,7 @@ EditorPayload:
       subgraph: "関係が subgraph を指すと、関係はその subgraph の id を指し、同じ名前のテーブルも現れうる。テーブルにせず、指す関係を落として dropped subgraph / edge_to_subgraph (spec 11。以前は形の誤りで止まった)"
       edge_id: "edge-N。N は落とした関係を除いて数える"
       dropped_constructs: [alias, attribute_comment, non_identifying, cardinality_unsupported, subgraph, edge_to_subgraph, classDef, class, style, accessibility]   # fk と direction は spec 07 で写すようにした
-    ts_mirror: "フォーク元の取り込み (spec 11) は同じ対応を TS で持つ: features/flowchart/utils/from-mermaid.ts・features/er-diagram/utils/from-mermaid.ts (mermaid.js の解析の結果から)。tests で Rust の tests/editor.rs と同じ入力で同じ出力を確かめる。TS だけの足し: click は class の clickable でも数える (strict では haveCallback が付かない) / @{ shape: rect | rounded | diam | hex } もエディタの形"
+    ts_mirror: "フォーク元の取り込み (spec 11) は同じ対応を TS で持つ: features/flowchart/utils/from-mermaid.ts・features/er-diagram/utils/from-mermaid.ts (mermaid.js の解析の結果から)。tests で Rust の tests/editor.rs と同じ入力で同じ出力を確かめる。TS だけの足し: click は class の clickable でも数える (strict では haveCallback が付かない) / @{ shape: rect | rounded | diam | hex } もエディタの形。spec 16 P1 から P2 までは食い違う: TS は枠を指す線と枠の中の向きを写して edge_into_own_subgraph だけを落とし、Rust は edge_to_subgraph・subgraph_direction を落とす (デスクトップの MCP・ツールバーのインポートは P2 まで今のまま)"
 
 EditorDirection:
   description: エディタの図の向き (spec 07 D1)。フォーク元の GraphType。エディタの状態がただ 1 つの持ち主で、ツールバー・パネル・コード生成のモーダルはそれを読み書きする
