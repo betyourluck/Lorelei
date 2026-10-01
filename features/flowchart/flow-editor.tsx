@@ -307,11 +307,18 @@ export function FlowEditor() {
   );
 
   const onConnectEnd: OnConnectEnd = useCallback(
-    (event) => {
+    (event, connectionState) => {
       if (!connectingNodeId.current) return;
 
       // 既存のノードに接続された場合は新しいノードを作成しない
       if (connectingNodeId.current === "connected") {
+        connectingNodeId.current = null;
+        return;
+      }
+
+      // ノード・枠の接続点の上で離したが繋げなかった (枠と自分の中を結ぶ線は繋がせない, spec 16 裁定 2) 時も作らない。
+      // 枠の本体は押す操作を受けないので、離した所の要素は空いた所 (pane) に見える
+      if (connectionState?.toHandle || connectionState?.toNode) {
         connectingNodeId.current = null;
         return;
       }

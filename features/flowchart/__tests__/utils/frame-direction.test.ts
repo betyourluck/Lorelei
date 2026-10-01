@@ -190,4 +190,14 @@ describe("frameDirectionNotice — 見出しの知らせ (D4)", () => {
       false
     );
   });
+  test("中身が 1 つの枠には出さない (描画で向きの違いが見えない, spec 16 P3)", () => {
+    const one = [frame("S"), node("s1", "S")];
+    expect(frameDirectionNotice(one, [], "TD").has("S")).toBe(false);
+    // P の中身は枠 S の 1 つだけ (S の中は 2 つでも、P の中の並びは 1 つなので見えない)
+    const nested = [frame("P"), frame("S", "P"), node("s1", "S"), node("s2", "S")];
+    expect(frameDirectionNotice(nested, [edge("s1", "s2")], "TD").has("P")).toBe(false);
+    // P に中身が 2 つあれば出す
+    const two = [...nested, node("p1", "P")];
+    expect(frameDirectionNotice(two, [edge("s1", "s2")], "TD").has("P")).toBe(true);
+  });
 });

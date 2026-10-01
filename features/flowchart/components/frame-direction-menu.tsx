@@ -2,7 +2,7 @@
 
 import { ChevronDownIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
-import { Box, Button, Menu, MenuButton, MenuItem, MenuList } from "@yamada-ui/react";
+import { Box, Button, Menu, MenuButton, MenuItem, MenuList, Portal } from "@yamada-ui/react";
 import type { SubgraphDirection } from "../types/types";
 import { toGraphType } from "../utils/frame-direction";
 import { DIRECTION_ARROW } from "./direction-menu";
@@ -21,7 +21,8 @@ interface FrameDirectionMenuProps {
  */
 export const FrameDirectionMenu: FC<FrameDirectionMenuProps> = ({ value, onChange }) => {
   const Current = value ? DIRECTION_ARROW[toGraphType(value)] : null;
-  // ボタンも項目のリストも枠のノードの中に描かれるので、全体を nodrag (押しても枠をドラッグしない)・nopan で包む
+  // ボタンは枠のノードの中に描かれるので nodrag (押しても枠をドラッグしない)・nopan で包む。項目のリストは文書の直下へ出す
+  // (枠の中に描くと、枠より上に描かれる中のノード・線のボタンに隠れる。線の矢印のメニューと同じ)
   return (
     <Box className="nodrag nopan" flexShrink={0}>
       <Menu>
@@ -43,21 +44,23 @@ export const FrameDirectionMenu: FC<FrameDirectionMenuProps> = ({ value, onChang
         >
           {value ?? "向き"}
         </MenuButton>
-        <MenuList>
-          {CHOICES.map((choice) => {
-            const Arrow = choice ? DIRECTION_ARROW[toGraphType(choice)] : null;
-            return (
-              <MenuItem
-                key={choice ?? "none"}
-                icon={Arrow ? <Arrow /> : undefined}
-                bgColor={choice === value ? "primary.50" : "transparent"}
-                onClick={() => onChange(choice)}
-              >
-                {choice ?? "指定なし"}
-              </MenuItem>
-            );
-          })}
-        </MenuList>
+        <Portal>
+          <MenuList>
+            {CHOICES.map((choice) => {
+              const Arrow = choice ? DIRECTION_ARROW[toGraphType(choice)] : null;
+              return (
+                <MenuItem
+                  key={choice ?? "none"}
+                  icon={Arrow ? <Arrow /> : undefined}
+                  bgColor={choice === value ? "primary.50" : "transparent"}
+                  onClick={() => onChange(choice)}
+                >
+                  {choice ?? "指定なし"}
+                </MenuItem>
+              );
+            })}
+          </MenuList>
+        </Portal>
       </Menu>
     </Box>
   );

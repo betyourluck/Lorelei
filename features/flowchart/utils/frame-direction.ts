@@ -136,8 +136,16 @@ export function frameDirectionNotice(
 ): Map<string, string> {
   const effective = effectiveDirections(nodes, edges, direction);
   const editor = frameInnerDirections(nodes, direction);
+  const parentOf = parentLookup(nodes);
+  const childCount = new Map<string, number>();
+  nodes.forEach((n) => {
+    const p = parentOf(n.id);
+    if (p !== undefined) childCount.set(p, (childCount.get(p) ?? 0) + 1);
+  });
   const out = new Map<string, string>();
   nodes.filter(isFrameNode).forEach((frame) => {
+    // 中身が 1 つなら、どの向きで並べても見た目は同じ (spec 16 P3)
+    if ((childCount.get(frame.id) ?? 0) < 2) return;
     const drawn = effective.get(frame.id);
     const mine = editor.get(frame.id);
     if (!drawn || !mine || toSubgraphDirection(mine) === drawn) return;
