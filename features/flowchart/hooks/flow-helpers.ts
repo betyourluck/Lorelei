@@ -57,7 +57,7 @@ export function createNewNode(
 export function createNewEdge(
   sourceNodeId: string,
   targetNodeId: string,
-  handleType: string,
+  handleType: string | undefined,
   handlers: {
     onLabelChange: (edgeId: string, newLabel: string) => void;
     onArrowTypeChange: (edgeId: string, arrowType: MermaidArrowType) => void;
@@ -78,12 +78,17 @@ export function createNewEdge(
 }
 
 /**
- * 接続情報を解析する
+ * 接続情報を解析する。`{ノードの ID}-{source | target}` の最後の - で分ける
+ * (ノードの ID にも - が入る: 取り込んだ a-b、枠の frame-group1-<時刻>。以前は最初の - で分けて ID が壊れていた)
  */
 export function parseConnectingNodeId(connectingNodeId: string): {
   sourceNodeId: string;
-  handleType: string;
+  handleType: string | undefined;
 } {
-  const [sourceNodeId, handleType] = connectingNodeId.split("-");
-  return { sourceNodeId, handleType };
+  const cut = connectingNodeId.lastIndexOf("-");
+  if (cut < 0) return { sourceNodeId: connectingNodeId, handleType: undefined };
+  return {
+    sourceNodeId: connectingNodeId.slice(0, cut),
+    handleType: connectingNodeId.slice(cut + 1),
+  };
 }

@@ -87,14 +87,24 @@ describe("parseConnectingNodeId", () => {
     expect(result.handleType).toBe("source");
   });
 
-  test("複雑なnode IDを正しく解析する", () => {
+  test("複雑なnode IDを正しく解析する (ID の - は残し、末尾の接続点の種類だけを切る, spec 16 P3)", () => {
     const connectingNodeId = "complex-node-id-target";
     const result = parseConnectingNodeId(connectingNodeId);
 
-    // split("-")は全てのハイフンで分割するが、分割代入で最初の2要素のみ取得
-    // ["complex", "node", "id", "target"] の最初の2つを取得
-    expect(result.sourceNodeId).toBe("complex");
-    expect(result.handleType).toBe("node");
+    // 以前は split("-") の最初の 2 つを取り、ID が "complex"・種類が "node" に壊れていた
+    expect(result.sourceNodeId).toBe("complex-node-id");
+    expect(result.handleType).toBe("target");
+  });
+
+  test("枠の ID (frame-group1-<時刻>) と、取り込んだ - を含む ID (a-b)", () => {
+    expect(parseConnectingNodeId("frame-group1-1790817017074-source")).toEqual({
+      sourceNodeId: "frame-group1-1790817017074",
+      handleType: "source",
+    });
+    expect(parseConnectingNodeId("a-b-target")).toEqual({
+      sourceNodeId: "a-b",
+      handleType: "target",
+    });
   });
 
   test("ハイフンが含まれていないIDの場合", () => {
@@ -121,12 +131,11 @@ describe("parseConnectingNodeId", () => {
     expect(result.handleType).toBe("");
   });
 
-  test("複数のハイフンが含まれる場合（分割代入で最初の2要素を取得）", () => {
+  test("複数のハイフンが含まれる場合 (最後の - の後を接続点の種類とする)", () => {
     const connectingNodeId = "node-1-source-handle";
     const result = parseConnectingNodeId(connectingNodeId);
 
-    // ["node", "1", "source", "handle"] の最初の2つを取得
-    expect(result.sourceNodeId).toBe("node");
-    expect(result.handleType).toBe("1");
+    expect(result.sourceNodeId).toBe("node-1-source");
+    expect(result.handleType).toBe("handle");
   });
 });
