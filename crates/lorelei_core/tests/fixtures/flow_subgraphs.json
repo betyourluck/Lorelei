@@ -47,6 +47,152 @@
     ]
   },
   {
+    "name": "枠の向きと枠を指す線 (外 → 枠・枠 → 枠・枠 → 外・自己ループ)",
+    "source": "flowchart TD\n    subgraph S[\"受付\"]\n        direction LR\n        subgraph T[\"審査\"]\n            direction BT\n            B[b]\n        end\n        A[a]\n    end\n    subgraph U[\"通知\"]\n    end\n    C[c]\n    C --> S\n    S --> U\n    U --> C\n    U --> U\n    A --> B\n",
+    "nodes": [
+      "B",
+      "A",
+      "C"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "受付",
+        "nodes": [
+          "A"
+        ],
+        "direction": "LR"
+      },
+      {
+        "id": "T",
+        "title": "審査",
+        "nodes": [
+          "B"
+        ],
+        "parent": "S",
+        "direction": "BT"
+      },
+      {
+        "id": "U",
+        "title": "通知",
+        "nodes": []
+      }
+    ],
+    "edges": [
+      [
+        "C",
+        "S"
+      ],
+      [
+        "S",
+        "U"
+      ],
+      [
+        "U",
+        "C"
+      ],
+      [
+        "U",
+        "U"
+      ],
+      [
+        "A",
+        "B"
+      ]
+    ]
+  },
+  {
+    "name": "向き TB",
+    "source": "flowchart TD\n    subgraph S[\"s\"]\n        direction TB\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "s",
+        "nodes": [
+          "A"
+        ],
+        "direction": "TB"
+      }
+    ]
+  },
+  {
+    "name": "向き BT",
+    "source": "flowchart TD\n    subgraph S[\"s\"]\n        direction BT\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "s",
+        "nodes": [
+          "A"
+        ],
+        "direction": "BT"
+      }
+    ]
+  },
+  {
+    "name": "向き LR",
+    "source": "flowchart TD\n    subgraph S[\"s\"]\n        direction LR\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "s",
+        "nodes": [
+          "A"
+        ],
+        "direction": "LR"
+      }
+    ]
+  },
+  {
+    "name": "向き RL",
+    "source": "flowchart TD\n    subgraph S[\"s\"]\n        direction RL\n        A[a]\n    end\n",
+    "nodes": [
+      "A"
+    ],
+    "subgraphs": [
+      {
+        "id": "S",
+        "title": "s",
+        "nodes": [
+          "A"
+        ],
+        "direction": "RL"
+      }
+    ]
+  },
+  {
+    "name": "枠を指す線の端は安全な変数名 (end)",
+    "source": "flowchart TD\n    subgraph node_end[\"e\"]\n        A[a]\n    end\n    B[b]\n    B --> node_end\n",
+    "nodes": [
+      "A",
+      "B"
+    ],
+    "subgraphs": [
+      {
+        "id": "node_end",
+        "title": "e",
+        "nodes": [
+          "A"
+        ]
+      }
+    ],
+    "edges": [
+      [
+        "B",
+        "node_end"
+      ]
+    ]
+  },
+  {
     "name": "題 \"受付 審査\"",
     "source": "flowchart TD\n    subgraph S[\"受付 審査\"]\n        A[a]\n    end\n",
     "nodes": [

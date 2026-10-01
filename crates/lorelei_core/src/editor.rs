@@ -66,6 +66,31 @@ pub struct FlowSubgraph {
     pub nodes: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent: Option<String>,
+    /// 枠の中に書いた向き (spec 16 D1)。書いていなければ持たない
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub direction: Option<SubgraphDirection>,
+}
+
+/// 枠の中の向き (spec 16 D1、TS の `SubgraphDirection`)。TD は TB にそろえる (裁定 3)。
+/// 小文字の `direction lr` は merman も mermaid.js も文法の誤りなので来ない (P0)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum SubgraphDirection {
+    TB,
+    BT,
+    LR,
+    RL,
+}
+
+impl SubgraphDirection {
+    fn parse(dir: &str) -> Option<Self> {
+        match dir {
+            "TB" | "TD" => Some(Self::TB),
+            "BT" => Some(Self::BT),
+            "LR" => Some(Self::LR),
+            "RL" => Some(Self::RL),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -219,14 +244,7 @@ fn accessibility_drop(drops: &mut Drops, model: &Value) {
 fn flowchart(model: &Value) -> Result<EditorPayload, CoreError> {
     let mut drops = Drops::default();
     accessibility_drop(&mut drops, model);
-    // 枠は写す (spec 15 D1)。枠の中の direction はエディタに無い (図全体の向きで並べる, D6)
-    drops.add(
-        "subgraph_direction",
-        arr(model, "subgraphs")
-            .iter()
-            .filter(|s| non_empty(s, "dir"))
-            .count(),
-    );
+    // 枠は写す (spec 15 D1)。枠の中の direction も枠に写す (spec 16 D1)
     drops.add(
         "classDef",
         model
@@ -293,6 +311,17 @@ fn flowchart(model: &Value) -> Result<EditorPayload, CoreError> {
     }
 
     let node_order: Vec<String> = nodes.iter().map(|n| n.id.clone()).collect();
+    let subgraphs = subgraphs_of(model, &node_order);
+    let frame_ids: HashSet<&str> = subgraphs.iter().map(|s| s.id.as_str()).collect();
+    let mut parent_of: HashMap<&str, &str> = HashMap::new();
+    for s in &subgraphs {
+        if let Some(p) = &s.parent {
+            parent_of.insert(s.id.as_str(), p.as_str());
+        }
+        for n in &s.nodes {
+            parent_of.insert(n.as_str(), s.id.as_str());
+        }
+    }
     let mut edges = Vec::new();
     // ID は {source}-{target}。ID に - を含むノードがあるとぶつかりうるので、使った ID を持ち、空くまで番号を足す
     // (spec 11 で見つけた穴。TS の取り込み from-mermaid.ts と同じ)
@@ -306,8 +335,14 @@ fn flowchart(model: &Value) -> Result<EditorPayload, CoreError> {
             .get("to")
             .and_then(Value::as_str)
             .ok_or_else(|| shape_error("edge.to"))?;
-        if !ids.contains(source) || !ids.contains(target) {
-            drops.add("edge_to_subgraph", 1);
+        // 線の端はノードか枠 (枠を指す線は枠につなぐ, spec 16 D2)。merman は線の端を必ずノードか枠にする
+        let known = |id: &str| ids.contains(id) || frame_ids.contains(id);
+        if !known(source) || !known(target) {
+            continue;
+        }
+        // 枠と自分の中を結ぶ線は描画されない (P0) ので落とす (裁定 2。TS の edgeIntoOwnFrame と同じ)
+        if edge_into_own_frame(source, target, &frame_ids, &parent_of) {
+            drops.add("edge_into_own_subgraph", 1);
             continue;
         }
         let arrow_type = arrow_type(e, &mut drops);
@@ -338,10 +373,38 @@ fn flowchart(model: &Value) -> Result<EditorPayload, CoreError> {
             nodes,
             edges,
             direction: direction_of(model),
-            subgraphs: subgraphs_of(model, &node_order),
+            subgraphs,
         },
         dropped: drops.into_vec(),
     })
+}
+
+/// 枠と自分の中 (子孫) を結ぶ線か (spec 16 裁定 2、TS の subgraph-tree.ts の edgeIntoOwnFrame と同じ)。枠の自己ループは当たらない
+fn edge_into_own_frame(
+    source: &str,
+    target: &str,
+    frame_ids: &HashSet<&str>,
+    parent_of: &HashMap<&str, &str>,
+) -> bool {
+    if source == target {
+        return false;
+    }
+    let inside = |id: &str, frame: &str| {
+        let mut seen = HashSet::from([id]);
+        let mut cur = parent_of.get(id).copied();
+        while let Some(p) = cur {
+            if p == frame {
+                return true;
+            }
+            if !seen.insert(p) {
+                return false;
+            }
+            cur = parent_of.get(p).copied();
+        }
+        false
+    };
+    (frame_ids.contains(source) && inside(target, source))
+        || (frame_ids.contains(target) && inside(source, target))
 }
 
 /// 枠 (spec 15 D1。TS の from-mermaid.ts の subgraphsOf と同じ)。merman の一覧の nodes には子の枠の ID も入るので、
@@ -382,6 +445,7 @@ fn subgraphs_of(model: &Value, node_order: &[String]) -> Vec<FlowSubgraph> {
             },
             nodes: members.into_iter().map(str::to_string).collect(),
             parent: None,
+            direction: SubgraphDirection::parse(str_of(s, "dir")),
         });
     }
     for item in &mut items {

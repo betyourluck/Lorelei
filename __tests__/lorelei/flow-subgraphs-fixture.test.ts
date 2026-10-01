@@ -20,12 +20,12 @@ const node = (id: string, parentId?: string) => ({
   ...(parentId ? { parentId: `f-${parentId}` } : {}),
   data: { label: id.toLowerCase(), variableName: id, shapeType: "rectangle" },
 });
-const frame = (id: string, title: string, parentId?: string) => ({
+const frame = (id: string, title: string, parentId?: string, direction?: string) => ({
   id: `f-${id}`,
   type: "subgraphNode",
   position: { x: 0, y: 0 },
   ...(parentId ? { parentId: `f-${parentId}` } : {}),
-  data: { variableName: id, title },
+  data: { variableName: id, title, ...(direction ? { direction } : {}) },
 });
 const edge = (source: string, target: string) => ({
   id: `${source}-${target}`,
@@ -39,6 +39,8 @@ interface Case {
   flow: { nodes: unknown[]; edges: unknown[] };
   nodes: string[];
   subgraphs: ParsedMermaidSubgraph[];
+  /** 戻るべき線の端 (spec 16 から。無い場面は線を確かめない) */
+  edges?: [string, string][];
 }
 
 // round-trip-mermaid.test.ts の TITLES と同じ
@@ -67,6 +69,48 @@ const CASES: Case[] = [
     nodes: ["A"],
     subgraphs: [{ id: "node_end", title: "e", nodes: ["A"] }],
   },
+  // spec 16 D3: 枠の中の向きと枠を指す線 (round-trip-mermaid.test.ts の「枠の向き・枠を指す線」と同じ)
+  {
+    name: "枠の向きと枠を指す線 (外 → 枠・枠 → 枠・枠 → 外・自己ループ)",
+    flow: {
+      nodes: [
+        frame("S", "受付", undefined, "LR"),
+        frame("T", "審査", "S", "BT"),
+        frame("U", "通知"),
+        node("A", "S"),
+        node("B", "T"),
+        node("C"),
+      ],
+      edges: [edge("C", "f-S"), edge("f-S", "f-U"), edge("f-U", "C"), edge("f-U", "f-U"), edge("A", "B")],
+    },
+    // 最初に出た順 (子の枠 T の中の B を A より前に書く。mermaid.js も同じ)
+    nodes: ["B", "A", "C"],
+    subgraphs: [
+      { id: "S", title: "受付", nodes: ["A"], direction: "LR" },
+      { id: "T", title: "審査", nodes: ["B"], parent: "S", direction: "BT" },
+      { id: "U", title: "通知", nodes: [] },
+    ],
+    edges: [
+      ["C", "S"],
+      ["S", "U"],
+      ["U", "C"],
+      ["U", "U"],
+      ["A", "B"],
+    ],
+  },
+  ...(["TB", "BT", "LR", "RL"] as const).map((direction) => ({
+    name: `向き ${direction}`,
+    flow: { nodes: [frame("S", "s", undefined, direction), node("A", "S")], edges: [] },
+    nodes: ["A"],
+    subgraphs: [{ id: "S", title: "s", nodes: ["A"], direction }],
+  })),
+  {
+    name: "枠を指す線の端は安全な変数名 (end)",
+    flow: { nodes: [frame("end", "e"), node("A", "end"), node("B")], edges: [edge("B", "f-end")] },
+    nodes: ["A", "B"],
+    subgraphs: [{ id: "node_end", title: "e", nodes: ["A"] }],
+    edges: [["B", "node_end"]],
+  },
   ...TITLES.map((title) => ({
     name: `題 ${JSON.stringify(title)}`,
     flow: { nodes: [frame("S", title), node("A", "S")], edges: [] },
@@ -77,11 +121,12 @@ const CASES: Case[] = [
 
 describe("Rust の取り込みのテストへ渡す fixture (spec 15 P2)", () => {
   test("fixture が今の生成器の出力と同じ", () => {
-    const expected = CASES.map(({ name, flow, nodes, subgraphs }) => ({
+    const expected = CASES.map(({ name, flow, nodes, subgraphs, edges }) => ({
       name,
       source: generateMermaidCode(flow as unknown as FlowData, "TD"),
       nodes,
       subgraphs,
+      ...(edges ? { edges } : {}),
     }));
     if (process.env.LORELEI_UPDATE_FIXTURES) {
       writeFileSync(FIXTURE, `${JSON.stringify(expected, null, 2)}\n`);

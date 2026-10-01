@@ -1,6 +1,8 @@
 //! 意味モデル → エディタのデータ形 (spec 01 D5')。入力の多くは P0-5 でフォーク元パーサーが壊したもの。
 
-use lorelei_core::{EditorPayload, ErData, FlowData, FlowSubgraph, to_editor, validate};
+use lorelei_core::{
+    EditorPayload, ErData, FlowData, FlowSubgraph, SubgraphDirection, to_editor, validate,
+};
 
 fn flow(src: &str) -> (FlowData, Vec<(String, usize)>) {
     match to_editor(src).unwrap().expect("editable") {
@@ -80,10 +82,10 @@ fn subgraph_becomes_a_frame_and_not_a_node() {
         ["A", "B", "C"],
         "end や subgraph がノードになっている"
     );
-    assert_eq!(edge_pairs(&data), [("A", "B"), ("B", "C")]);
-    // spec 15 D1: 枠にする (TS の取り込み from-mermaid.ts と同じ)。枠を指す線は落とす
+    // spec 15 D1: 枠にする (TS の取り込み from-mermaid.ts と同じ)。spec 16 D2: 枠を指す線は枠につなぐ
+    assert_eq!(edge_pairs(&data), [("A", "B"), ("B", "C"), ("C", "S1")]);
     assert_eq!(data.subgraphs, [sg("S1", "受注", &["A", "B"], None)]);
-    assert_eq!(dropped, [d("edge_to_subgraph", 1)]);
+    assert!(dropped.is_empty(), "{dropped:?}");
 }
 
 fn sg(id: &str, title: &str, nodes: &[&str], parent: Option<&str>) -> FlowSubgraph {
@@ -92,6 +94,14 @@ fn sg(id: &str, title: &str, nodes: &[&str], parent: Option<&str>) -> FlowSubgra
         title: title.to_string(),
         nodes: nodes.iter().map(|n| n.to_string()).collect(),
         parent: parent.map(str::to_string),
+        direction: None,
+    }
+}
+
+fn sg_dir(id: &str, nodes: &[&str], direction: SubgraphDirection) -> FlowSubgraph {
+    FlowSubgraph {
+        direction: Some(direction),
+        ..sg(id, id, nodes, None)
     }
 }
 
@@ -148,11 +158,96 @@ fn empty_frames_blank_titles_and_title_only_frames() {
 }
 
 #[test]
-fn direction_inside_a_frame_is_dropped_and_members_follow_node_order() {
+fn direction_inside_a_frame_is_carried_and_members_follow_node_order() {
+    // spec 16 D1: 枠の中の向きを写す
     let (data, dropped) =
         flow("flowchart TD\n  subgraph X\n    direction LR\n    A --> B\n  end\n");
-    assert_eq!(data.subgraphs, [sg("X", "X", &["A", "B"], None)]);
-    assert_eq!(dropped, [d("subgraph_direction", 1)]);
+    assert_eq!(
+        data.subgraphs,
+        [sg_dir("X", &["A", "B"], SubgraphDirection::LR)]
+    );
+    assert!(dropped.is_empty(), "{dropped:?}");
+}
+
+#[test]
+fn frame_direction_td_becomes_tb_and_the_last_one_wins() {
+    // spec 16 裁定 3: TD は TB にそろえる (merman も TD のまま持つ, P0)
+    for (dir, want) in [
+        ("TB", SubgraphDirection::TB),
+        ("TD", SubgraphDirection::TB),
+        ("BT", SubgraphDirection::BT),
+        ("RL", SubgraphDirection::RL),
+        ("LR", SubgraphDirection::LR),
+    ] {
+        let (data, _) = flow(&format!(
+            "flowchart TD\n  subgraph X\n    direction {dir}\n    A\n  end\n"
+        ));
+        assert_eq!(data.subgraphs[0].direction, Some(want), "{dir}");
+    }
+    let (data, _) =
+        flow("flowchart TD\n  subgraph X\n    direction LR\n    A\n    direction RL\n  end\n");
+    assert_eq!(data.subgraphs[0].direction, Some(SubgraphDirection::RL));
+    let json = serde_json::to_value(
+        to_editor("flowchart TD\n  subgraph X\n    direction TD\n    A\n  end\n").unwrap(),
+    )
+    .unwrap();
+    assert_eq!(json["data"]["subgraphs"][0]["direction"], "TB");
+}
+
+// ---------- flowchart: 枠を指す線 (spec 16 D2。TS の from-mermaid.test.ts の「枠を指す線」と同じ入力) ----------
+
+const FRAME_S: &str = "  subgraph S[\"S\"]\n    s1 --> s2\n  end\n";
+const FRAME_P: &str =
+    "  subgraph P[\"P\"]\n    p1\n    subgraph S[\"S\"]\n      s1 --> s2\n    end\n  end\n";
+
+#[test]
+fn edges_to_frames_connect_to_the_frame() {
+    let (data, dropped) = flow(&format!(
+        "flowchart TD\n  A\n  B\n{FRAME_S}  subgraph T[\"T\"]\n    t1\n  end\n  A --> S\n  S --> B\n  S -->|次へ| T\n  S --> S\n"
+    ));
+    assert_eq!(node_ids(&data), ["A", "B", "s1", "s2", "t1"]);
+    assert_eq!(
+        edge_pairs(&data),
+        [("s1", "s2"), ("A", "S"), ("S", "B"), ("S", "T"), ("S", "S")]
+    );
+    assert_eq!(
+        data.edges.iter().find(|e| e.id == "S-T").unwrap().label,
+        "次へ"
+    );
+    assert!(dropped.is_empty(), "{dropped:?}");
+}
+
+#[test]
+fn edges_before_the_frame_and_to_title_only_frames_connect() {
+    let (data, dropped) = flow(&format!(
+        "flowchart TD\n  A --> S\n{FRAME_S}  subgraph 受付 審査\n    u1\n  end\n  A --> subGraph1\n"
+    ));
+    assert_eq!(
+        edge_pairs(&data),
+        [("A", "S"), ("s1", "s2"), ("A", "subGraph1")]
+    );
+    assert!(dropped.is_empty(), "{dropped:?}");
+}
+
+#[test]
+fn edges_between_a_frame_and_its_own_inside_are_dropped() {
+    // spec 16 裁定 2: 描画では長さ 0 の線で見えず、枠の中の向きを変える (P0)
+    for edge in [
+        "S --> s1", "s2 --> S", "P --> S", "S --> P", "P --> s1", "s1 --> P",
+    ] {
+        let (data, dropped) = flow(&format!("flowchart TD\n{FRAME_P}  {edge}\n"));
+        assert_eq!(edge_pairs(&data), [("s1", "s2")], "{edge}");
+        assert_eq!(dropped, [d("edge_into_own_subgraph", 1)], "{edge}");
+    }
+}
+
+#[test]
+fn edges_into_sibling_frames_are_kept() {
+    let (data, dropped) = flow(&format!(
+        "flowchart TD\n{FRAME_P}  subgraph Q[\"Q\"]\n    q1\n  end\n  Q --> s1\n  p1 --> Q\n"
+    ));
+    assert_eq!(edge_pairs(&data), [("s1", "s2"), ("Q", "s1"), ("p1", "Q")]);
+    assert!(dropped.is_empty(), "{dropped:?}");
 }
 
 #[test]
@@ -398,7 +493,7 @@ fn japanese_ids_work_in_subgraph_class_style_and_click_statements() {
             d("class", 1),
             d("classDef", 1),
             d("click", 1),
-            d("edge_to_subgraph", 1),
+            d("edge_into_own_subgraph", 1),
             d("style", 1),
         ]
     );
@@ -545,6 +640,14 @@ fn flow_generator_frames_round_trip_through_merman() {
             case["subgraphs"],
             "{name}: {source}"
         );
+        // 線の端 (spec 16: 枠を指す線も)。fixture に edges のある場面だけ
+        if let Some(edges) = case["edges"].as_array() {
+            let expected: Vec<(&str, &str)> = edges
+                .iter()
+                .map(|e| (e[0].as_str().unwrap(), e[1].as_str().unwrap()))
+                .collect();
+            assert_eq!(edge_pairs(&data), expected, "{name}: {source}");
+        }
         assert!(dropped.is_empty(), "{name}: {dropped:?}");
     }
 }

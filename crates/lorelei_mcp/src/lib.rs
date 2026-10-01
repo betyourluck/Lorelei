@@ -306,7 +306,7 @@ impl LoreleiServer {
         name = "validate",
         description = "Mermaid のテキストを検査する。文法エラーなら ok=false と理由 (分かれば行番号) を返す。\
                        editor 欄は GUI エディタで開けるか (flowchart / erDiagram のみ) と、開くと失われる要素 \
-                       (classDef・style・サブグラフを指す線・サブグラフの中の direction など) の件数。flowchart の subgraph は枠として残る。"
+                       (classDef・style・枠とその中を結ぶ線など) の件数。flowchart の subgraph は枠として残り、枠を指す線と枠の中の direction も残る。"
     )]
     async fn validate(
         &self,
@@ -340,8 +340,8 @@ impl LoreleiServer {
         description = "Mermaid を Lorelei の GUI エディタで開き、人が手直しできるようにする。\
                        対応は flowchart と erDiagram だけ (ノードの無い図は開けない)。開いている Lorelei の窓に出る。\
                        図は GUI の図の一覧に新しい 1 件として足され、開いている図は上書きしない (既存の図を書き換えるのは update_diagram)。\
-                       title でその名前を付けられる。flowchart の subgraph は枠として開く (入れ子も)。\
-                       エディタで表現できない要素 (classDef・style・サブグラフを指す線・サブグラフの中の direction など) は dropped に件数が返る。\
+                       title でその名前を付けられる。flowchart の subgraph は枠として開く (入れ子も。枠を指す線・枠の中の direction も)。\
+                       エディタで表現できない要素 (classDef・style・枠とその中を結ぶ線など) は dropped に件数が返る。\
                        返る document_id と updated_at は、そのまま read_diagram / update_diagram に渡せる。"
     )]
     async fn open_in_editor(
@@ -371,7 +371,7 @@ impl LoreleiServer {
     #[tool(
         name = "read_diagram",
         description = "人が Lorelei の GUI で直した今の図を Mermaid で読む。id を省くと今 GUI で開いている図。\
-                       source はエディタが出した Mermaid で、style・classDef などは落ちている (向き・FK・flowchart の subgraph は残る)。\
+                       source はエディタが出した Mermaid で、style・classDef などは落ちている (向き・FK・flowchart の subgraph と枠を指す線・枠の中の direction は残る)。\
                        ただし update_diagram の後、GUI でその図を開く (載せ替える) までは、届けた Mermaid そのものが返る。\
                        最後に届けた原文が要る時は include_original=true (original_source)。\
                        GUI での編集は約 1 秒後に保存されるので、直後の編集は含まれないことがある。\

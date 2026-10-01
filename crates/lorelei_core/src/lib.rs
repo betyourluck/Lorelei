@@ -14,7 +14,7 @@ mod validate;
 
 pub use editor::{
     DroppedItem, EditorCompat, EditorPayload, ErColumn, ErData, ErEdge, ErEdgeData, ErNode,
-    FlowData, FlowEdge, FlowNode, FlowSubgraph, to_editor,
+    FlowData, FlowEdge, FlowNode, FlowSubgraph, SubgraphDirection, to_editor,
 };
 pub use error::CoreError;
 pub use render::{
