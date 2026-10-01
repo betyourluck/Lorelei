@@ -61,10 +61,11 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
-- 2026-10-01: [spec 16](specs/16_subgraph-edges-and-direction.md) **P1 着地**（rev3。spec 15 P5 の持ち越し: サブグラフを指す線と枠の中の `direction` をエディタで扱う。裁定 1〜3 済み）。
+- 2026-10-01: [spec 16](specs/16_subgraph-edges-and-direction.md) **P2 着地**（rev3。spec 15 P5 の持ち越し: サブグラフを指す線と枠の中の `direction` をエディタで扱う。裁定 1〜3 済み）。
   P0 で mermaid.js と merman に 173 通りを通し、**描画で枠の中が並ぶ向きの規則**（中のノードが外とつながる枠は書いた向きが効かず、外とつながらない向きの無い枠は図と逆向き）を描画 520 点で確定した。
   エディタは書いた向きで並べ、描画と違う枠は見出しで知らせる（裁定 1 の案 B。計算は `features/flowchart/utils/frame-direction.ts`）。枠と自分の中を結ぶ線は描画で見えないので落とす（裁定 2、`edge_into_own_subgraph`）。枠の中の `TD` は `TB` にそろえる（裁定 3）。
-  P1（フォーク元: 往復と表示。Web 版の画面で確認）。次は P2（Rust の `to_editor`・MCP・LORELEI.md）。**Browser pane は窓が後ろにあると描画されず、xyflow の線も出ない**（failures #26）
+  P1（フォーク元: 往復と表示。Web 版の画面で確認）・P2（Rust の `to_editor`・fixture・MCP の説明・LORELEI.md。`tauri dev` で MCP の往復を確認）。次は P3（GUI の編集）。**Browser pane は窓が後ろにあると描画されず、xyflow の線も出ない**（failures #26）。
+  P2 の画面で、**同じ ID のノード・線を持つ別の図を開くと前の図のラベルが表示に残る**フォーク元の不具合を見つけて直した（failures #27。props を `useState` の初期値にする部品は、編集していない間は props に合わせる）
 - 2026-09-30: [spec 15](specs/15_flowchart-subgraph.md) **Done** — rev2（フローチャートの subgraph をエディタの枠（xyflow の親ノード）にし、保存・読み戻し・コード生成で落とさない。裁定 1〜5 済み）。
   P0（mermaid.js と merman に 87 通り）・P1（フォーク元: 取り込み・入れ子の段組み・枠の表示・生成器。Web 版の画面で確認）・
   P2（Rust の `to_editor` が枠を返す・`Document.layout` は絶対座標で枠は大きさも持つ。`tauri dev` で MCP の往復と開き直しを確認）・

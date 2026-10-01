@@ -94,7 +94,7 @@ EditorPayload:
         title は mermaid の内部の符号と実体参照を戻した文字、空白だけなら空。題の無い枠は title = id、題だけの枠 (subgraph 受付 審査) は id が subGraphN。
         枠と同じ ID のノードは作らない (線が枠を指すと mermaid は同じ ID のノードも作る)
       subgraph_direction_value: >-
-        spec 16 D1。枠の direction? は SubgraphDirection = TB | BT | LR | RL (枠の中に書いた向き。書いていなければ持たない)。図の向きの GraphType とは別の型
+        spec 16 D1。枠の direction? は SubgraphDirection = TB | BT | LR | RL (枠の中に書いた向き。書いていなければ持たない。Rust は FlowSubgraph.direction: Option<SubgraphDirection> の enum で、JSON は大文字の文字列)。図の向きの GraphType とは別の型
         (枠では「書いていない」と「TB と書いた」が Mermaid の描画で違う)。TD は TB にそろえる (裁定 3。mermaid.js も merman も TD を TD のまま持つが、
         そろえると入れ子の中の向きの無い枠の描画が両方の実装で一致する, P0)。小文字の direction lr は両方の実装で文法の誤りなので来ない。2 回書けば最後が勝つ
       editor_frame: >-
@@ -131,7 +131,7 @@ EditorPayload:
       edge_to_subgraph: "枠を指す線は、線の端を枠の ID にして写す (spec 16 D2。外 → 枠・枠 → 外・枠 → 枠・枠の自己ループ。線が枠の定義より前にあっても同じ)。生成器も線を全部最後に外へ書く"
       edge_into_own_subgraph: "枠と自分の子孫 (中のノード・中の枠) を結ぶ線は落として dropped edge_into_own_subgraph (spec 16 裁定 2。mermaid.js・merman とも誤りにしないが、描画では長さ 0 の線で見えず、枠を外とつながる扱いにして中の向きを変える, P0)。生成器も書かない。枠の自己ループは当たらない"
       subgraph_direction: "枠の中の direction を枠の direction? に写す (spec 16。subgraph_direction_value)"
-      dropped_constructs: [edge_into_own_subgraph, classDef, class, style, click, tooltip, "shape:<名前>", "edge:<矢印>", edge_length, accessibility]   # direction は spec 07、subgraph は spec 15、枠を指す線と枠の中の向きは spec 16 で写すようにした (Rust の to_editor は spec 16 P2 まで edge_to_subgraph・subgraph_direction を落とす。ts_mirror)
+      dropped_constructs: [edge_into_own_subgraph, classDef, class, style, click, tooltip, "shape:<名前>", "edge:<矢印>", edge_length, accessibility]   # direction は spec 07、subgraph は spec 15、枠を指す線と枠の中の向きは spec 16 で写すようにした (TS の取り込みは P1、Rust の to_editor は P2)
     erDiagram:
       output: "ParsedMermaidERData { nodes: [{ id, name, columns: [{ name, type, pk, uk, fk? }] }], edges: [{ id: edge-N, type: erEdge, source, target, data: { label, cardinality } }], direction? }"
       direction: "flowchart と同じ GraphType。無ければ TD (spec 07 D1)"
@@ -150,7 +150,7 @@ EditorPayload:
       subgraph: "関係が subgraph を指すと、関係はその subgraph の id を指し、同じ名前のテーブルも現れうる。テーブルにせず、指す関係を落として dropped subgraph / edge_to_subgraph (spec 11。以前は形の誤りで止まった)"
       edge_id: "edge-N。N は落とした関係を除いて数える"
       dropped_constructs: [alias, attribute_comment, non_identifying, cardinality_unsupported, subgraph, edge_to_subgraph, classDef, class, style, accessibility]   # fk と direction は spec 07 で写すようにした
-    ts_mirror: "フォーク元の取り込み (spec 11) は同じ対応を TS で持つ: features/flowchart/utils/from-mermaid.ts・features/er-diagram/utils/from-mermaid.ts (mermaid.js の解析の結果から)。tests で Rust の tests/editor.rs と同じ入力で同じ出力を確かめる。TS だけの足し: click は class の clickable でも数える (strict では haveCallback が付かない) / @{ shape: rect | rounded | diam | hex } もエディタの形。spec 16 P1 から P2 までは食い違う: TS は枠を指す線と枠の中の向きを写して edge_into_own_subgraph だけを落とし、Rust は edge_to_subgraph・subgraph_direction を落とす (デスクトップの MCP・ツールバーのインポートは P2 まで今のまま)"
+    ts_mirror: "フォーク元の取り込み (spec 11) は同じ対応を TS で持つ: features/flowchart/utils/from-mermaid.ts・features/er-diagram/utils/from-mermaid.ts (mermaid.js の解析の結果から)。tests で Rust の tests/editor.rs と同じ入力で同じ出力を確かめる。TS だけの足し: click は class の clickable でも数える (strict では haveCallback が付かない) / @{ shape: rect | rounded | diam | hex } もエディタの形"
 
 EditorDirection:
   description: エディタの図の向き (spec 07 D1)。フォーク元の GraphType。エディタの状態がただ 1 つの持ち主で、ツールバー・パネル・コード生成のモーダルはそれを読み書きする
@@ -197,7 +197,7 @@ MermaidImport:
   generator: "ノードのラベルは ( ) [ ] { } | \" か #語; か direction + 空白 + 大文字の向き (TB / TD / BT / RL / LR) を含む時だけ \"…\" で囲み、中の \" は #quot;、#語; の # は #35;、その direction の後ろの空白 → #<符号位置>; (spec 15 D8。mermaid.js は囲みの中でも行のどこでもこの並びを向きの指定として取り、その行のノードと線が黙って消える。小文字の direction + 大文字の向きだけが当たる)。線のラベルも同じ並びを含む時は囲む。空のラベルは [\" \"]。< > はそのまま (mermaid はラベルを HTML として扱う)。フローチャートの枠 (spec 15 D2): subgraph <getSafeVariableName した ID>[\"<題>\"] … end で囲み、中身を 4 字ずつ下げる。題はいつも囲み (ID と同じでも)、囲み方はラベルと同じ、空の題は \" \"。線は全部、枠の外 (最後) に書く (ブロックの中の線は外のノードを枠へ引き込む)。枠を指す線は書かない。親子が輪になった枠は図の直下に書く。枠の無い図の出力は今までと一字一句同じ。ER 図 (spec 13 D1・D2): テーブル名・関係の両端・関係のラベルは quoteErName — ^[\\p{L}_][\\p{L}\\p{N}_-]*$ に合い、erdiagram / style / classdef / class / subgraph / end / direction / acctitle / accdescr / many / one / to で始まらず (大文字小文字を問わない前方一致)、u- / u. で始まらない時だけそのまま、ほかは \"…\" で囲む。囲んだ中は #語; の # → #35;、& → #38;、\" → #quot;、% → #37;、バックスラッシュ → #92;、direction + 空白 + 向き の空白 → #<符号位置>; の順。列は columnIssue が null の時だけ書く (名前・型とも mermaid.js の列の規則の形、PK / FK / UK で始まらない。型は ~ 2 つの総称型も可)。全部の列を書かない時は 名前 { } のまま"
   differs_from_export: "書き出し (SVG / PNG / PDF) は merman。描き手・書体・ラベルの描き方が違うので一致しない (LORELEI.md 既知の制約)"
   generator_fixture: "crates/lorelei_core/tests/fixtures/er_names.json = [{ name, source }]。source は TS の ER 図の生成器の出力 (テーブル name と B、B → name の関係のラベルも name。名前の格子 50 通り)。__tests__/lorelei/er-names-fixture.test.ts が今の生成器と一字一句同じことを確かめ (LORELEI_UPDATE_FIXTURES=1 で書き直す)、Rust の editor.rs の er_generator_names_round_trip_through_merman が to_editor に通して名前・ラベルが戻ることを確かめる (spec 13 P3)。
-    フローチャートの枠 (spec 15 P2): crates/lorelei_core/tests/fixtures/flow_subgraphs.json = [{ name, source, nodes, subgraphs }]。source は TS の生成器の枠の出力 (入れ子・空の枠・安全な ID・題の格子 22 通り)、
+    フローチャートの枠 (spec 15 P2、spec 16 P2): crates/lorelei_core/tests/fixtures/flow_subgraphs.json = [{ name, source, nodes, subgraphs, edges? }]。source は TS の生成器の枠の出力 (入れ子・空の枠・安全な ID・題の格子 22 通り・枠の向き 4 通り・枠を指す線と自己ループ)、edges? は戻るべき線の端 (spec 16 の場面だけ)、
     nodes・subgraphs は戻るべき形。__tests__/lorelei/flow-subgraphs-fixture.test.ts が書き (LORELEI_UPDATE_FIXTURES=1)、editor.rs の flow_generator_frames_round_trip_through_merman が merman で同じ形に戻ることを確かめる
     (mermaid.js で同じ期待値に戻ることは round-trip-mermaid.test.ts の「枠」)"
 
