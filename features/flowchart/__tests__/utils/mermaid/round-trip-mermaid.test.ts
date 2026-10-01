@@ -224,6 +224,8 @@ describe("枠の向き・枠を指す線のコード生成 → インポート�
       { id: "T", title: "審査", nodes: ["B"], parent: "S", direction: "BT" },
       { id: "U", title: "通知", nodes: [] },
     ]);
+    // ノードは最初に出た順 (子の枠 T の中の B を A より前に書く)。merman も同じ (fixture flow_subgraphs.json)
+    expect(data.nodes.map((n) => n.id)).toEqual(["B", "A", "C"]);
     expect(data.edges.map((e) => [e.source, e.target])).toEqual([
       ["C", "S"],
       ["S", "U"],
