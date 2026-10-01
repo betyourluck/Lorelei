@@ -46,6 +46,11 @@ export function EdgeContent({ id, labelX, labelY, data, zIndex }: EdgeContentPro
     }
   }, [isEditing]);
 
+  // 編集していない時は、データのラベルに合わせる (同じ ID の線を持つ別の図を開くと、この部品は使い回される)
+  useEffect(() => {
+    if (!isEditing) setEdgeLabel(data?.label || "");
+  }, [data?.label, isEditing]);
+
   const handleClick = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();

@@ -45,3 +45,22 @@ describe("ErEditableEdge", () => {
     expect(baseProps.onDelete).toHaveBeenCalledWith("edge-1");
   });
 });
+
+// 2026-10-01 spec 16 P2 の tauri dev で見つけた: 同じ ID の線 (edge-N) を持つ別の図を開くと、前の図のラベルが残る
+describe("ErEditableEdge — 別の図で使い回された時", () => {
+  it("編集していない時は、データのラベルに合わせる", () => {
+    const props = {
+      id: "edge-1",
+      label: "注文する",
+      cardinality: "one-to-many" as ErCardinality,
+      onLabelChange: vi.fn(),
+      onCardinalityChange: vi.fn(),
+      onDelete: vi.fn(),
+    };
+    const { rerender } = render(<ErEditableEdge {...props} />);
+    expect(screen.getByText("注文する")).toBeInTheDocument();
+    rerender(<ErEditableEdge {...props} label="所属する" />);
+    expect(screen.getByText("所属する")).toBeInTheDocument();
+    expect(screen.queryByText("注文する")).toBeNull();
+  });
+});

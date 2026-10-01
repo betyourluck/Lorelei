@@ -32,6 +32,11 @@ export function ErEditableEdge({
     }
   }, [isEditing]);
 
+  // 編集していない時は、データのラベルに合わせる (同じ ID の線を持つ別の図を開くと、この部品は使い回される)
+  useEffect(() => {
+    if (!isEditing) setEdgeLabel(label);
+  }, [label, isEditing]);
+
   const handleLabelSubmit = () => {
     setIsEditing(false);
     onLabelChange(id, edgeLabel);

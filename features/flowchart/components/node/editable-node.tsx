@@ -49,6 +49,15 @@ export const NodeContent: FC<EditableNodeProps> = ({ data, id }) => {
   const [isComposing, setIsComposing] = useState(false); // IME入力状態を管理
   const lastVariableClickTime = useRef<number>(0); // 変数名クリック時刻を記録
 
+  // 編集していない時は、データのラベルと変数名に合わせる。同じ ID のノードを持つ別の図を開くと、この部品は作り直されずに
+  // 使い回されるので、最初に受け取った値のままだと前の図のラベルが残り、編集するとそれを書き込んでしまう
+  useEffect(() => {
+    if (!isEditingLabel) setLabel(data.label);
+  }, [data.label, isEditingLabel]);
+  useEffect(() => {
+    if (!isEditingVariableName) setVariableName(data.variableName || `node${id}`);
+  }, [data.variableName, id, isEditingVariableName]);
+
   const handleLabelDoubleClick = () => {
     // 変数名クリック直後（DOUBLE_CLICK_THRESHOLD ms以内）はダブルクリックを無視
     const now = Date.now();

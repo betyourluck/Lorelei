@@ -205,3 +205,15 @@ describe("EdgeContent", () => {
     });
   });
 });
+
+// 2026-10-01 spec 16 P2 の tauri dev で見つけた: 同じ ID の線を持つ別の図を開くと、前の図のラベルが残る
+describe("EdgeContent — 別の図で使い回された時", () => {
+  test("編集していない時は、データのラベルに合わせる", () => {
+    const data = { label: "書類", onLabelChange: vi.fn() };
+    const { rerender } = render(<EdgeContent id="A-B" labelX={0} labelY={0} data={data} />);
+    expect(screen.getByText("書類")).toBeInTheDocument();
+    rerender(<EdgeContent id="A-B" labelX={0} labelY={0} data={{ ...data, label: "戻る" }} />);
+    expect(screen.getByText("戻る")).toBeInTheDocument();
+    expect(screen.queryByText("書類")).toBeNull();
+  });
+});
