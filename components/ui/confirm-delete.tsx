@@ -27,6 +27,8 @@ interface Pending {
   title: string;
   /** 本文。無ければ線の文 (DEFAULT_BODY) */
   body?: string;
+  /** 進めるボタンの言葉。無ければ「削除」 */
+  confirmLabel?: string;
   resolve: (ok: boolean) => void;
 }
 
@@ -42,8 +44,11 @@ export function useConfirmDelete<N extends Node = Node>(
   nameOf: (node: N) => string
 ): {
   onBeforeDelete: OnBeforeDelete<N, Edge>;
-  /** 題と本文を指定して尋ねる (フローチャートの枠の削除, spec 15 D5)。同じダイアログを使う */
-  ask: (title: string, body: string) => Promise<boolean>;
+  /**
+   * 題と本文を指定して尋ねる (フローチャートの枠の削除, spec 15 D5。枠へ入れると消える線, spec 16 D7)。同じダイアログを使う。
+   * confirmLabel は進めるボタンの言葉 (無ければ「削除」)
+   */
+  ask: (title: string, body: string, confirmLabel?: string) => Promise<boolean>;
   dialog: ReactNode;
 } {
   const [pending, setPending] = useState<Pending | null>(null);
@@ -60,7 +65,8 @@ export function useConfirmDelete<N extends Node = Node>(
   );
 
   const ask = useCallback(
-    (title: string, body: string) => new Promise<boolean>((resolve) => setPending({ title, body, resolve })),
+    (title: string, body: string, confirmLabel?: string) =>
+      new Promise<boolean>((resolve) => setPending({ title, body, confirmLabel, resolve })),
     []
   );
 
@@ -75,7 +81,7 @@ export function useConfirmDelete<N extends Node = Node>(
       onClose={() => settle(false)}
       header={pending?.title}
       cancel="やめる"
-      success={{ colorScheme: "danger", children: "削除" }}
+      success={{ colorScheme: "danger", children: pending?.confirmLabel ?? "削除" }}
       onCancel={() => settle(false)}
       onSuccess={() => settle(true)}
     >

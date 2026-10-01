@@ -9,6 +9,7 @@ import { useState, useRef, useEffect } from "react";
 import { adjustEdgeLabelPosition, getCyclicEdgeStyle } from "../../hooks/edge-layout";
 import { getArrowTypeSymbol } from "../../hooks/mermaid";
 import type { MermaidArrowType } from "../../types/types";
+import { frameSelfLoopPath, type HandleSide } from "../../utils/frame-edit";
 import { SUBGRAPH_NODE_TYPE } from "../../utils/subgraph-tree";
 import { ArrowTypeSelector } from "./arrow-type-selector";
 
@@ -195,9 +196,19 @@ export function EditableEdge({
     return top === -Infinity ? undefined : top + 1;
   });
 
+  // 枠の自己ループは枠の外を回す (spec 16 P3。曲線のままだと枠の真ん中を縦に貫き、中の線のボタンと重なる)。
+  // 枠の絶対位置と大きさを "x,y,w,h" の文字列で読む (毎回新しいオブジェクトを返すと、ストアが変わるたびに描き直す)
+  const selfLoopFrame = useStore((s) => {
+    if (source !== target) return null;
+    const n = s.nodeLookup.get(source);
+    if (!n || n.type !== SUBGRAPH_NODE_TYPE) return null;
+    const { x, y } = n.internals.positionAbsolute;
+    return `${x},${y},${n.measured.width ?? n.width ?? 0},${n.measured.height ?? n.height ?? 0}`;
+  });
+
   const currentEdge = { id, source, target };
 
-  const [edgePath, labelX, labelY] = getBezierPath({
+  const [bezierPath, bezierLabelX, bezierLabelY] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,
@@ -205,6 +216,20 @@ export function EditableEdge({
     targetY,
     targetPosition,
   });
+  const loop = selfLoopFrame
+    ? (() => {
+        const [x, y, width, height] = selfLoopFrame.split(",").map(Number);
+        return frameSelfLoopPath(
+          { x, y, width, height },
+          { x: sourceX, y: sourceY },
+          { x: targetX, y: targetY },
+          sourcePosition as HandleSide
+        );
+      })()
+    : null;
+  const edgePath = loop ? loop.path : bezierPath;
+  const labelX = loop ? loop.labelX : bezierLabelX;
+  const labelY = loop ? loop.labelY : bezierLabelY;
 
   // 循環参照対応のラベル位置調整
   const { adjustedX, adjustedY } = adjustEdgeLabelPosition(

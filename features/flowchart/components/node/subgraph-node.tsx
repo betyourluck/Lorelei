@@ -8,8 +8,11 @@ import type { KeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { handlePositions } from "../../hooks/direction";
 import { useUpdateNodeInternals } from "../../hooks/use-update-node-internals";
+import type { SubgraphDirection } from "../../types/types";
 import { FRAME_PADDING, FRAME_TITLE_HEIGHT } from "../../utils/frame-edit";
+import { subgraphDirectionOf } from "../../utils/from-mermaid";
 import { useFrameNotice, useHandleDirection } from "../direction-context";
+import { FrameDirectionMenu } from "../frame-direction-menu";
 
 interface SubgraphNodeProps {
   data: {
@@ -18,6 +21,8 @@ interface SubgraphNodeProps {
     title?: string;
     /** 枠の中に書いた向き (spec 16 D1。書いていなければ持たない) */
     direction?: string;
+    /** 枠の中の向きを変える (spec 16 D7。undefined で「指定なし」) */
+    onDirectionChange?: (nodeId: string, direction: SubgraphDirection | undefined) => void;
     onTitleChange?: (nodeId: string, title: string) => void;
     /** ID を変える。ほかのノード・枠とぶつかる名前はエディタが確定させない */
     onVariableNameChange?: (nodeId: string, variableName: string) => void;
@@ -180,11 +185,12 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
             {title || "（題なし）"}
           </Text>
         )}
-        {data.direction && (
-          // 枠の中に書いた向き (spec 16。変えるメニューは P3)
-          <Text fontSize="xs" color="gray.500" flexShrink={0} title="枠の中の向き">
-            {data.direction}
-          </Text>
+        {data.onDirectionChange && (
+          // 枠の中に書いた向き (spec 16 D7)。「指定なし」は外側の向きで並ぶ
+          <FrameDirectionMenu
+            value={subgraphDirectionOf(data.direction)}
+            onChange={(direction) => data.onDirectionChange?.(id, direction)}
+          />
         )}
         {data.onDelete && (
           <IconButton
@@ -205,11 +211,15 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
           position="absolute"
           top={`${FRAME_TITLE_HEIGHT}px`}
           left={2}
-          right={2}
+          w="fit-content"
+          maxW="calc(100% - 16px)"
           fontSize="2xs"
           color="gray.500"
-          lineClamp={2}
-          pointerEvents="none"
+          // 見出しの下の余白 (24px) に 1 行で収める (2 行だと狭い枠で中のノードに重なる, spec 16 P2)。
+          // 全文は title。title を出すため文字の幅の分だけ押す操作を受ける (枠の本体は受けない, failures #25)
+          lineClamp={1}
+          title={notice}
+          pointerEvents="all"
           data-testid="subgraph-direction-notice"
         >
           {notice}

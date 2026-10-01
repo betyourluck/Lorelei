@@ -209,7 +209,9 @@ describe("フローチャートの枠の向きと枠を指す線", { timeout: 30
     // 線がエディタに入っていることは下のコード生成で確かめる
     // 枠を指す線だけなら S の中の向きは描画でも効くので、知らせは出ない
     expect(within(nodeEl("S")!).queryByTestId("subgraph-direction-notice")).toBeNull();
-    expect(within(nodeEl("S")!).getByText("LR")).toBeInTheDocument();
+    expect(
+      within(nodeEl("S")!).getByRole("button", { name: "枠の中の向き: LR" })
+    ).toBeInTheDocument();
     expect(await generatedCode(user)).toHaveTextContent(
       /subgraph S\["S"\]\s+direction LR\s+a\[a\]\s+b\[b\]\s+end\s+X\[X\]\s+Y\[Y\]\s+a --> b\s+X --> S\s+S --> Y/
     );
@@ -229,6 +231,69 @@ describe("フローチャートの枠の向きと枠を指す線", { timeout: 30
     expect(translate("d").y).toBeGreaterThan(translate("c").y);
     expect(within(nodeEl("T")!).getByTestId("subgraph-direction-notice")).toHaveTextContent(
       "描画では、この枠の中は LR（左から右）に並びます"
+    );
+  });
+});
+
+// spec 16 P3: GUI の編集 (D7)。線を引く・ドロップの確認はドラッグなので jsdom では見られない (frame-edit のテストと画面で確かめる)
+describe("フローチャートの枠の向きと枠を指す線の編集", { timeout: 30000 }, () => {
+  test("見出しのメニューで枠の向きを変え、指定なしに戻せる。中のノードの接続点も変わる", async () => {
+    const { user } = editor();
+    await importCode(user, "flowchart TD\n  subgraph S\n    a --> b\n  end");
+    await waitFor(() => expect(nodeEl("S")).not.toBeNull());
+    await waitFor(() => expect(handleSides("a")).toEqual(["source:bottom", "target:top"]));
+    // ノードの中は user.click だと mousedown で d3-drag が jsdom に無い event.view を読んで落ちる (failures #22)。押すのは click だけ
+    const menu = within(nodeEl("S")!).getByRole("button", { name: "枠の中の向き: 指定なし" });
+    // 押しても枠をドラッグしない (xyflow はドラッグを始める要素の祖先に nodrag があれば始めない)
+    expect(menu.closest(".nodrag")).not.toBeNull();
+    fireEvent.click(menu);
+    await user.click(await screen.findByRole("menuitem", { name: "LR" }, { timeout: 3000 }));
+    await waitFor(() => expect(handleSides("a")).toEqual(["source:right", "target:left"]));
+    expect(await generatedCode(user)).toHaveTextContent(
+      /subgraph S\["S"\]\s+direction LR\s+a\[a\]/
+    );
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    fireEvent.click(within(nodeEl("S")!).getByRole("button", { name: "枠の中の向き: LR" }));
+    await user.click(await screen.findByRole("menuitem", { name: "指定なし" }, { timeout: 3000 }));
+    await waitFor(() => expect(handleSides("a")).toEqual(["source:bottom", "target:top"]));
+    expect(await generatedCode(user)).not.toHaveTextContent(/direction/);
+  });
+
+  test("枠を消す確認に、枠につながる線も消えることを書く", async () => {
+    const { user } = editor();
+    await importCode(user, "flowchart TD\n  X\n  subgraph S\n    a\n  end\n  X --> S\n  S --> Y");
+    await waitFor(() => expect(nodeEl("S")).not.toBeNull());
+    await user.click(within(nodeEl("S")!).getByRole("button", { name: "枠を削除" }));
+    expect(await screen.findByText("枠『S』を削除しますか？")).toBeInTheDocument();
+    expect(screen.getByText(/枠につながる線 2 本も消えます/)).toBeInTheDocument();
+  });
+
+  test("枠の ID を変えても枠を指す線は外れない", async () => {
+    const { user } = editor();
+    await importCode(user, "flowchart TD\n  X\n  subgraph S\n    a\n  end\n  X --> S");
+    await waitFor(() => expect(nodeEl("S")).not.toBeNull());
+    const frame = within(nodeEl("S")!);
+    fireEvent.doubleClick(frame.getAllByText("S")[0]);
+    const idInput = frame.getByRole("textbox", { name: "枠の ID" });
+    await user.clear(idInput);
+    await user.type(idInput, "uketsuke{Enter}");
+    expect(await frame.findByText("uketsuke")).toBeInTheDocument();
+    expect(await generatedCode(user)).toHaveTextContent(/X --> uketsuke/);
+  });
+
+  test("見出しの知らせは 1 行に収め、全文は title に出す (狭い枠で中のノードに重ならない)", async () => {
+    const { user } = editor();
+    await importCode(
+      user,
+      "flowchart TD\n  subgraph S\n    direction LR\n    a --> b\n  end\n  b --> Y"
+    );
+    await waitFor(() => expect(nodeEl("S")).not.toBeNull());
+    const notice = within(nodeEl("S")!).getByTestId("subgraph-direction-notice");
+    expect(notice).toHaveAttribute(
+      "title",
+      "中のノードが枠の外とつながっているので、描画ではこの向き（LR）は効きません（TB で並びます）"
     );
   });
 });

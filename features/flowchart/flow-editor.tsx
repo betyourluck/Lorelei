@@ -38,10 +38,12 @@ import {
 } from "./hooks/flow-helpers";
 import type { ParsedMermaidData } from "./hooks/mermaid";
 import type { MermaidArrowType } from "./types";
-import type { GraphType } from "./types/types";
+import type { GraphType, SubgraphDirection } from "./types/types";
 import { frameDirectionNotice, handleDirections } from "./utils/frame-direction";
 import {
   applyDrop,
+  edgesBrokenByDrop,
+  intoOwnFrame,
   frameNameRejected,
   isFrame,
   FRAME_NODE_STYLE,
@@ -107,7 +109,7 @@ export function FlowEditor() {
   const connectingNodeId = useRef<string | null>(null);
   // メニューや枠の × で名指しして消している途中のノード (onBeforeDelete が読んで消す)
   const namedDeleteRef = useRef<string | null>(null);
-  const { screenToFlowPosition, deleteElements, getNodes, getViewport } = useReactFlow();
+  const { screenToFlowPosition, deleteElements, getNodes, getEdges, getViewport } = useReactFlow();
   const storeApi = useStoreApi();
   // 削除はメニューも Backspace も deleteElements → onBeforeDelete の確認を通す (つながる線も一緒に消える)
   const confirmDelete = useConfirmDelete("node", (n) => String((n.data as { label?: unknown }).label ?? ""));
@@ -160,6 +162,20 @@ export function FlowEditor() {
     (nodeId: string, title: string) => {
       setNodes((nds) =>
         nds.map((node) => (node.id === nodeId ? { ...node, data: { ...node.data, title } } : node))
+      );
+    },
+    [setNodes]
+  );
+
+  // 枠の中の向きの変更 (spec 16 D7)。undefined で「指定なし」(direction を持たない)。並べ直さない (接続点だけが動く)
+  const handleFrameDirectionChange = useCallback(
+    (nodeId: string, frameDirection: SubgraphDirection | undefined) => {
+      setNodes((nds) =>
+        nds.map((node) => {
+          if (node.id !== nodeId) return node;
+          const { direction: _old, ...rest } = node.data as Record<string, unknown>;
+          return { ...node, data: frameDirection ? { ...rest, direction: frameDirection } : rest };
+        })
       );
     },
     [setNodes]
@@ -231,6 +247,7 @@ export function FlowEditor() {
           onShapeTypeChange: handleShapeTypeChange,
           onDelete: handleNodeDelete,
           onTitleChange: handleFrameTitleChange,
+          onDirectionChange: handleFrameDirectionChange,
         },
       }))
     );
@@ -240,6 +257,7 @@ export function FlowEditor() {
     handleShapeTypeChange,
     handleNodeDelete,
     handleFrameTitleChange,
+    handleFrameDirectionChange,
     setNodes,
   ]);
 
@@ -420,19 +438,63 @@ export function FlowEditor() {
           title,
           onVariableNameChange: handleVariableNameChange,
           onTitleChange: handleFrameTitleChange,
+          onDirectionChange: handleFrameDirectionChange,
           onDelete: handleNodeDelete,
         },
       };
       return [frame, ...nds];
     });
-  }, [storeApi, getViewport, setNodes, handleVariableNameChange, handleFrameTitleChange, handleNodeDelete]);
+  }, [
+    storeApi,
+    getViewport,
+    setNodes,
+    handleVariableNameChange,
+    handleFrameTitleChange,
+    handleFrameDirectionChange,
+    handleNodeDelete,
+  ]);
 
-  // ドラッグを終えたら、中心を含む一番内側の枠へ付け替える (spec 15 D5)。自分と子孫の枠には入れない
+  // ドラッグを始めた時の位置 (付け替えをやめた時に戻す, spec 16 D7)
+  const dragStartRef = useRef<Map<string, Node["position"]>>(new Map());
+  const onNodeDragStart = useCallback((_: unknown, __: Node, dragged: Node[]) => {
+    dragStartRef.current = new Map(dragged.map((n) => [n.id, { ...n.position }]));
+  }, []);
+
+  // ドラッグを終えたら、中心を含む一番内側の枠へ付け替える (spec 15 D5)。自分と子孫の枠には入れない。
+  // 付け替えで枠と自分の中を結ぶようになる線は描画されない (spec 16 裁定 2) ので、確かめてから消す。やめたらドラッグの前の位置へ戻す
   const onNodeDragStop = useCallback(
-    (_: unknown, __: Node, dragged: Node[]) => {
-      setNodes((nds) => applyDrop(nds, dragged.map((n) => n.id)));
+    async (_: unknown, __: Node, dragged: Node[]) => {
+      const before = getNodes();
+      const after = applyDrop(
+        before,
+        dragged.map((n) => n.id)
+      );
+      const broken = edgesBrokenByDrop(before, after, getEdges());
+      if (broken.length === 0) {
+        setNodes(after);
+        return;
+      }
+      const ok = await askDelete(
+        "この移動で、線が描画されなくなります",
+        `枠とその中を結ぶ線 ${broken.length} 本は Mermaid の描画で見えないので消します。消さずに戻す時は「やめる」。`,
+        "移動して線を消す"
+      );
+      if (!ok) {
+        const start = dragStartRef.current;
+        setNodes((nds) => nds.map((n) => (start.has(n.id) ? { ...n, position: start.get(n.id)! } : n)));
+        return;
+      }
+      const brokenIds = new Set(broken.map((e) => e.id));
+      setNodes(after);
+      setEdges((eds) => eds.filter((e) => !brokenIds.has(e.id)));
     },
-    [setNodes]
+    [getNodes, getEdges, setNodes, setEdges, askDelete]
+  );
+
+  // 枠と自分の中を結ぶ線は繋がせない (spec 16 裁定 2)
+  const isValidConnection = useCallback(
+    (connection: Connection | Edge) => !intoOwnFrame(getNodes(), connection.source, connection.target),
+    [getNodes]
   );
 
   // 削除の前の確認。枠を消す時は枠だけ消し、中身は 1 段上へ移して残す (spec 15 D5、裁定 3)。
@@ -453,9 +515,13 @@ export function FlowEditor() {
           : others === 0
             ? `選択した ${plan.frames.length} 個の枠を削除しますか？`
             : `選択した ${plan.remove.length} 個（枠 ${plan.frames.length} 個）を削除しますか？`;
+      // 枠そのものにつながる線 (枠を指す線, spec 16) も一緒に消える
+      const frameIds = new Set(plan.frames.map((f) => f.id));
+      const frameEdges = plan.removeEdges.filter((e) => frameIds.has(e.source) || frameIds.has(e.target));
       const body = [
         plan.kept > 0 ? `中のノード・枠 ${plan.kept} 個は残ります（外側へ移します）。` : "",
-        plan.removeEdges.length > 0 || others > 0 ? "消すノードにつながっている線も一緒に消えます。" : "",
+        frameEdges.length > 0 ? `枠につながる線 ${frameEdges.length} 本も消えます。` : "",
+        plan.removeEdges.length > frameEdges.length || others > 0 ? "消すノードにつながっている線も一緒に消えます。" : "",
         "元に戻せません。",
       ].join("");
       if (!(await askDelete(title, body))) return false;
@@ -572,6 +638,7 @@ export function FlowEditor() {
             ...(f.direction ? { direction: f.direction } : {}),
             onVariableNameChange: handleVariableNameChange,
             onTitleChange: handleFrameTitleChange,
+            onDirectionChange: handleFrameDirectionChange,
             onDelete: handleNodeDelete,
           },
         };
@@ -626,6 +693,7 @@ export function FlowEditor() {
       handleEdgeArrowTypeChange,
       handleEdgeDelete,
       handleFrameTitleChange,
+      handleFrameDirectionChange,
     ]
   );
 
@@ -684,7 +752,9 @@ export function FlowEditor() {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onBeforeDelete={onBeforeDelete}
+        onNodeDragStart={onNodeDragStart}
         onNodeDragStop={onNodeDragStop}
+        isValidConnection={isValidConnection}
         fitView
       >
         <FlowLayout>

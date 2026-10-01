@@ -10,7 +10,10 @@ import {
   fitFrames,
   FRAME_PADDING,
   FRAME_TITLE_HEIGHT,
+  edgesBrokenByDrop,
   frameNameRejected,
+  frameSelfLoopPath,
+  intoOwnFrame,
   nextFrameName,
   planFrameDelete,
   sortParentsFirst,
@@ -238,5 +241,63 @@ describe("枠の名前", () => {
     expect(frameNameRejected(nodes, "I", "")).toBe(true);
     expect(frameNameRejected(nodes, "I", "I")).toBe(false);
     expect(frameNameRejected(nodes, "I", "審査")).toBe(false);
+  });
+});
+
+// spec 16 D7・裁定 2: 枠と自分の中 (子孫) を結ぶ線は作らせない。ドラッグで付け替えてそうなる線は確かめて消す
+describe("枠と自分の中を結ぶ線", () => {
+  const nodes = [
+    frame("P", 0, 0, 400, 300),
+    frame("S", 20, 50, 200, 150, "P"),
+    node("a", 10, 60, "S"),
+    node("x", 600, 0),
+  ];
+
+  test("intoOwnFrame: 枠とその子孫 (中の枠の中まで) を結ぶ線だけ。自己ループ・外とは当たらない", () => {
+    expect(intoOwnFrame(nodes, "P", "a")).toBe(true);
+    expect(intoOwnFrame(nodes, "a", "P")).toBe(true);
+    expect(intoOwnFrame(nodes, "P", "S")).toBe(true);
+    expect(intoOwnFrame(nodes, "S", "a")).toBe(true);
+    expect(intoOwnFrame(nodes, "S", "S")).toBe(false);
+    expect(intoOwnFrame(nodes, "x", "S")).toBe(false);
+    expect(intoOwnFrame(nodes, "S", "x")).toBe(false);
+    expect(intoOwnFrame(nodes, "a", "x")).toBe(false);
+  });
+
+  test("edgesBrokenByDrop: 付け替えで新たに枠とその中を結ぶようになった線だけを返す", () => {
+    const before = [frame("F", 0, 0, 300, 200), node("a", 400, 0), node("b", 10, 60, "F")];
+    // a を枠 F の中へ入れると、F --> a は枠とその中を結ぶ線になる。b --> F はもともとそう (取り込みで落ちるので普通は無い) なので数えない
+    const after = [frame("F", 0, 0, 300, 200), node("a", 20, 60, "F"), node("b", 10, 60, "F")];
+    const edges = [edge("F", "a"), edge("a", "b"), edge("b", "F"), edge("a", "a")];
+    expect(edgesBrokenByDrop(before, after, edges).map((e) => e.id)).toEqual(["F-a"]);
+  });
+});
+
+// spec 16 P3: 枠の自己ループは枠の外を回る (P1 では枠の真ん中を縦に貫いて描かれた)
+describe("frameSelfLoopPath", () => {
+  const box = { x: 100, y: 50, width: 200, height: 120 };
+
+  test("出口が下・入口が上 (TD): 右の外を回り、ラベルは右の外", () => {
+    const { path, labelX, labelY } = frameSelfLoopPath(
+      box,
+      { x: 200, y: 170 },
+      { x: 200, y: 50 },
+      "bottom"
+    );
+    expect(path.startsWith("M 200 170")).toBe(true);
+    expect(path.endsWith("200 50")).toBe(true);
+    expect(labelX).toBeGreaterThan(box.x + box.width);
+    expect(labelY).toBe(box.y + box.height / 2);
+  });
+
+  test("出口が右・入口が左 (LR): 下の外を回り、ラベルは下の外", () => {
+    const { labelX, labelY } = frameSelfLoopPath(
+      box,
+      { x: 300, y: 110 },
+      { x: 100, y: 110 },
+      "right"
+    );
+    expect(labelY).toBeGreaterThan(box.y + box.height);
+    expect(labelX).toBe(box.x + box.width / 2);
   });
 });

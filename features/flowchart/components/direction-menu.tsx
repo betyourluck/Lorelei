@@ -5,12 +5,17 @@ import type { Component, FC, IconProps } from "@yamada-ui/react";
 import { Button, Menu, MenuButton, MenuItem, MenuList } from "@yamada-ui/react";
 import type { GraphType } from "../types/types";
 
-const ARROWS: { type: GraphType; arrow: Component<"svg", IconProps> }[] = [
-  { type: "TD", arrow: ArrowDownIcon },
-  { type: "LR", arrow: ArrowRightIcon },
-  { type: "RL", arrow: ArrowLeftIcon },
-  { type: "BT", arrow: ArrowUpIcon },
-];
+/** 向きの矢印 (図の向きのメニューと枠の向きのメニューで共通, spec 16 D7) */
+export const DIRECTION_ARROW: Record<GraphType, Component<"svg", IconProps>> = {
+  TD: ArrowDownIcon,
+  LR: ArrowRightIcon,
+  RL: ArrowLeftIcon,
+  BT: ArrowUpIcon,
+};
+
+const ARROWS: { type: GraphType; arrow: Component<"svg", IconProps> }[] = (
+  ["TD", "LR", "RL", "BT"] as GraphType[]
+).map((type) => ({ type, arrow: DIRECTION_ARROW[type] }));
 
 interface DirectionMenuProps {
   value: GraphType;

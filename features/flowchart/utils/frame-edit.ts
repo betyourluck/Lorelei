@@ -4,7 +4,7 @@
  */
 import type { Edge, Node } from "@xyflow/react";
 import { getSafeVariableName } from "../hooks/mermaid";
-import { SUBGRAPH_NODE_TYPE } from "./subgraph-tree";
+import { edgeIntoOwnFrame, SUBGRAPH_NODE_TYPE } from "./subgraph-tree";
 
 export interface Point {
   x: number;
@@ -303,6 +303,77 @@ export function planFrameDelete(
     );
   };
   return { remove, removeEdges, frames, kept, reparent };
+}
+
+/**
+ * 枠と自分の中 (子孫) を結ぶ線か (spec 16 裁定 2)。Mermaid の描画で見えず、枠の中の向きを変えるので、作らせない・書き出さない。
+ * 枠の自己ループは当たらない
+ */
+export function intoOwnFrame(nodes: Node[], source: string, target: string): boolean {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  return edgeIntoOwnFrame(
+    source,
+    target,
+    (id) => isFrame(byId.get(id)),
+    (id) => {
+      const node = byId.get(id);
+      return node ? parentIdOf(byId, node) : undefined;
+    }
+  );
+}
+
+/** ドラッグで付け替えた結果、新たに枠と自分の中を結ぶようになった線 (D7。確かめてから消す) */
+export function edgesBrokenByDrop(before: Node[], after: Node[], edges: Edge[]): Edge[] {
+  return edges.filter(
+    (e) => intoOwnFrame(after, e.source, e.target) && !intoOwnFrame(before, e.source, e.target)
+  );
+}
+
+export type HandleSide = "top" | "bottom" | "left" | "right";
+
+/**
+ * 枠の自己ループの道筋 (spec 16 P3)。xyflow の曲線のままだと、出口 (下) から入口 (上) へ枠の真ん中を縦に貫く。
+ * 出口と入口が上下にあれば枠の右の外を、左右にあれば枠の下の外を回る。座標は図の座標 (線と同じ)
+ */
+export function frameSelfLoopPath(
+  box: { x: number; y: number; width: number; height: number },
+  source: Point,
+  target: Point,
+  sourceSide: HandleSide
+): { path: string; labelX: number; labelY: number } {
+  const step = 20;
+  const gap = 40;
+  const p = (pts: Point[]) => pts.map((q, i) => `${i === 0 ? "M" : "L"} ${q.x} ${q.y}`).join(" ");
+  if (sourceSide === "top" || sourceSide === "bottom") {
+    const out = sourceSide === "bottom" ? step : -step;
+    const side = box.x + box.width + gap;
+    return {
+      path: p([
+        source,
+        { x: source.x, y: source.y + out },
+        { x: side, y: source.y + out },
+        { x: side, y: target.y - out },
+        { x: target.x, y: target.y - out },
+        target,
+      ]),
+      labelX: side,
+      labelY: box.y + box.height / 2,
+    };
+  }
+  const out = sourceSide === "right" ? step : -step;
+  const below = box.y + box.height + gap;
+  return {
+    path: p([
+      source,
+      { x: source.x + out, y: source.y },
+      { x: source.x + out, y: below },
+      { x: target.x - out, y: below },
+      { x: target.x - out, y: target.y },
+      target,
+    ]),
+    labelX: box.x + box.width / 2,
+    labelY: below,
+  };
 }
 
 /** 使っていない最小の番号で、新しい枠の Mermaid 上の ID (group{N}) と題 (グループ{N}) を決める (D5) */
