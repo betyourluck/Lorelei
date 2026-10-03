@@ -61,6 +61,12 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
+- 2026-10-03: [spec 17](specs/17_edge-routing-around-frames.md) **In Progress**（rev3。spec 16 のスコープ外の持ち越し: 枠をまたいで戻る線・段を飛ばす線が途中の枠と中のノードを貫く。裁定 1〜3 済み）。
+  エディタの表示だけを変える（保存・コード生成・`read_diagram` には何も足さない）。今の曲線か中点のボタンが、どちらの端も中にいない枠・線より低いノード・端である枠の内側と交わる線だけを、縦と横の線分の道で回す
+  （`features/flowchart/utils/edge-route.ts` の `routeEdges`、配るのは `hooks/use-edge-routes.ts`。枠の無い図は今の曲線のまま）。P0（Web 版の 28 通り・Mermaid の描画・既製の部品・重なりの順・速さ）・
+  P1（フォーク元 `bebed21`。Web 版の画面で 24 通りが枠を横切らないことを確かめた）着地。次は P2（配布ビルド）。
+  **xyflow はノードを測った後に中身を書き換えて `set({})` で知らせる**ので、ストアの購読を参照で絞らない（failures #29）。速さは本番の段組みを通した図で測る（failures #30）。
+  P0 で、**閉じた輪の図は取り込みで全部が 1 段に横並びになる**（`levelsOf` が入る線の無いものを根にする）ことを見つけた — 次の spec の候補 ⑤
 - 2026-10-02: [spec 16](specs/16_subgraph-edges-and-direction.md) **Done**（rev3。P0〜P4 の後、裁定 4 で P5 を足した。spec 15 P5 の持ち越し: サブグラフを指す線と枠の中の `direction` をエディタで扱う。裁定 1〜3 済み）。
   P0 で mermaid.js と merman に 173 通りを通し、**描画で枠の中が並ぶ向きの規則**（中のノードが外とつながる枠は書いた向きが効かず、外とつながらない向きの無い枠は図と逆向き）を描画 520 点で確定した。
   エディタは書いた向きで並べ、描画と違う枠は見出しで知らせる（裁定 1 の案 B。計算は `features/flowchart/utils/frame-direction.ts`）。枠と自分の中を結ぶ線は描画で見えないので落とす（裁定 2、`edge_into_own_subgraph`）。枠の中の `TD` は `TB` にそろえる（裁定 3）。
