@@ -8,7 +8,9 @@ import type { MouseEvent, KeyboardEvent } from "react";
 import { useState, useRef, useEffect } from "react";
 import { adjustEdgeLabelPosition, getCyclicEdgeStyle } from "../../hooks/edge-layout";
 import { getArrowTypeSymbol } from "../../hooks/mermaid";
+import { useEdgeRoute } from "../../hooks/use-edge-routes";
 import type { MermaidArrowType } from "../../types/types";
+import { roundedPath } from "../../utils/edge-route";
 import { frameSelfLoopPath, type HandleSide } from "../../utils/frame-edit";
 import { SUBGRAPH_NODE_TYPE } from "../../utils/subgraph-tree";
 import { ArrowTypeSelector } from "./arrow-type-selector";
@@ -227,18 +229,17 @@ export function EditableEdge({
         );
       })()
     : null;
-  const edgePath = loop ? loop.path : bezierPath;
-  const labelX = loop ? loop.labelX : bezierLabelX;
-  const labelY = loop ? loop.labelY : bezierLabelY;
+  // 枠・線より低いノードを貫く線は、外を回した経路で描く (spec 17。計算はエディタが図全体で 1 回)
+  const route = useEdgeRoute(id);
+  const routed = !loop && route ? route : null;
+  const edgePath = loop ? loop.path : routed ? roundedPath(routed.points) : bezierPath;
+  const labelX = loop ? loop.labelX : routed ? routed.label.x : bezierLabelX;
+  const labelY = loop ? loop.labelY : routed ? routed.label.y : bezierLabelY;
 
-  // 循環参照対応のラベル位置調整
-  const { adjustedX, adjustedY } = adjustEdgeLabelPosition(
-    currentEdge,
-    labelX,
-    labelY,
-    allEdges,
-    allNodes
-  );
+  // 循環参照対応のラベル位置調整 (回した線のボタンは経路の計算で置いたので動かさない)
+  const adjusted = adjustEdgeLabelPosition(currentEdge, labelX, labelY, allEdges, allNodes);
+  const adjustedX = routed ? labelX : adjusted.adjustedX;
+  const adjustedY = routed ? labelY : adjusted.adjustedY;
 
   // 循環参照対応のエッジスタイル（オプション）
   // ラベル位置調整のみにしたい場合は enableCyclicEdgeStyling: false にする

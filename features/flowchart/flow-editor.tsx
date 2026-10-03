@@ -37,6 +37,7 @@ import {
   parseConnectingNodeId,
 } from "./hooks/flow-helpers";
 import type { ParsedMermaidData } from "./hooks/mermaid";
+import { EdgeRouteContext, useEdgeRouting } from "./hooks/use-edge-routes";
 import type { MermaidArrowType } from "./types";
 import type { GraphType, SubgraphDirection } from "./types/types";
 import { frameDirectionNotice, frameInnerDirections, handleDirections } from "./utils/frame-direction";
@@ -112,6 +113,8 @@ export function FlowEditor() {
   const namedDeleteRef = useRef<string | null>(null);
   const { screenToFlowPosition, deleteElements, getNodes, getEdges, getViewport } = useReactFlow();
   const storeApi = useStoreApi();
+  // 枠をまたぐ線の経路 (spec 17)。線は自分の経路を EdgeRouteContext から読む
+  const edgeRoutes = useEdgeRouting();
   // 削除はメニューも Backspace も deleteElements → onBeforeDelete の確認を通す (つながる線も一緒に消える)
   const confirmDelete = useConfirmDelete("node", (n) => String((n.data as { label?: unknown }).label ?? ""));
   const { onBeforeDelete: confirmNodeDelete, ask: askDelete } = confirmDelete;
@@ -754,6 +757,7 @@ export function FlowEditor() {
       {/* ノードが接続点の位置を向きに合わせるのに使う。枠の中は枠の向き (spec 16 D6) */}
       <DirectionContext.Provider value={direction}>
       <FrameDirectionsContext.Provider value={frameDirections}>
+      <EdgeRouteContext.Provider value={edgeRoutes}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -782,6 +786,7 @@ export function FlowEditor() {
           />
         </FlowLayout>
       </ReactFlow>
+      </EdgeRouteContext.Provider>
       </FrameDirectionsContext.Provider>
       </DirectionContext.Provider>
       {confirmDelete.dialog}
