@@ -4,7 +4,6 @@ import {
   CircleHelpIcon,
   MinusIcon,
   PanelLeftIcon,
-  SettingsIcon,
   SquareIcon,
   TriangleAlertIcon,
   XIcon,
@@ -98,7 +97,7 @@ export const TitleBar: FC<Props> = ({
     {mcp && onOpenSettings && (
       <Button
         aria-label={mcpLabel(mcp)}
-        title={mcp.detail ?? mcpLabel(mcp)}
+        title={`${mcp.detail ?? mcpLabel(mcp)} (押すと設定を開く)`}
         size="xs"
         variant="ghost"
         h={TITLE_BAR_HEIGHT}
@@ -112,7 +111,6 @@ export const TitleBar: FC<Props> = ({
         MCP
       </Button>
     )}
-    {onOpenSettings && <BarButton label="設定" icon={<SettingsIcon />} onClick={onOpenSettings} />}
     <BarButton label="Lorelei について" icon={<CircleHelpIcon />} onClick={() => void showAbout()} />
     <Box w="1px" h="4" bg="gray.200" mx="xs" />
     <WindowButton label="最小化" action="minimize" icon={<MinusIcon />} />

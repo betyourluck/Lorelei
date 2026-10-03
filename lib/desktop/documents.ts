@@ -13,9 +13,9 @@ export interface DocumentSummary {
   origin: Origin;
   createdAt: string;
   updatedAt: string;
-  /** 利用者が「保存」を押した時刻 (D12)。一覧はこれ (無ければ createdAt) の新しい順 */
+  /** 利用者が「確定」(旧「保存」) を押した時刻 (D12)。一覧はこれ (無ければ createdAt) の新しい順 */
   savedAt: string | null;
-  /** 最後の「保存」より後の変更がある (●) */
+  /** 最後の「確定」より後の変更がある (●) */
   unsaved: boolean;
 }
 
@@ -38,7 +38,7 @@ export const saveDocument = (
   layout: Layout,
   baseUpdatedAt: string
 ): Promise<DocumentSummary> => invoke("save_document", { id, source, layout, baseUpdatedAt });
-/** 利用者の「保存」(D12)。一覧の先頭へ動き、● が消える */
+/** 利用者の「確定」(D12。旧「保存」)。一覧の先頭へ動き、● が消える */
 export const markDocumentSaved = (id: string): Promise<DocumentSummary> =>
   invoke("mark_document_saved", { id });
 export const renameDocument = (id: string, title: string): Promise<void> =>

@@ -50,6 +50,13 @@ describe("MCP の設定画面 (spec 03 D4・D6)", { timeout: 15000 }, () => {
     expect(await screen.findByRole("dialog")).toHaveTextContent("MCP サーバー");
   });
 
+  it("設定の入口はタイトルバーの MCP の印だけ (歯車のボタンは置かない。2026-10-04 利用者裁定)", async () => {
+    shell();
+    const mark = await screen.findByRole("button", { name: "MCP: 待ち受け中 127.0.0.1:39642" });
+    expect(mark).toHaveAttribute("title", expect.stringContaining("設定"));
+    expect(screen.queryByRole("button", { name: "設定" })).toBeNull();
+  });
+
   it("状態・ポート・伏せたトークンを出す。トークンの本文は画面に出さない", async () => {
     const { user } = shell();
     const dlg = await openSettings(user);

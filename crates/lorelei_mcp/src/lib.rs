@@ -117,7 +117,7 @@ pub struct DiagramSummary {
     pub created_at: String,
     pub updated_at: String,
     pub saved_at: Option<String>,
-    /// 最後の「保存」(Ctrl+S) の後に中身が変わったか (ファイルの時刻の比較)
+    /// 最後の「確定」(Ctrl+S。2026-10-04 に「保存」から改名) の後に中身が変わったか (ファイルの時刻の比較)
     pub unsaved: bool,
     /// 今 GUI で開いている図
     pub open: bool,
@@ -358,7 +358,7 @@ impl LoreleiServer {
 
     #[tool(
         name = "list_diagrams",
-        description = "Lorelei の GUI の図の一覧を返す (並びは GUI の一覧と同じ)。open=true が今 GUI で開いている図。                       unsaved は最後の「保存」(Ctrl+S) の後に変更があるか。中身は read_diagram で読む。"
+        description = "Lorelei の GUI の図の一覧を返す (並びは GUI の一覧と同じ)。open=true が今 GUI で開いている図。                       unsaved は利用者が最後に「確定」(Ctrl+S) した後に変更があるか。中身は read_diagram で読む。"
     )]
     async fn list_diagrams(&self) -> Result<CallToolResult, ErrorData> {
         let editor = Arc::clone(&self.editor);

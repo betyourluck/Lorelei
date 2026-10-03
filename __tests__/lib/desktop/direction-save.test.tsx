@@ -86,9 +86,9 @@ describe("向きの切り替えの保存 (spec 07 D3)", { timeout: 20000 }, () =
         ),
       { timeout: 4000 }
     );
-    // 実機で観測 (2026-09-26 23:36): TD で保存された後に「保存」を押すと、LR で書き戻された
+    // 実機で観測 (2026-09-26 23:36): TD で保存された後に「保存」(今の「確定」) を押すと、LR で書き戻された
     const before = backend.calls("save_document").length;
-    await user.click(screen.getByRole("button", { name: "保存" }));
+    await user.click(screen.getByRole("button", { name: "確定" }));
     await waitFor(() => expect(backend.calls("mark_document_saved")).toHaveLength(1));
     const after = backend.calls("save_document").slice(before).map((a) => String(a?.source).split("\n")[0]);
     expect(after.every((line) => line === "flowchart TD"), JSON.stringify(after)).toBe(true);

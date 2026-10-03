@@ -104,7 +104,7 @@ export const DocumentList: FC<Props> = ({ list, currentId, onOpen, onCreate, onR
                 </Text>
               )}
               {d.unsaved && (
-                <Text as="span" color="blue.500" fontSize="xs" title="最後の「保存」より後の変更があります">
+                <Text as="span" color="blue.500" fontSize="xs" title="最後の「確定」より後の変更があります">
                   ●
                 </Text>
               )}

@@ -171,19 +171,21 @@ describe("図の一覧 (spec 02 P3)", { timeout: 15000 }, () => {
     expect(screen.getByRole("banner")).not.toHaveTextContent("消す図");
   });
 
-  it("ツールバーの「保存」で、開いている図を一覧の先頭へ動かす (D12)", async () => {
+  it("ツールバーの「確定」で、開いている図を一覧の先頭へ動かす (D12。2026-10-04 に「保存」から改名)", async () => {
     const a = backend.add("flowchart", "古い図");
     backend.add("flowchart", "新しい図");
     backend.setLast(a.id);
     const { user } = shell();
     await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("古い図"), LONG);
     expect((await list()).getAllByRole("listitem")[0]).toHaveTextContent("新しい図");
-    await user.click(screen.getByRole("button", { name: "保存" }));
+    // ファイルへ書き出すと思われないよう「保存」とは呼ばない (中身は自動保存で残っている)
+    expect(screen.queryByRole("button", { name: "保存" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "確定" }));
     await waitFor(async () => expect((await list()).getAllByRole("listitem")[0]).toHaveTextContent("古い図"));
     expect(backend.calls("mark_document_saved")).toEqual([{ id: a.id }]);
   });
 
-  it("Ctrl+S でも保存する (D12)", async () => {
+  it("Ctrl+S でも確定する (D12)", async () => {
     const a = backend.add("flowchart", "図");
     backend.setLast(a.id);
     const { user } = shell();
@@ -192,7 +194,7 @@ describe("図の一覧 (spec 02 P3)", { timeout: 15000 }, () => {
     await waitFor(() => expect(backend.calls("mark_document_saved")).toEqual([{ id: a.id }]));
   });
 
-  it("最後の「保存」より後に変更がある図に ● を付ける (D12)", async () => {
+  it("最後の「確定」より後に変更がある図に ● を付ける (D12)", async () => {
     backend.add("flowchart", "変更あり", { updatedAt: "2026-09-24T13:00:00.000000+09:00" });
     shell();
     const item = (await (await list()).findByText("変更あり", {}, LONG)).closest("li")!;

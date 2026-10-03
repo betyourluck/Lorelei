@@ -309,7 +309,7 @@ export function useDocSession(
     [autosaver, create, open, refreshList]
   );
 
-  /** 利用者の「保存」(D12)。今の変更を書いてから、一覧の先頭へ動かす */
+  /** 利用者の「確定」(D12。旧「保存」)。今の変更を書いてから、一覧の先頭へ動かす */
   const save = useCallback(async () => {
     const doc = currentRef.current;
     if (!doc) return;

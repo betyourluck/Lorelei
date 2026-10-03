@@ -1,6 +1,6 @@
 "use client";
 
-import { CodeIcon, FileInputIcon, PlusIcon, SaveIcon, SquareDashedIcon } from "@yamada-ui/lucide";
+import { CheckIcon, CodeIcon, FileInputIcon, PlusIcon, SquareDashedIcon } from "@yamada-ui/lucide";
 import { Box, Button, ButtonGroup, HStack } from "@yamada-ui/react";
 import type { FC } from "react";
 import { useState } from "react";
@@ -22,7 +22,7 @@ interface Props {
   current: EditorKind | null;
   /** 別の種類を押した時。その種類で最後に更新した図を開く (無ければ作る, D11) */
   onSwitchKind: (kind: EditorKind) => void;
-  /** 「保存」(D12)。一覧の並びはこれを押した時刻で決まる */
+  /** 「確定」(D12。2026-10-04 に「保存」から改名)。一覧の並びはこれを押した時刻で決まる */
   onSave: () => void;
 }
 
@@ -88,12 +88,13 @@ export const Toolbar: FC<Props> = ({ actions, current, onSwitchKind, onSave }) =
       <Button
         size="sm"
         variant="outline"
-        startIcon={<SaveIcon />}
-        title="保存 (Ctrl+S)"
+        startIcon={<CheckIcon />}
+        // ファイルへ書き出すと思われないよう「保存」とは呼ばない (中身は裏で自動保存されている。2026-10-04 利用者 FB)
+        title="確定 (Ctrl+S): 編集は自動で保存されています。確定すると一覧の先頭に上がり、● が消えます"
         disabled={!current}
         onClick={onSave}
       >
-        保存
+        確定
       </Button>
     </HStack>
   );

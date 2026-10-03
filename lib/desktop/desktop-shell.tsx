@@ -80,7 +80,7 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
     };
   }, []);
 
-  // Ctrl+S (mac は Cmd+S) で「保存」(D12)。WebView の既定 (ページを保存) は止める
+  // Ctrl+S (mac は Cmd+S) で「確定」(D12)。WebView の既定 (ページを保存) は止める
   const saveRef = useRef(session.save);
   saveRef.current = session.save;
   useEffect(() => {
