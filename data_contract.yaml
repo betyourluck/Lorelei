@@ -341,7 +341,7 @@ DiagramSummary:   # MCP の出力の形 (snake_case)。GUI の Document / Docume
     created_at: { type: string, format: "RFC 3339" }
     updated_at: { type: string, format: "RFC 3339" }
     saved_at: { type: string, format: "RFC 3339", nullable: true }
-    unsaved: "bool。最後の「保存」(Ctrl+S) の後に中身が変わったか (DocumentSummary.unsaved と同じ。ファイルの時刻の比較で、画面上の書き込み前の編集ではない)"
+    unsaved: "bool。最後の「確定」(Ctrl+S。2026-10-04 に「保存」から改名、名詞は unsaved のまま) の後に中身が変わったか (DocumentSummary.unsaved と同じ。ファイルの時刻の比較で、画面上の書き込み前の編集ではない)"
     open: "bool。今 GUI で開いている図 (DocumentState.last_opened と一致)。一致する図が無ければ全件 false"
 
 Diagram:
@@ -369,7 +369,7 @@ GuiCommands:
   create_document: "(editor, title?) → Document。origin: new、source は空 (エディタの初期図で始まり、最初の自動保存で埋まる)"
   load_document: "(id) → Document"
   save_document: "(id, source, layout, base_updated_at) → DocumentSummary。自動保存 (D7)。title / editor / origin / original_source / saved_at は書き換えさせない。中身が同じなら書かない (normalize_pending を消す時は除く)。source が空だった図の最初の書き込みは updated_at を進めない。base_updated_at は Document.save_stale (spec 08 D2)"
-  mark_document_saved: "(id) → DocumentSummary。利用者の「保存」(Ctrl+S, D12)。saved_at を今にする = 一覧の先頭へ動き、unsaved が消える"
+  mark_document_saved: "(id) → DocumentSummary。利用者の「確定」(Ctrl+S, D12。画面の言葉は 2026-10-04 に「保存」から「確定」へ。名詞は変えない)。saved_at を今にする = 一覧の先頭へ動き、unsaved が消える"
   rename_document: "(id, title) → ()。並びも unsaved も動かさない"
   trash_document: "(id) → ()。documents/ から trash/ へ移す。物理削除しない。history/{id}.json は動かさない (Document.history)"
   documents_event: "lorelei://documents-changed (本体は DocumentSummary)。update_diagram がファイルを書けた時に出す (spec 08 D3)。外枠はその 1 件だけを一覧で差し替える (setList(map)。一覧を丸ごと読み直さない — 読み直しは自動保存の 1 件差し替えと競合して ● が戻ることがある)"
@@ -417,7 +417,7 @@ Document:
     original_source: { type: string, nullable: true }  # AI・インポートが最後に届けた原文 (update_diagram で置き換わる, spec 08 D1)。new は update_diagram されるまで null
     created_at: { type: string, format: "RFC 3339" }
     updated_at: { type: string, format: "RFC 3339" }   # 中身が最後に変わった時刻。人の編集の自動保存と update_diagram で進む。first_fill と揃え書き (normalize_pending) では進まない
-    saved_at: { type: string, format: "RFC 3339", nullable: true }   # 利用者が「保存」を押した時刻 (D12)。一覧の並びの鍵 (null なら created_at)
+    saved_at: { type: string, format: "RFC 3339", nullable: true }   # 利用者が「確定」(旧「保存」) を押した時刻 (D12)。一覧の並びの鍵 (null なら created_at)
     normalize_pending: { type: bool, default: false }  # update_diagram が立てる印 (spec 08 D1)。次の save はエディタの書き方に揃えるだけなので updated_at を進めず、印を消してファイルに書く (source / layout が同じでも印を消すために書く)。古いファイルに無ければ false
   json_keys: camelCase   # ファイルと GUI の受け渡しはどちらも camelCase (originalSource / createdAt / normalizePending ...)
   default_titles:
@@ -453,7 +453,7 @@ DocumentSummary:
 DocumentState:
   path: "{app_data_dir}/state.json"
   fields:
-    last_opened: { type: string, format: uuid, nullable: true }   # 起動時に開く図。無い・消えている時は一覧の先頭 (最後に「保存」した図, spec 02 D12)、1 件も無ければフローチャートを 1 件作る (D9)
+    last_opened: { type: string, format: uuid, nullable: true }   # 起動時に開く図。無い・消えている時は一覧の先頭 (最後に「確定」した図, spec 02 D12)、1 件も無ければフローチャートを 1 件作る (D9)
 
 DesktopLayout:
   description: デスクトップの外枠の寸法と開閉 (spec 05 D1〜D3)。表示の都合なので図の一覧やアプリの状態とは分ける

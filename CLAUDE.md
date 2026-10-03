@@ -61,6 +61,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
+- 2026-10-04: デスクトップの UI（利用者 FB、spec 02 D12 の追記）: ツールバーの「保存」を**「確定」**に改名（ファイルへの書き出しと思われたため。Ctrl+S・振る舞い・データの名詞 `saved_at` / `unsaved` / `mark_document_saved` は同じ）。
+  タイトルバーの歯車を外した（設定の入口は「● MCP」だけ）
 - 2026-10-04: [spec 17](specs/17_edge-routing-around-frames.md) **Done**（rev3。spec 16 のスコープ外の持ち越し: 枠をまたいで戻る線・段を飛ばす線が途中の枠と中のノードを貫く。裁定 1〜3 済み）。
   エディタの表示だけを変える（保存・コード生成・`read_diagram` には何も足さない）。今の曲線か中点のボタンが、どちらの端も中にいない枠・線より低いノード・端である枠の内側と交わる線だけを、縦と横の線分の道で回す
   （`features/flowchart/utils/edge-route.ts` の `routeEdges`、配るのは `hooks/use-edge-routes.ts`。枠の無い図は今の曲線のまま）。P0（Web 版の 28 通り・Mermaid の描画・既製の部品・重なりの順・速さ）・
