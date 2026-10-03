@@ -377,6 +377,101 @@ describe("routeEdges: 回した道筋 (裁定 2)", () => {
     expectValidRoute(boxes, edges[5], routes.get("f1-T"));
   });
 
+  test("突き出しを見出しの帯の下まで縮めた先が、浮動小数点の誤差で入口のノードの内側と判定されても、見出しを貫かない (P2 の配布ビルド)", () => {
+    // 配布ビルドで利用者が枠を動かした後の位置。接続点は xyflow と同じく縁の 4px 外
+    const nx = -382.2151029748284 - 40;
+    const ny = 983.5926773455376 - 11.4;
+    const boxes = [
+      frameBox("R", 156, 350, 288, 274),
+      frameBox("S", -641.903890160183, 470.3478260869565, 288, 274),
+      frameBox("N", nx, ny, 288, 124),
+      box("U", 180, 200, 240, 48),
+      box("Z", 180, 50, 240, 48),
+      box("A", 180, 402, 240, 48, "R"),
+      box("B", 180, 552, 240, 48, "R"),
+      box("C", -617.903890160183, 522.3478260869565, 240, 48, "S"),
+      box("D", -617.903890160183, 672.3478260869565, 240, 48, "S"),
+      box("E", nx + 24, ny + 52, 240, 48, "N"),
+    ];
+    const byId = new Map(boxes.map((x) => [x.id, x]));
+    const e = (source: string, target: string): RouteEdgeInput => {
+      const s = byId.get(source)!;
+      const t = byId.get(target)!;
+      return {
+        id: `${source}-${target}`,
+        source,
+        target,
+        from: { x: s.x + s.width / 2, y: s.y + s.height + 4, side: "bottom" },
+        to: { x: t.x + t.width / 2, y: t.y - 4, side: "top" },
+        button: BUTTON,
+      };
+    };
+    const edges = [
+      e("Z", "U"),
+      e("A", "B"),
+      e("C", "D"),
+      e("U", "R"),
+      e("R", "S"),
+      e("S", "N"),
+      e("N", "U"),
+      e("U", "E"),
+    ];
+    const routes = routeEdges(boxes, edges);
+    expectValidRoute(boxes, edges[7], routes.get("U-E"));
+  });
+
+  test("P2 の図で「通知」の位置を格子でずらしても、回した線はどれも決まりごとを守る (289 通り)", () => {
+    const e = (byId: Map<string, RouteBox>, source: string, target: string): RouteEdgeInput => {
+      const s = byId.get(source)!;
+      const t = byId.get(target)!;
+      return {
+        id: `${source}-${target}`,
+        source,
+        target,
+        from: { x: s.x + s.width / 2, y: s.y + s.height + 4, side: "bottom" },
+        to: { x: t.x + t.width / 2, y: t.y - 4, side: "top" },
+        button: BUTTON,
+      };
+    };
+    let routed = 0;
+    for (let dx = -40; dx <= 40; dx += 5) {
+      for (let dy = -40; dy <= 40; dy += 5) {
+        const nx = -382.2151029748284 + dx + 0.37;
+        const ny = 983.5926773455376 + dy + 0.41;
+        const boxes = [
+          frameBox("R", 156, 350, 288, 274),
+          frameBox("S", -641.903890160183, 470.3478260869565, 288, 274),
+          frameBox("N", nx, ny, 288, 124),
+          box("U", 180, 200, 240, 48),
+          box("Z", 180, 50, 240, 48),
+          box("A", 180, 402, 240, 48, "R"),
+          box("B", 180, 552, 240, 48, "R"),
+          box("C", -617.903890160183, 522.3478260869565, 240, 48, "S"),
+          box("D", -617.903890160183, 672.3478260869565, 240, 48, "S"),
+          box("E", nx + 24, ny + 52, 240, 48, "N"),
+        ];
+        const byId = new Map(boxes.map((x) => [x.id, x]));
+        const pairs: [string, string][] = [
+          ["Z", "U"],
+          ["A", "B"],
+          ["C", "D"],
+          ["U", "R"],
+          ["R", "S"],
+          ["S", "N"],
+          ["N", "U"],
+          ["U", "E"],
+        ];
+        const edges = pairs.map(([s, t]) => e(byId, s, t));
+        const routes = routeEdges(boxes, edges);
+        for (const [id, r] of Array.from(routes)) {
+          routed++;
+          expectValidRoute(boxes, edges.find((x) => x.id === id)!, r);
+        }
+      }
+    }
+    expect(routed).toBeGreaterThan(289);
+  });
+
   test("同じ入力なら同じ道筋 (描き直しで変わらない)", () => {
     const boxes = caseA();
     expect(routeEdges(boxes, edgesA(boxes))).toEqual(routeEdges(caseA(), edgesA(caseA())));

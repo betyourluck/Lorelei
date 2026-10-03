@@ -74,6 +74,11 @@ const grow = (r: Rect, m: number): Rect => ({
 });
 const strictlyInside = (p: Point, r: Rect) =>
   p.x > r.x && p.x < r.x + r.width && p.y > r.y && p.y < r.y + r.height;
+/** 縁から eps より内側か (縁どうしが誤差の幅で重なる所を内側と見ない) */
+const insideBeyond = (p: Point, r: Rect, eps: number) =>
+  p.x > r.x + eps && p.x < r.x + r.width - eps && p.y > r.y + eps && p.y < r.y + r.height - eps;
+/** 座標の誤差の幅 */
+const EDGE_EPS = 1e-6;
 const rectsOverlap = (a: Rect, b: Rect) =>
   a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 const headerOf = (f: Rect): Rect => ({ x: f.x, y: f.y, width: f.width, height: HEADER });
@@ -212,7 +217,7 @@ const MIN_STUB = 4;
 function stubEnd(end: RouteEnd, avoid: Rect[]): Point | null {
   const v = SIDE_VECTOR[end.side];
   const first = { x: end.x + v.x * ROUTE.STUB, y: end.y + v.y * ROUTE.STUB };
-  const blocker = avoid.find((r) => strictlyInside(first, r));
+  const blocker = avoid.find((r) => insideBeyond(first, r, EDGE_EPS));
   if (blocker) {
     const near =
       v.x > 0
@@ -222,13 +227,18 @@ function stubEnd(end: RouteEnd, avoid: Rect[]): Point | null {
           : v.y > 0
             ? blocker.y - end.y
             : end.y - (blocker.y + blocker.height);
-    const q = { x: end.x + v.x * near, y: end.y + v.y * near };
-    if (near >= MIN_STUB && !avoid.some((r) => strictlyInside(q, r))) return q;
+    // 先は避けるものの縁そのものに置く (end + near で求めると誤差が乗る)。縁が別の避けるもの (入口のノードの広げた矩形など) の縁と
+    // 重なる時、誤差だけで「内側」と判定して縮める道を捨て、見出しを貫く方へ伸ばしていた (P2 の配布ビルド)
+    const q =
+      v.x !== 0
+        ? { x: v.x > 0 ? blocker.x : blocker.x + blocker.width, y: end.y }
+        : { x: end.x, y: v.y > 0 ? blocker.y : blocker.y + blocker.height };
+    if (near >= MIN_STUB && !avoid.some((r) => insideBeyond(q, r, EDGE_EPS))) return q;
   }
   let len: number = ROUTE.STUB;
   for (let k = 0; k < 20; k++) {
     const q = { x: end.x + v.x * len, y: end.y + v.y * len };
-    const hit = avoid.find((r) => strictlyInside(q, r));
+    const hit = avoid.find((r) => insideBeyond(q, r, EDGE_EPS));
     if (!hit) return q;
     len =
       v.x > 0
@@ -310,15 +320,16 @@ function search(a: Point, aDir: number, b: Point, bDir: number, avoid: Rect[]): 
   ]);
   const X = xs.length;
   const Y = ys.length;
+  // 内側の判定は縁から EDGE_EPS より内側だけ (別々に求めた縁が誤差の幅で食い違うと、縁に沿う通り道が塞がる。P2 の配布ビルド)
   const free = new Uint8Array(X * Y);
   const rightOk = new Uint8Array(X * Y);
   const downOk = new Uint8Array(X * Y);
   for (let j = 0; j < Y; j++) {
     const y = ys[j];
-    const row = avoid.filter((r) => y > r.y && y < r.y + r.height);
+    const row = avoid.filter((r) => y > r.y + EDGE_EPS && y < r.y + r.height - EDGE_EPS);
     for (let i = 0; i < X; i++) {
       const x = xs[i];
-      free[j * X + i] = row.some((r) => x > r.x && x < r.x + r.width) ? 0 : 1;
+      free[j * X + i] = row.some((r) => x > r.x + EDGE_EPS && x < r.x + r.width - EDGE_EPS) ? 0 : 1;
       if (i + 1 < X) {
         const mx = (x + xs[i + 1]) / 2;
         rightOk[j * X + i] = row.some((r) => mx > r.x && mx < r.x + r.width) ? 0 : 1;
@@ -327,7 +338,7 @@ function search(a: Point, aDir: number, b: Point, bDir: number, avoid: Rect[]): 
   }
   for (let i = 0; i < X; i++) {
     const x = xs[i];
-    const col = avoid.filter((r) => x > r.x && x < r.x + r.width);
+    const col = avoid.filter((r) => x > r.x + EDGE_EPS && x < r.x + r.width - EDGE_EPS);
     for (let j = 0; j + 1 < Y; j++) {
       const my = (ys[j] + ys[j + 1]) / 2;
       downOk[j * X + i] = col.some((r) => my > r.y && my < r.y + r.height) ? 0 : 1;
@@ -459,7 +470,7 @@ function clearOfBorders(end: RouteEnd, q: Point, frames: RouteBox[], avoid: Rect
       x: out.x + v.x * (toBorder + ROUTE.MARGIN),
       y: out.y + v.y * (toBorder + ROUTE.MARGIN),
     };
-    if (avoid.some((r) => strictlyInside(next, r))) return out;
+    if (avoid.some((r) => insideBeyond(next, r, EDGE_EPS))) return out;
     out = next;
   }
   return out;
@@ -517,15 +528,30 @@ const collinearOverlap = (s: Segment, t: Segment) =>
   Math.abs(s.at - t.at) < 0.5 &&
   Math.min(s.to, t.to) - Math.max(s.from, t.from) > 1;
 
+/** 線分が枠の縁に MARGIN 未満の間を空けて、MARGIN より長く沿うか */
+function hugsBorder(seg: Segment, f: Rect): boolean {
+  const borders = seg.vertical ? [f.x, f.x + f.width] : [f.y, f.y + f.height];
+  const [lo, hi] = seg.vertical ? [f.y, f.y + f.height] : [f.x, f.x + f.width];
+  const along = Math.min(seg.to, hi) - Math.max(seg.from, lo);
+  return (
+    along > ROUTE.MARGIN && borders.some((b) => Math.abs(seg.at - b) < ROUTE.MARGIN - EDGE_EPS)
+  );
+}
+
 /**
  * 回した線どうしが同じ線分の上に重なる時だけ、後の線 (線の ID の順) の線分を SPACING ずつ離す (D3)。
  * 接続点に付いた線分 (最初と最後) は動かさない。離した線分と両隣が障害物を通る時は、その幅は使わない
  */
-function separate(routes: Map<string, Point[]>, avoidOf: Map<string, Rect[]>): void {
+function separate(
+  routes: Map<string, Point[]>,
+  avoidOf: Map<string, Rect[]>,
+  framesOf: Map<string, Rect[]>
+): void {
   const placed: Segment[] = [];
   for (const id of Array.from(routes.keys()).sort()) {
     const pts = routes.get(id)!;
     const avoid = avoidOf.get(id)!;
+    const frames = framesOf.get(id) ?? [];
     for (let i = 1; i + 2 < pts.length; i++) {
       const seg = segmentsOf(id, pts)[i];
       if (!placed.some((t) => collinearOverlap(seg, t))) continue;
@@ -554,7 +580,12 @@ function separate(routes: Map<string, Point[]>, avoidOf: Map<string, Rect[]>): v
             }
             const around = next.slice(i - 1, i + 3);
             if (near.some((r) => pathHits(around, r))) return false;
+            // 離した線分そのものは、避けるものから MARGIN の半分は空け、通れる枠の縁に MARGIN 未満で沿わない
+            // (枠の側へずらして、枠の縁の 4px 外を縁に沿って走った。P2 の配布ビルド)
+            const lane = next.slice(i, i + 2);
+            if (near.some((r) => pathHits(lane, grow(r, ROUTE.MARGIN / 2)))) return false;
             const moved = segmentsOf(id, next)[i];
+            if (frames.some((f) => hugsBorder(moved, f))) return false;
             return !placed.some((t) => collinearOverlap(moved, t));
           });
         if (tried !== undefined) {
@@ -673,7 +704,11 @@ export function routeEdges(
       [...v.obstacles, ...v.ends, ...v.passable.filter((f) => f.frame).map(headerOf)] as Rect[],
     ])
   );
-  separate(paths, rawAvoid);
+  separate(
+    paths,
+    rawAvoid,
+    new Map(Array.from(views).map(([id, v]) => [id, v.passable.filter((f) => f.frame) as Rect[]]))
+  );
   const out = new Map<string, EdgeRoute>();
   const taken: Rect[] = [];
   const byEdge = new Map(edges.map((e) => [e.id, e]));
