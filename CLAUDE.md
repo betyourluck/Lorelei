@@ -65,7 +65,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   `.github/workflows/build.yml`・`verify-notary.yml` を足し、フォーク元の `ci.yml`・`deploy.yml` は手動だけにした（裁定 2。main への push で `docs/` をボットがコミットしないように）。
   `v0.1.1` で 3 OS が通り、macOS は署名と公証（`Accepted`）まで、Windows の NSIS で入れた版で MCP と図の一覧を確かめた。`v0.1.0` はテストで止まった（failures #34: 遅いランナーで `waitFor` の 1 秒が足りない →
   `__tests__/setup.ts` で 10 秒、#35: macOS で `generate_context!` の複数の展開が `_EMBED_INFO_PLIST` を重ねる → `src-tauri/src/lib.rs` の `context()` 1 か所に）。
-  秘密 5 つ（`APPLE_*`）は origin に登録済み。`.p12` は `~/.apple-signing/`（Fuseforks の時に Windows で作った）。Release の publish は利用者が Assets を見て決める
+  秘密 5 つ（`APPLE_*`）は origin に登録済み。`.p12` は `~/.apple-signing/`（Fuseforks の時に Windows で作った）。**`v0.1.1` を利用者が publish した（最初の公開版）**。次の版も、Release は人が Assets を見てから publish する
 - 2026-10-04: [spec 19](specs/19_route-frameless-back-edges.md) **Done**（rev3。spec 18 P2 で見つけた候補 ⑧: 枠の無い図の戻る線がノードの後ろに隠れ、ボタンが重なる・隠れて押せない。**spec 17 の裁定 1 を改めた**）。
   裁定: 1 = 案 A（ノードは高さを問わず回す対象）、2 = 案 C（曲線がノードを貫くか、ボタンが縦横とも 12px 以上かかる時に回す）、
   D3 = 回した線のボタンは回さない線のボタン（曲線の中点 + `adjustEdgeLabelPosition` のずれ）も避ける、D4 = ドラッグ中の中央値 33ms・全部 100ms。

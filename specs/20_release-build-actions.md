@@ -165,5 +165,6 @@ Actions を有効にした時に `ci.yml`・`deploy.yml` が main への push �
 | 4 | 未確認 | 秘密が揃った状態でしか回していないので、「Report unsigned macOS build」の道は通っていない（兄弟と同じ書き方） |
 | 5 | 通過 | インストーラーの名前と、入れた exe の版が 0.1.1 |
 
-- 見ていないもの: macOS・Linux のインストーラーで入れて動くこと（裁定 1 のとおり、作れることまで）。msi での入れ方。Release の publish（利用者が Assets を見て決める）
+- **2026-10-04 23:34（JST）に利用者が Release を publish した**（https://github.com/betyourluck/Lorelei/releases/tag/v0.1.1）。Lorelei の最初の公開版
+- 見ていないもの: macOS・Linux のインストーラーで入れて動くこと（裁定 1 のとおり、作れることまで）。msi での入れ方
 - Actions の注意書き: `actions/checkout@v4`・`actions/setup-node@v4`・`pnpm/action-setup@v4` は Node.js 20 向けで、ランナーが Node.js 24 で動かしている（兄弟も同じ。今は動く）
