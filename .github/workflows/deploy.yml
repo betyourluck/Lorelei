@@ -1,9 +1,9 @@
 name: Deploy to GitHub Pages
 
+# Lorelei (spec 20 裁定 2): 手動だけで走らせる。このフォークは GitHub Pages を使っておらず、main への push のたびに
+# docs/ をボットが main へコミットすると、手元の main と origin が分かれる。フォーク元の元の形: push: { branches: [main] }
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   actions: write

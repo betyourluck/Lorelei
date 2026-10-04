@@ -9,6 +9,15 @@ Rust + Tauri 2 のデスクトップアプリと **MCP サーバー**を足し�
 
 設計と決定事項は [specs/](specs/)（01: Tauri 化と MCP、02: デスクトップの外枠と図の一覧、03: MCP を GUI の中の HTTP へ）、型とツールの入出力は [data_contract.yaml](data_contract.yaml) にあります。
 
+## インストール
+
+[Releases](https://github.com/betyourluck/Lorelei/releases) の Assets から、OS に合ったインストーラーを取ってください（`v*.*` のタグを打つと GitHub Actions が 3 OS 分を作ります。spec 20）。
+
+- Windows: `*_x64-setup.exe`（NSIS）か `*_x64_en-US.msi`。コード署名をしていないので、初回の起動で SmartScreen の確認が出ます（「詳細情報」→「実行」）
+- macOS（Apple シリコン）: `*.dmg`。署名と公証の秘密がリポジトリにある時だけ公証済みになります
+- Linux: `*.AppImage` / `*.deb` / `*.rpm`
+- **手元で確かめている OS は Windows だけです。** macOS・Linux の版は作れることまでを確かめたもので、動作は確かめていません
+
 ## ビルド（Windows で確認）
 
 必要なもの: Rust（1.95 以上）、Node.js（corepack で pnpm 9 を使う）

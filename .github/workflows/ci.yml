@@ -1,11 +1,12 @@
 name: Quality
 
+# Lorelei (spec 20 裁定 2): 手動だけで走らせる。フォーク元 (illionillion/mermaid-editor) の push・pull_request のトリガーは、
+# このフォークでは Prettier (HEAD は全体が整形済みではない, failures #23) と VRT の push (フォーク元の ghcr への書き込み) が落ちるので外した。
+# フォーク元の元の形:
+#   push: { branches: ["main", "dev"] }
+#   pull_request: { branches: ["main", "dev"] }
 on:
-  push:
-    branches: ["main", "dev"]
-  pull_request:
-    # The branches below must be a subset of the branches above
-    branches: ["main", "dev"]
+  workflow_dispatch:
 
 jobs:
   # Stage 1: Code Quality and Type Check (all parallel)

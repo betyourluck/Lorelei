@@ -1,0 +1,176 @@
+name: Build
+
+# main のコミットに打った v*.* タグ（例: v0.1 / v0.1.0）の push でだけ走る（spec 20）。
+# タグはリリース時にだけ打つので、実質「リリースビルド」として働く。
+# 通常のコミットでは走らない — 3 OS 分の Tauri ビルドは重く、毎コミットで回すと待ち時間と CI 時間の両方を食う。
+# 形は Fuseforks・Lorekeel の build.yml と同じ（出所: 両リポジトリの同名ファイル）。
+on:
+  push:
+    tags:
+      - "v*.*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    # tauri-action が GitHub Release を作成（= installer を Assets に添付）するのに要る。
+    permissions:
+      contents: write
+
+    env:
+      # **秘密そのものではなく「在るか」だけを env へ出す。**
+      # `secrets` は step の `if:` から参照できる保証が無いので、job の env へ真偽値として畳んでから `env.` で見る。
+      #
+      # **5 つ全部を数える。** 一部だけ揃った状態で有効化してはいけない —
+      # Tauri は「APPLE_ID を指定するなら APPLE_PASSWORD と APPLE_TEAM_ID も要る」としており、
+      # 欠けた 1 つは空文字として届いて公証の段で落ちる。署名だけ通って公証が無い .app は Gatekeeper が結局拒むので、
+      # 部分的に有効化しても得るものが無く、リリースが割れるだけ。
+      HAS_APPLE_SIGNING: >-
+        ${{ secrets.APPLE_CERTIFICATE != ''
+        && secrets.APPLE_CERTIFICATE_PASSWORD != ''
+        && secrets.APPLE_ID != ''
+        && secrets.APPLE_PASSWORD != ''
+        && secrets.APPLE_TEAM_ID != '' }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # spec 20 裁定 1: 兄弟と同じ 3 OS。確かめた OS は Windows だけで、macOS・Linux は作れることまでを確かめる版
+        platform: [ubuntu-latest, windows-latest, macos-latest]
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # タグ v0.1.0 → APP_VERSION=0.1.0（先頭の v を除去）。後続の step で ${{ env.APP_VERSION }} を参照できる。
+      - name: Extract version from tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ]; then
+            echo "タグからバージョンを取れない: $GITHUB_REF_NAME"
+            exit 1
+          fi
+          # Tauri は 3 要素 semver (X.Y.Z) を要求する。タグが v0.1 のように短ければ 0 で補う。
+          case "$VERSION" in
+            *.*.*) ;;                          # 既に X.Y.Z
+            *.*)   VERSION="${VERSION}.0" ;;   # X.Y → X.Y.0
+            *)     VERSION="${VERSION}.0.0" ;; # X   → X.0.0
+          esac
+          echo "APP_VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "semver: ${VERSION}"
+
+      # pnpm 9 + Node 20 + `pnpm install --frozen-lockfile`（フォーク元の CI と同じ composite action）。
+      # tauri-action は pnpm-lock.yaml を見て `pnpm tauri build` を呼ぶ。
+      - name: Setup Node.js and PNPM
+        uses: ./.github/actions/install
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # **Cargo の project が 2 つ**: ルートの workspace（crates/lorelei_core・lorelei_mcp）と、独立した src-tauri/。
+      # target も 2 つあるので両方をキャッシュする（Lorekeel と同じ形）。どちらも [patch.crates-io] で vendor/merman-core を使う。
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            src-tauri -> target
+
+      # Linux は Tauri（WebKitGTK）のシステム依存が要る。Windows / macOS は不要。
+      - name: Install dependencies (Ubuntu only)
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl wget file \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      # **テストを先に走らせる（spec 20 D3）。** 壊れていればここで落ち、重い Tauri ビルドに進まない。
+      # 3 OS とも走らせるのは、OS で落ちる差を知るため（手元で確かめた OS は Windows だけ）。
+      - name: Test core (cargo test --workspace)
+        run: cargo test --workspace
+
+      - name: Test GUI shell (src-tauri)
+        working-directory: ./src-tauri
+        run: cargo test
+
+      - name: Test frontend (vitest)
+        run: pnpm test:run
+
+      # 配布ビルドの version をタグに揃える（installer に正しい版番号が乗る）。
+      # **CI 内だけの書き換えでコミットはしない。** package.json・Cargo.toml の版は変えない（installer の版は tauri.conf.json から取られる）。
+      - name: Sync app version to tag
+        working-directory: ./src-tauri
+        shell: bash
+        run: |
+          node -e "const f='tauri.conf.json';const fs=require('fs');const j=JSON.parse(fs.readFileSync(f));j.version=process.env.APP_VERSION;fs.writeFileSync(f,JSON.stringify(j,null,2)+'\n')"
+
+      # **macOS の署名と公証。秘密が揃っているときだけ環境変数を生やす。**
+      #
+      # 空文字を渡してはいけない — Tauri の `macos/sign.rs` は `var_os("APPLE_CERTIFICATE")` で見ており、
+      # **空文字も `Some` を返す**ので「証明書が指定された」と読んで取り込みに行き、macOS だけが落ちる。
+      # `env:` へ直に書くと未設定の秘密は空文字になるため、この分岐が要る。
+      #
+      # **`APPLE_CERTIFICATE` は改行なしの base64**（`openssl base64 -A`）。折り返した base64 は $GITHUB_ENV の 1 行形式に載らない。
+      #
+      # 公証は Apple ID 経路（`APPLE_ID` + `APPLE_PASSWORD` + `APPLE_TEAM_ID`）。
+      # `APPLE_PASSWORD` は **App 固有パスワード**で Apple ID の本パスワードではない。
+      # `APPLE_SIGNING_IDENTITY` は置かない — 渡すと証明書と一致するかの検証にしか使われず、省略すると証明書から推論される。
+      - name: Configure Apple signing and notarization
+        if: matrix.platform == 'macos-latest' && env.HAS_APPLE_SIGNING == 'true'
+        shell: bash
+        env:
+          CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          ID: ${{ secrets.APPLE_ID }}
+          APP_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          {
+            echo "APPLE_CERTIFICATE=${CERT}"
+            echo "APPLE_CERTIFICATE_PASSWORD=${CERT_PASSWORD}"
+            echo "APPLE_ID=${ID}"
+            echo "APPLE_PASSWORD=${APP_PASSWORD}"
+            echo "APPLE_TEAM_ID=${TEAM_ID}"
+          } >> "$GITHUB_ENV"
+          echo "Apple signing: enabled"
+
+      # 秘密が無い時は署名せずに進む。**黙って進まない** — 公証されていない .app は macOS が起動を拒むので、
+      # 「署名されなかった」ことがログから読めないと出荷物の性質が分からなくなる。
+      - name: Report unsigned macOS build
+        if: matrix.platform == 'macos-latest' && env.HAS_APPLE_SIGNING != 'true'
+        shell: bash
+        run: |
+          echo "Apple signing: DISABLED (secrets absent) -- the .app will not be notarized"
+
+      # Tauri アプリをビルドし、タグの GitHub Release に installer を添付する。
+      # tagName を渡すと Release を作成/更新し、3 OS の bundle が同じ Release の Assets に集まる（永続リンクになる）。
+      #
+      # **releaseDraft: true は片肺公開を塞ぐためのもの。** このジョブは fail-fast: false の matrix で 3 OS が独立にここを呼ぶので、
+      # false だと 1 OS 通っただけで Release が public になる（Fuseforks が v0.1.3・v0.1.5 で踏んだ）。
+      # draft なら 3 OS 分の Assets が揃ったのを人が見てから publish できる。タグは push した時点で残る。
+      - name: Build Tauri app (+ GitHub Release)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Outcasts Lorelei ${{ github.ref_name }}"
+          releaseBody: |
+            各 OS の installer を下の Assets からダウンロードしてください。
+
+            - Windows: コード署名をしていないので、初回の起動で SmartScreen の確認が出ます（「詳細情報」→「実行」）。
+            - macOS・Linux: 作れることまでを確かめた版で、動作は確かめていません（手元で確かめている OS は Windows だけです）。
+          releaseDraft: true
+          prerelease: false
+
+      # **artifact のアップロードは意図的に置いていない**（Fuseforks と同じ）。installer は上の tauri-action が
+      # Release の Assets へ添付済みで、artifact は同じものの期限付きの複製にしかならない。成果物は Release の Assets から取る。
