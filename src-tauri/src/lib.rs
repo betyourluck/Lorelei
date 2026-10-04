@@ -178,8 +178,15 @@ pub fn run_gui() {
             desktop::export_diagram,
             desktop::show_about
         ])
-        .run(tauri::generate_context!())
+        .run(context())
         .expect("Lorelei の起動に失敗しました");
+}
+
+/// アプリの設定と資産 (tauri.conf.json・フロントの書き出し)。`generate_context!` はここ 1 か所でだけ展開する —
+/// macOS では Info.plist を埋め込む記号 (`_EMBED_INFO_PLIST`) を展開のたびに定義するので、テストでも展開すると
+/// lib のテストのビルドが「already defined」で落ちる (spec 20 P2、failures #35)。実行時 (Wry) とテスト (MockRuntime) の両方で使う
+fn context<R: tauri::Runtime>() -> tauri::Context<R> {
+    tauri::generate_context!()
 }
 
 /// フロントが準備できたら呼ぶ。溜まっている「開く図」を全部渡して空にする。
@@ -427,7 +434,7 @@ mod tests {
     fn http_open_in_editor_adds_a_document_and_queues_it() {
         let app = tauri::test::mock_builder()
             .manage(PendingOpens::default())
-            .build(tauri::generate_context!())
+            .build(context())
             .expect("mock app");
         let store = documents::Store::new(scratch());
         let opened = deliver(app.handle(), &store, "flowchart TD\n  A --> B\n".into(), Some("注文".into())).unwrap();
@@ -465,7 +472,7 @@ mod tests {
         use lorelei_mcp::{EditorKind, UpdateError, UpdateRequest};
         let app = tauri::test::mock_builder()
             .manage(PendingOpens::default())
-            .build(tauri::generate_context!())
+            .build(context())
             .expect("mock app");
         let store = documents::Store::new(scratch());
         let opened = deliver(app.handle(), &store, "flowchart TD\n  A --> B\n".into(), Some("注文".into())).unwrap();
@@ -553,7 +560,7 @@ mod tests {
     #[test]
     fn app_data_dir_matches_tauri() {
         let app = tauri::test::mock_builder()
-            .build(tauri::generate_context!())
+            .build(context())
             .expect("mock app");
         let tauri_dir = app.path().app_data_dir().unwrap();
         assert_eq!(Some(tauri_dir), lorelei_core::paths::app_data_dir());
