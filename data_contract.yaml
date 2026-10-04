@@ -412,7 +412,7 @@ Document:
     title: string                             # 同名は許す (区別は id)
     editor: { enum: [flowchart, erDiagram] }
     source: string                            # 今の図の Mermaid (フォーク元の生成器の出力)。origin: new の作成直後は空。update_diagram の後は GUI に載るまで届けた Mermaid そのもの (spec 08 D1)
-    layout: { type: "map<string, { x: float, y: float, width?: float, height?: float }>" }  # キー = Mermaid 上のノード ID (flowchart は getSafeVariableName した変数名、ER はエンティティ名。flowchart の枠は枠の ID)。無いノードは自動配置。位置は絶対座標 (spec 15 D4: 枠の中のノードの xyflow の position は親からの相対なので、保存は根まで足し、当てる時は親から順に相対へ直す。位置の無いノードは今の絶対位置のまま)。width / height は枠だけ (無ければ書かない。古いファイルはそのまま読める)
+    layout: { type: "map<string, { x: float, y: float, width?: float, height?: float }>" }  # キー = Mermaid 上のノード ID (flowchart は getSafeVariableName した変数名、ER はエンティティ名。flowchart の枠は枠の ID)。無いノードは自動配置 (段組みは spec 18: Mermaid と同じ順で輪をほどき、戻る線を除く線が全部下へ向くように上からの最長路で段を振る。features/flowchart/utils/nested-layout.ts の levelsOf と mermaidStartOrder)。位置は絶対座標 (spec 15 D4: 枠の中のノードの xyflow の position は親からの相対なので、保存は根まで足し、当てる時は親から順に相対へ直す。位置の無いノードは今の絶対位置のまま)。width / height は枠だけ (無ければ書かない。古いファイルはそのまま読める)
     origin: { enum: [new, ai, import] }       # 来歴。update_diagram でも変えない (spec 08 裁定 4)
     original_source: { type: string, nullable: true }  # AI・インポートが最後に届けた原文 (update_diagram で置き換わる, spec 08 D1)。new は update_diagram されるまで null
     created_at: { type: string, format: "RFC 3339" }
