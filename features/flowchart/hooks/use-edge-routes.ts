@@ -17,6 +17,7 @@ import {
 } from "../utils/edge-route";
 import type { HandleSide, Point } from "../utils/frame-edit";
 import { SUBGRAPH_NODE_TYPE } from "../utils/subgraph-tree";
+import { adjustEdgeLabelPosition } from "./edge-layout";
 
 /** 線ごとの経路の入れ物。線は自分の ID だけを購読する */
 export class EdgeRouteStore {
@@ -103,15 +104,36 @@ function boxesOf(lookup: Map<string, InternalNode>): RouteBox[] {
       width,
       height,
       frame: n.type === SUBGRAPH_NODE_TYPE,
-      z: n.internals.z,
       ...(n.parentId !== undefined ? { parentId: n.parentId } : {}),
     });
   });
   return out;
 }
 
+/**
+ * 線ごとのボタンのずれ (adjustEdgeLabelPosition の、曲線の中点からの差)。線の一覧が同じ間は使い回す
+ * (ずれは互いに逆向きの組で決まり、線の一覧の全部を見るので、線ごとに求めると線の数の 2 乗になる)
+ */
+let offsetCache: { edges: Edge[]; byPair: Map<string, Point> } | null = null;
+function labelOffsets(edges: Edge[]): (e: Edge) => Point {
+  if (offsetCache?.edges !== edges) {
+    const byPair = new Map<string, Point>();
+    for (const e of edges) {
+      const key = JSON.stringify([e.source, e.target]);
+      if (byPair.has(key)) continue;
+      const { adjustedX, adjustedY } = adjustEdgeLabelPosition(e, 0, 0, edges, []);
+      byPair.set(key, { x: adjustedX, y: adjustedY });
+    }
+    offsetCache = { edges, byPair };
+  }
+  const { byPair } = offsetCache;
+  return (e) => byPair.get(JSON.stringify([e.source, e.target])) ?? { x: 0, y: 0 };
+}
+
 function edgeInputsOf(lookup: Map<string, InternalNode>, edges: Edge[]): RouteEdgeInput[] {
   const out: RouteEdgeInput[] = [];
+  // 回さない線のボタンは、線の部品が adjustEdgeLabelPosition で曲線の中点からずらす。同じ関数でずれを求める (spec 19 D3)
+  const offsetOf = labelOffsets(edges);
   for (const e of edges) {
     const s = lookup.get(e.source);
     const t = lookup.get(e.target);
@@ -127,15 +149,16 @@ function edgeInputsOf(lookup: Map<string, InternalNode>, edges: Edge[]): RouteEd
       from,
       to,
       button: estimateButtonSize(label),
+      labelOffset: offsetOf(e),
     });
   }
   return out;
 }
 
 const boxKey = (b: RouteBox) =>
-  `${b.x},${b.y},${b.width},${b.height},${b.parentId ?? ""},${b.z},${b.frame}`;
+  `${b.x},${b.y},${b.width},${b.height},${b.parentId ?? ""},${b.frame}`;
 const edgeKey = (e: RouteEdgeInput) =>
-  `${e.source}>${e.target}|${e.from.x},${e.from.y},${e.from.side}|${e.to.x},${e.to.y},${e.to.side}|${e.button.width}`;
+  `${e.source}>${e.target}|${e.from.x},${e.from.y},${e.from.side}|${e.to.x},${e.to.y},${e.to.side}|${e.button.width}|${e.labelOffset?.x ?? 0},${e.labelOffset?.y ?? 0}`;
 
 interface Rect {
   x: number;

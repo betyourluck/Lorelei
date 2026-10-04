@@ -4,11 +4,13 @@
  */
 import { describe, expect, test } from "vitest";
 import {
+  bezierPolyline,
   ROUTE,
   routeEdges,
   type EdgeRoute,
   type RouteBox,
   type RouteEdgeInput,
+  type RouteEnd,
 } from "@/features/flowchart/utils/edge-route";
 import type { HandleSide, Point } from "@/features/flowchart/utils/frame-edit";
 
@@ -30,7 +32,6 @@ const box = (
   width,
   height,
   frame,
-  z: parentId ? 1 : 0,
   ...(parentId ? { parentId } : {}),
 });
 const frameBox = (
@@ -40,10 +41,7 @@ const frameBox = (
   width: number,
   height: number,
   parentId?: string
-) => ({
-  ...box(id, x, y, width, height, parentId, true),
-  z: parentId ? 1 : 0,
-});
+) => box(id, x, y, width, height, parentId, true);
 
 /** 入れ物の向きが TD の時の接続点 (出口は下の辺の中央、入口は上の辺の中央) */
 const tdEdge = (boxes: RouteBox[], source: string, target: string): RouteEdgeInput => {
@@ -248,7 +246,7 @@ describe("routeEdges: どの線を回すか (裁定 1)", () => {
     expect(Array.from(routes.keys())).toEqual(["N-U"]);
   });
 
-  test("枠の無い図の戻る線は、間のノードを貫いても回さない (両端とも図の直下、線はノードの後ろに隠れる)", () => {
+  test("枠の無い図の戻る線も、間のノードを貫けば回す (spec 19 裁定 1。spec 17 では回さなかった)", () => {
     const boxes = [
       box("Z", 0, 0, 240, 48),
       box("A1", 0, 150, 240, 48),
@@ -261,10 +259,12 @@ describe("routeEdges: どの線を回すか (裁定 1)", () => {
       tdEdge(boxes, "A2", "A3"),
       tdEdge(boxes, "A3", "A1"),
     ];
-    expect(routeEdges(boxes, edges).size).toBe(0);
+    const routes = routeEdges(boxes, edges);
+    expect(Array.from(routes.keys())).toEqual(["A3-A1"]);
+    expectValidRoute(boxes, edges[3], routes.get("A3-A1"));
   });
 
-  test("同じ枠の中の戻る線は、同じ高さのノードを貫いても回さない (ノードが線を隠す, P0 の 4)", () => {
+  test("同じ枠の中の戻る線も、同じ高さのノードを貫けば回す (spec 19 裁定 1。spec 17 では回さなかった)", () => {
     const boxes = [
       frameBox("P", 0, 0, 288, 500),
       box("p1", 24, 52, 240, 48, "P"),
@@ -272,7 +272,9 @@ describe("routeEdges: どの線を回すか (裁定 1)", () => {
       box("p3", 24, 352, 240, 48, "P"),
     ];
     const edges = [tdEdge(boxes, "p1", "p2"), tdEdge(boxes, "p2", "p3"), tdEdge(boxes, "p3", "p1")];
-    expect(routeEdges(boxes, edges).size).toBe(0);
+    const routes = routeEdges(boxes, edges);
+    expect(Array.from(routes.keys())).toEqual(["p3-p1"]);
+    expectValidRoute(boxes, edges[2], routes.get("p3-p1"));
   });
 
   test("枠の中から出る線は、図の直下のノード (線より低い) を貫く時に回す", () => {
@@ -345,6 +347,239 @@ describe("routeEdges: どの線を回すか (裁定 1)", () => {
       button: BUTTON,
     };
     expect(routeEdges(boxes, [loop]).size).toBe(0);
+  });
+});
+
+/** ボタンの矩形 (中心と大きさから) */
+const buttonRect = (c: Point, size: { width: number; height: number }) => ({
+  x: c.x - size.width / 2,
+  y: c.y - size.height / 2,
+  width: size.width,
+  height: size.height,
+});
+const rectsMeet = (
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number }
+) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+/** 回さない線のボタンの位置 (線の部品と同じ: getBezierPath の中点 + labelOffset) */
+const curveButton = (e: RouteEdgeInput) => {
+  const pts = bezierPolyline(e.from, e.to);
+  const mid = pts[Math.floor(pts.length / 2)];
+  return buttonRect(
+    { x: mid.x + (e.labelOffset?.x ?? 0), y: mid.y + (e.labelOffset?.y ?? 0) },
+    e.button
+  );
+};
+/** 回した線のボタンが、回さない線のボタンと重ならない (D3 の案 A') */
+function expectButtonsApart(edges: RouteEdgeInput[], routes: Map<string, EdgeRoute>) {
+  for (const [id, r] of Array.from(routes)) {
+    const e = edges.find((x) => x.id === id)!;
+    const b = buttonRect(r.label, e.button);
+    for (const u of edges) {
+      if (routes.has(u.id) || u.source === u.target) continue;
+      expect(rectsMeet(b, curveButton(u)), `${id} のボタンは ${u.id} のボタンに重ならない`).toBe(
+        false
+      );
+    }
+  }
+}
+
+describe("routeEdges: 枠の無い図・同じ高さのノード (spec 19 裁定 1 の案 A・裁定 2 の案 C・D3 の案 A')", () => {
+  /**
+   * 枠の無い図を、取り込みと同じ配置で縦一列 (TD・BT) か横一列 (LR・RL) に並べる (ノード 240×48、段の送りは TD・BT 150、LR・RL 450)。
+   * TD の図を回して写すとノードが縦長になり、ボタンの置き場所が実物と変わるので、向きごとに置く
+   */
+  const chain = (dir: Dir, ids: string[]): RouteBox[] =>
+    ids.map((id, i) => {
+      const k = dir === "BT" || dir === "RL" ? ids.length - 1 - i : i;
+      return dir === "TD" || dir === "BT"
+        ? box(id, 0, 50 + 150 * k, 240, 48)
+        : box(id, 50 + 450 * k, 0, 240, 48);
+    });
+  const SIDES: Record<Dir, [HandleSide, HandleSide]> = {
+    TD: ["bottom", "top"],
+    BT: ["top", "bottom"],
+    LR: ["right", "left"],
+    RL: ["left", "right"],
+  };
+  const handleOf = (b: RouteBox, side: HandleSide): RouteEnd => ({
+    side,
+    x: side === "left" ? b.x : side === "right" ? b.x + b.width : b.x + b.width / 2,
+    y: side === "top" ? b.y : side === "bottom" ? b.y + b.height : b.y + b.height / 2,
+  });
+  const dirEdge = (dir: Dir, boxes: RouteBox[], s: string, t: string): RouteEdgeInput => ({
+    id: `${s}-${t}`,
+    source: s,
+    target: t,
+    from: handleOf(boxes.find((b) => b.id === s)!, SIDES[dir][0]),
+    to: handleOf(boxes.find((b) => b.id === t)!, SIDES[dir][1]),
+    button: BUTTON,
+  });
+
+  for (const dir of ["TD", "BT", "LR", "RL"] as Dir[]) {
+    test(`${dir} g: 枠の無い図の戻る線 (spec 17 P0 の g) は、間のノードの外を回る`, () => {
+      const boxes = chain(dir, ["S", "A", "B", "C"]);
+      const edges = [
+        dirEdge(dir, boxes, "S", "A"),
+        dirEdge(dir, boxes, "A", "B"),
+        dirEdge(dir, boxes, "B", "C"),
+        dirEdge(dir, boxes, "C", "A"),
+      ];
+      const routes = routeEdges(boxes, edges);
+      expect(Array.from(routes.keys())).toEqual(["C-A"]);
+      expectValidRoute(boxes, edges[3], routes.get("C-A"));
+      expectButtonsApart(edges, routes);
+    });
+  }
+
+  test("LR の閉じた輪 (spec 18 P2): 改善 → 計画 は回り、ボタンはほかのボタンと重ならない", () => {
+    // 取り込みの配置 (Web 版の画面で 240×48)。出口は右の辺、入口は左の辺
+    const boxes = [
+      box("A", 50, 225, 240, 48),
+      box("B", 500, 225, 240, 48),
+      box("C", 950, 225, 240, 48),
+      box("D", 1400, 225, 240, 48),
+    ];
+    const lr = (s: string, t: string): RouteEdgeInput => {
+      const a = boxes.find((b) => b.id === s)!;
+      const z = boxes.find((b) => b.id === t)!;
+      return {
+        id: `${s}-${t}`,
+        source: s,
+        target: t,
+        from: { x: a.x + a.width, y: a.y + a.height / 2, side: "right" },
+        to: { x: z.x, y: z.y + z.height / 2, side: "left" },
+        button: BUTTON,
+      };
+    };
+    const edges = [lr("A", "B"), lr("B", "C"), lr("C", "D"), lr("D", "A")];
+    const routes = routeEdges(boxes, edges);
+    expect(Array.from(routes.keys())).toEqual(["D-A"]);
+    expectValidRoute(boxes, edges[3], routes.get("D-A"));
+    expectButtonsApart(edges, routes);
+  });
+
+  test("枠の無い閉じた輪の「完了」(spec 18 P2): 在庫確認・請求を貫く線は回り、ボタンが見える", () => {
+    const boxes = [
+      box("O", 175, 50, 240, 48),
+      box("K", 175, 200, 240, 48),
+      box("H", 50, 350, 240, 48),
+      box("P", 300, 350, 240, 48),
+      box("I", 175, 500, 240, 48),
+      box("C", 175, 650, 240, 48),
+    ];
+    const label = (e: RouteEdgeInput, w: number) => ({ ...e, button: { width: w, height: 28 } });
+    const edges = [
+      tdEdge(boxes, "O", "K"),
+      label(tdEdge(boxes, "K", "H"), 148),
+      label(tdEdge(boxes, "K", "P"), 148),
+      tdEdge(boxes, "P", "K"),
+      tdEdge(boxes, "H", "I"),
+      tdEdge(boxes, "I", "C"),
+      label(tdEdge(boxes, "C", "I"), 124),
+      label(tdEdge(boxes, "C", "O"), 112),
+    ];
+    const routes = routeEdges(boxes, edges);
+    expect(routes.has("C-O")).toBe(true);
+    expectValidRoute(boxes, edges[7], routes.get("C-O"));
+    expectButtonsApart(edges, routes);
+  });
+
+  for (const dir of ["TD", "BT", "LR", "RL"] as Dir[]) {
+    test(`${dir}: 段を飛ばす線 (A → C) も回り、ボタンは A → B のボタンと重ならない (P0 の 4)`, () => {
+      const boxes = chain(dir, ["A", "B", "C"]);
+      const edges = [
+        dirEdge(dir, boxes, "A", "B"),
+        dirEdge(dir, boxes, "B", "C"),
+        { ...dirEdge(dir, boxes, "A", "C"), button: { width: 196, height: 28 } },
+      ];
+      const routes = routeEdges(boxes, edges);
+      expect(Array.from(routes.keys())).toEqual(["A-C"]);
+      expectValidRoute(boxes, edges[2], routes.get("A-C"));
+      expectButtonsApart(edges, routes);
+    });
+  }
+
+  test("回した線のボタンは、回さない線のボタンをずらした位置 (labelOffset) も避ける", () => {
+    const td = [box("A", 0, 50, 240, 48), box("B", 0, 200, 240, 48), box("C", 0, 350, 240, 48)];
+    const plain = [tdEdge(td, "A", "B"), tdEdge(td, "B", "C"), tdEdge(td, "A", "C")];
+    // まずずらさずに、回した線のボタンの置き場所を見る
+    const first = routeEdges(td, plain).get("A-C")!.label;
+    // 回さない B → C のボタンを、そこへずらす
+    const bc = plain[1];
+    const mid = bezierPolyline(bc.from, bc.to)[24];
+    const shifted = [
+      plain[0],
+      { ...bc, labelOffset: { x: first.x - mid.x, y: first.y - mid.y } },
+      plain[2],
+    ];
+    const routes = routeEdges(td, shifted);
+    expect(routes.get("A-C")!.label).not.toEqual(first);
+    expectButtonsApart(shifted, routes);
+  });
+
+  test("曲線がノードの隙間を通り、ボタンだけが縦に丸ごとかかる線は回す (P0 の 2 の反例、裁定 2 の案 C)", () => {
+    // 発送と取り寄せが 10px の隙間で並び、在庫確認 → 請求 がその隙間をまっすぐ通る
+    const boxes = [
+      box("K", 175, 200, 240, 48),
+      box("H", 50, 350, 240, 48),
+      box("P", 300, 350, 240, 48),
+      box("I", 175, 500, 240, 48),
+    ];
+    const edges = [
+      tdEdge(boxes, "K", "H"),
+      tdEdge(boxes, "K", "P"),
+      tdEdge(boxes, "K", "I"),
+      tdEdge(boxes, "H", "I"),
+      tdEdge(boxes, "P", "I"),
+    ];
+    const ki = edges[2];
+    // 前提: 曲線はどのノードにも入らない
+    for (const b of boxes)
+      if (b.id !== "K" && b.id !== "I")
+        expect(pathEnters(bezierPolyline(ki.from, ki.to), b), `曲線は ${b.id} に入らない`).toBe(
+          false
+        );
+    const routes = routeEdges(boxes, edges);
+    expect(Array.from(routes.keys())).toEqual(["K-I"]);
+    expectValidRoute(boxes, ki, routes.get("K-I"));
+  });
+
+  /** まっすぐ下る線の横に、ボタンへ横から depth だけかかるノード N を置く */
+  const grazing = (depth: number) => {
+    const boxes = [box("A", 0, 0, 240, 48), box("B", 0, 300, 240, 48)];
+    const e = tdEdge(boxes, "A", "B");
+    const btn = curveButton(e);
+    return {
+      boxes: [...boxes, box("N", btn.x + btn.width - depth, btn.y - 10, 240, 48)],
+      edges: [e],
+    };
+  };
+  test("ボタンがノードに 12px 未満かかるだけの線は回さない (かすり, 裁定 2 の案 C)", () => {
+    const { boxes, edges } = grazing(ROUTE.MARGIN - 1);
+    expect(routeEdges(boxes, edges).size).toBe(0);
+  });
+  test("ボタンがノードに縦横とも 12px 以上かかる線は回す (裁定 2 の案 C)", () => {
+    const { boxes, edges } = grazing(ROUTE.MARGIN);
+    const routes = routeEdges(boxes, edges);
+    expect(Array.from(routes.keys())).toEqual(["A-B"]);
+    expectValidRoute(boxes, edges[0], routes.get("A-B"));
+  });
+
+  test("回す対象に当たらない線の形は変わらない (隣り合う段の線は回さない)", () => {
+    const boxes = [
+      box("A", 175, 50, 240, 48),
+      box("B", 50, 200, 240, 48),
+      box("C", 300, 200, 240, 48),
+      box("D", 175, 350, 240, 48),
+    ];
+    const edges = [
+      tdEdge(boxes, "A", "B"),
+      tdEdge(boxes, "A", "C"),
+      tdEdge(boxes, "B", "D"),
+      tdEdge(boxes, "C", "D"),
+    ];
+    expect(routeEdges(boxes, edges).size).toBe(0);
   });
 });
 

@@ -17,10 +17,8 @@ const box = (id: string, x: number, y: number): RouteBox => ({
   width: 240,
   height: 48,
   frame: false,
-  z: 0,
 });
-const key = (b: RouteBox) =>
-  `${b.x},${b.y},${b.width},${b.height},${b.parentId ?? ""},${b.z},${b.frame}`;
+const key = (b: RouteBox) => `${b.x},${b.y},${b.width},${b.height},${b.parentId ?? ""},${b.frame}`;
 const edge = (
   id: string,
   source: string,
@@ -36,7 +34,7 @@ const edge = (
   button: { width: 101, height: 28 },
 });
 const edgeKey = (e: RouteEdgeInput) =>
-  `${e.source}>${e.target}|${e.from.x},${e.from.y},${e.from.side}|${e.to.x},${e.to.y},${e.to.side}|${e.button.width}`;
+  `${e.source}>${e.target}|${e.from.x},${e.from.y},${e.from.side}|${e.to.x},${e.to.y},${e.to.side}|${e.button.width}|${e.labelOffset?.x ?? 0},${e.labelOffset?.y ?? 0}`;
 
 describe("reusableEdges (ドラッグ中に使い回せる線)", () => {
   const A = box("A", 0, 0);

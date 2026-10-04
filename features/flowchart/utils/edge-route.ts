@@ -1,7 +1,8 @@
 /**
- * 枠をまたぐ線を、途中の枠・ノードの外へ回す (spec 17)。
- * 今の曲線 (xyflow の getBezierPath) が枠 (端である枠の内側を含む) か、線より低い高さのノードと交わる線だけを回し (裁定 1)、
- * 縦と横の線分だけの道を、道のり + 曲がりの重みが最小になるように探す (裁定 2)。回した線どうしの重なりとボタンの位置は D3
+ * 枠をまたぐ線・ノードを貫く線を、途中の枠・ノードの外へ回す (spec 17、spec 19)。
+ * 今の曲線 (xyflow の getBezierPath) が枠 (端である枠の内側を含む) かノードを貫く線、またはボタンがノードに深くかかる線だけを回し
+ * (spec 19 裁定 1・2。spec 17 の裁定 1 はノードを線より低いものに限っていた)、
+ * 縦と横の線分だけの道を、道のり + 曲がりの重みが最小になるように探す (spec 17 裁定 2)。回した線どうしの重なりとボタンの位置は spec 17 D3・spec 19 D3
  */
 import type { HandleSide, Point } from "./frame-edit";
 
@@ -26,7 +27,7 @@ const HEADER = 28;
 /** 回すかの判定で曲線を刻む数 */
 const SAMPLES = 48;
 
-/** ノード・枠の絶対の矩形。z は xyflow の internals.z */
+/** ノード・枠の絶対の矩形 */
 export interface RouteBox {
   id: string;
   x: number;
@@ -35,7 +36,6 @@ export interface RouteBox {
   height: number;
   parentId?: string;
   frame: boolean;
-  z: number;
 }
 
 export interface RouteEnd extends Point {
@@ -50,6 +50,11 @@ export interface RouteEdgeInput {
   to: RouteEnd;
   /** ラベルのボタンの大きさ */
   button: { width: number; height: number };
+  /**
+   * 回さない時のボタンの、曲線の中点からのずれ (線の部品が adjustEdgeLabelPosition でずらす分)。
+   * 回さない線のボタンの位置を、線の部品が描く位置と揃えるのに使う (spec 19 D3)
+   */
+  labelOffset?: Point;
 }
 
 export interface EdgeRoute {
@@ -150,8 +155,6 @@ const SIDE_VECTOR: Record<HandleSide, Point> = {
 
 /** 線ごとの見方: 通れる枠・障害物・避けるもの */
 interface EdgeView {
-  /** 線の高さ (xyflow の getElevatedEdgeZIndex と同じ: 端のうち親を持つものの高さの大きい方) */
-  z: number;
   /** どちらの端も中にいない枠・ノード */
   obstacles: RouteBox[];
   /** 端そのもの */
@@ -169,28 +172,44 @@ function viewOf(byId: Map<string, RouteBox>, boxes: RouteBox[], e: RouteEdgeInpu
   };
   const pass = new Set(Array.from(ancestors(e.source)).concat(Array.from(ancestors(e.target))));
   const ends = [byId.get(e.source), byId.get(e.target)].filter((b): b is RouteBox => !!b);
-  const z = Math.max(0, ...ends.filter((b) => b.parentId !== undefined).map((b) => b.z));
   return {
-    z,
     obstacles: boxes.filter((b) => b.id !== e.source && b.id !== e.target && !pass.has(b.id)),
     ends,
     passable: boxes.filter((b) => pass.has(b.id)),
   };
 }
 
+/** 回さない時のボタンの中心: 曲線の中点 (getBezierPath のラベルの位置、t = 0.5) に labelOffset を足した所 */
+function curveLabel(e: RouteEdgeInput): Point {
+  const c1 = controlPoint(e.from, e.to);
+  const c2 = controlPoint(e.to, e.from);
+  return {
+    x: (e.from.x + 3 * c1.x + 3 * c2.x + e.to.x) / 8 + (e.labelOffset?.x ?? 0),
+    y: (e.from.y + 3 * c1.y + 3 * c2.y + e.to.y) / 8 + (e.labelOffset?.y ?? 0),
+  };
+}
+const rectAround = (c: Point, size: { width: number; height: number }): Rect => ({
+  x: c.x - size.width / 2,
+  y: c.y - size.height / 2,
+  width: size.width,
+  height: size.height,
+});
+/** かかる深さ: 重なりの横の幅と縦の幅の小さい方 (重ならなければ 0 以下) */
+const overlapDepth = (a: Rect, b: Rect) =>
+  Math.min(
+    Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x),
+    Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)
+  );
+
 /**
- * 回すか (裁定 1): 今の曲線、または曲線の中点 (getBezierPath のラベルの位置) に置かれるボタンが、
- * 枠・線より低いノード・端である枠の内側のどれかと交わる (ボタンだけが枠にかかる線も回す。P1 の画面の LR の e)
+ * 回すか (spec 19 裁定 1 の案 A・裁定 2 の案 C):
+ * - 今の曲線か、回さない時のボタンが、枠 (どちらの端も中にいない枠・端である枠の内側) と交わる (ボタンだけが枠にかかる線も回す。spec 17 P1 の画面の LR の e)
+ * - 今の曲線が、ノード (高さを問わない) を貫く
+ * - ボタンが、ノードに縦横とも ROUTE.MARGIN 以上かかる (かすりでは回さない。隙間を通る線のボタンが丸ごと隠れる形は拾う)
  */
 function needsRoute(e: RouteEdgeInput, v: EdgeView): boolean {
   const curve = bezierPolyline(e.from, e.to);
-  const mid = curve[Math.floor(curve.length / 2)];
-  const button: Rect = {
-    x: mid.x - e.button.width / 2,
-    y: mid.y - e.button.height / 2,
-    width: e.button.width,
-    height: e.button.height,
-  };
+  const button = rectAround(curveLabel(e), e.button);
   // 曲線とボタンを囲む矩形に重なるものだけを見る
   const xs = curve.map((p) => p.x).concat([button.x, button.x + button.width]);
   const ys = curve.map((p) => p.y).concat([button.y, button.y + button.height]);
@@ -200,11 +219,12 @@ function needsRoute(e: RouteEdgeInput, v: EdgeView): boolean {
     width: Math.max(...xs) - Math.min(...xs),
     height: Math.max(...ys) - Math.min(...ys),
   };
-  const targets: Rect[] = [
-    ...v.obstacles.filter((b) => b.frame || b.z < v.z),
-    ...v.ends.filter((b) => b.frame),
-  ].filter((r) => rectsOverlap(r, reach));
-  return targets.some((r) => pathHits(curve, r) || rectsOverlap(button, r));
+  const frames = [...v.obstacles, ...v.ends].filter((b) => b.frame && rectsOverlap(b, reach));
+  const nodes = v.obstacles.filter((b) => !b.frame && rectsOverlap(b, reach));
+  return (
+    frames.some((r) => pathHits(curve, r) || rectsOverlap(button, r)) ||
+    nodes.some((r) => pathHits(curve, r) || overlapDepth(button, r) >= ROUTE.MARGIN)
+  );
 }
 
 /** 突き出しをこれより短くはしない */
@@ -604,9 +624,16 @@ function separate(
   }
 }
 
+/** ボタンを線分と直交する向きにずらす刻みと、線をボタンの縁からこれだけ内側に残す幅 (spec 19 P1) */
+const BUTTON_SHIFT_STEP = 2;
+const BUTTON_LINE_INSET = 2;
+
 /**
- * ボタンの位置 (D3): 一番長い線分の中点。避けるもの・ほかのボタンと重なる時は、同じ線分の上で中点に近い順に BUTTON_GAP 刻みで試し、
- * どこでも重なれば次に長い線分へ。どこにも置けなければ一番長い線分の中点
+ * ボタンの位置 (spec 17 D3): 一番長い線分の中点。避けるもの・ほかのボタンと重なる時は、同じ線分の上で中点に近い順に BUTTON_GAP 刻みで試し、
+ * どこでも重なれば次に長い線分へ。
+ * どこにも置けなければ、線がボタンの中を通る範囲で、ボタンを線分と直交する向きに BUTTON_SHIFT_STEP 刻みでずらして同じ順に試す
+ * (spec 19 P1: ノードの MARGIN 外を通る線分の上では、高さ 28 のボタンがノードに 2px かかり、隙間には回さない線のボタンがある)。
+ * それでも置けなければ一番長い線分の中点
  */
 function placeButton(
   pts: Point[],
@@ -618,26 +645,21 @@ function placeButton(
     .slice(1)
     .map((p, i) => ({ a: pts[i], b: p, len: Math.abs(p.x - pts[i].x) + Math.abs(p.y - pts[i].y) }))
     .sort((s, t) => t.len - s.len);
-  const rectAt = (c: Point): Rect => ({
-    x: c.x - size.width / 2,
-    y: c.y - size.height / 2,
-    width: size.width,
-    height: size.height,
-  });
-  for (const s of segs) {
+  const others = avoid.concat(taken);
+  /** 線分の上 (直交する向きに shift ずらした所) で置ける所 */
+  const along = (s: (typeof segs)[number], shift: number): Point | null => {
+    const vertical = s.a.x === s.b.x;
+    const dx = vertical ? shift : 0;
+    const dy = vertical ? 0 : shift;
     // この線分の上に置いたボタンが重なりうるものだけを先に選ぶ
     const reach: Rect = {
-      x: Math.min(s.a.x, s.b.x) - size.width / 2,
-      y: Math.min(s.a.y, s.b.y) - size.height / 2,
+      x: Math.min(s.a.x, s.b.x) + dx - size.width / 2,
+      y: Math.min(s.a.y, s.b.y) + dy - size.height / 2,
       width: Math.abs(s.b.x - s.a.x) + size.width,
       height: Math.abs(s.b.y - s.a.y) + size.height,
     };
-    const near = avoid.concat(taken).filter((o) => rectsOverlap(reach, o));
-    const clear = (c: Point) => {
-      const r = rectAt(c);
-      return !near.some((o) => rectsOverlap(r, o));
-    };
-    const mid = { x: (s.a.x + s.b.x) / 2, y: (s.a.y + s.b.y) / 2 };
+    const near = others.filter((o) => rectsOverlap(reach, o));
+    const mid = { x: (s.a.x + s.b.x) / 2 + dx, y: (s.a.y + s.b.y) / 2 + dy };
     const ux = Math.sign(s.b.x - s.a.x);
     const uy = Math.sign(s.b.y - s.a.y);
     for (let k = 0; k * ROUTE.BUTTON_GAP <= s.len / 2; k++) {
@@ -646,7 +668,23 @@ function placeButton(
           x: mid.x + ux * sign * k * ROUTE.BUTTON_GAP,
           y: mid.y + uy * sign * k * ROUTE.BUTTON_GAP,
         };
-        if (clear(c)) return c;
+        const r = rectAround(c, size);
+        if (!near.some((o) => rectsOverlap(r, o))) return c;
+      }
+    }
+    return null;
+  };
+  for (const s of segs) {
+    const c = along(s, 0);
+    if (c) return c;
+  }
+  for (const s of segs) {
+    const across = s.a.x === s.b.x ? size.width : size.height;
+    const limit = across / 2 - BUTTON_LINE_INSET;
+    for (let d = BUTTON_SHIFT_STEP; d <= limit; d += BUTTON_SHIFT_STEP) {
+      for (const shift of [-d, d]) {
+        const c = along(s, shift);
+        if (c) return c;
       }
     }
   }
@@ -710,7 +748,10 @@ export function routeEdges(
     new Map(Array.from(views).map(([id, v]) => [id, v.passable.filter((f) => f.frame) as Rect[]]))
   );
   const out = new Map<string, EdgeRoute>();
-  const taken: Rect[] = [];
+  // 回さない線のボタンは動かさず、回した線のボタンがそれを避ける (spec 19 D3 の案 A')。自己ループは別の描き方なので入れない
+  const taken: Rect[] = edges
+    .filter((e) => e.source !== e.target && !paths.has(e.id))
+    .map((e) => rectAround(curveLabel(e), e.button));
   const byEdge = new Map(edges.map((e) => [e.id, e]));
   for (const id of Array.from(paths.keys()).sort()) {
     const pts = simplify(paths.get(id)!);
