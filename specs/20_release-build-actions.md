@@ -2,7 +2,7 @@
 
 **ID**: 20
 **Date**: 2026-10-04
-**Status**: Draft（rev0。査読と裁定の前）
+**Status**: Draft（rev1。裁定 1・2 と D3 を推奨どおりに確定。P0 の前）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。ワークフローはデスクトップ専用の変更（フォーク元へ返さない）
 
 ## Goal
@@ -11,6 +11,13 @@ Fuseforks（`D:\github\fuseforks`）・Lorekeel（`D:\github\kataribe`）と同�
 今は配布ビルドを手元の `tauri build --no-bundle` で作っていて、インストーラーは無い（exe を直接起動している）。
 
 変えるのは `.github/workflows/` と台帳だけ。アプリのコード・データの名詞は変えない。
+
+## 裁定（2026-10-04、利用者「推奨通りで進めてください」）
+
+- **裁定 1（D1）: 案 A** — 兄弟と同じ 3 OS（Windows・macOS・Linux）。macOS・Linux は作れることまでを確かめる版
+- **裁定 2（D2）: 案 A** — フォーク元から来た `ci.yml`・`deploy.yml` は手動（`workflow_dispatch`）だけで走るようにする（消さない）
+- **D3: 案 A** — 3 OS とも、ビルドの前にルートの `cargo test --workspace`・`src-tauri` の `cargo test`・vitest を走らせる
+- macOS の公証用の App 固有パスワードは利用者が作った（2026-10-04）。秘密 5 つの登録は利用者がする（値は Claude に渡さない）
 
 ## 現況（2026-10-04、両方のリポジトリと Lorelei を読んで確かめた）
 
@@ -44,27 +51,27 @@ Fuseforks（`D:\github\fuseforks`）・Lorekeel（`D:\github\kataribe`）と同�
 
 ## 決めること
 
-### D1. どの OS を作るか（**裁定 1**）
+### D1. どの OS を作るか（**裁定 1 = 案 A**）
 
-- **案 A（推奨）: 兄弟と同じ 3 OS**（Windows・macOS・Linux）。`fail-fast: false` と下書きの Release なので、macOS・Linux が落ちても Windows は揃う。
+- **案 A（採用）: 兄弟と同じ 3 OS**（Windows・macOS・Linux）。`fail-fast: false` と下書きの Release なので、macOS・Linux が落ちても Windows は揃う。
   ただし macOS・Linux は**作れることだけを確かめ、動くかは確かめていない版**になる（Release の本文にそう書く）。初めのタグで落ちた OS は、直すか matrix から外すかをその時に決める
 - 案 B: Windows だけ。確かめた OS だけを出す。macOS・Linux は動かす手段ができてから足す
 - 案 C: Windows と macOS
 
 推奨の理由: 依頼が「兄弟と同じように」で、matrix を 1 行足すだけなら、どこで落ちるかを先に知れる。Release は下書きなので、確かめていない OS の Assets を公開前に外すこともできる。
 
-### D2. フォーク元から来たワークフロー（**裁定 2**）
+### D2. フォーク元から来たワークフロー（**裁定 2 = 案 A**）
 
 Actions を有効にした時に `ci.yml`・`deploy.yml` が main への push のたびに走らないようにする。
 
-- **案 A（推奨）: 2 つとも `workflow_dispatch`（手動）だけにする**。消さないので、フォーク元と同じ中身を手元で残せる（上流への PR の差分にも出ない形を保つなら、トリガーの行だけ変える）。
+- **案 A（採用）: 2 つとも `workflow_dispatch`（手動）だけにする**。消さないので、フォーク元と同じ中身を手元で残せる（上流への PR の差分にも出ない形を保つなら、トリガーの行だけ変える）。
   `deploy.yml` は Pages を使わないので実害（ボットのコミット）だけを止める
 - 案 B: 2 つとも消す
 - 案 C: `ci.yml` は Lorelei 向けに作り直す（Prettier を外す・VRT を外す・Rust のテストを足す）。`deploy.yml` は手動にする。作り直しは別の spec にする
 
-### D3. ビルドの前のテスト
+### D3. ビルドの前のテスト（**案 A**）
 
-- **案 A（推奨）**: 各 OS で、ルートの `cargo test --workspace`・`src-tauri` の `cargo test`・vitest（`pnpm test:run`）を、`tauri-action` の前に走らせる（兄弟と同じく、壊れていれば重いビルドに進まない）。
+- **案 A（採用）**: 各 OS で、ルートの `cargo test --workspace`・`src-tauri` の `cargo test`・vitest（`pnpm test:run`）を、`tauri-action` の前に走らせる（兄弟と同じく、壊れていれば重いビルドに進まない）。
   vitest は手元で 2 分前後。3 OS とも走らせる（OS で落ちる差を知るため）
 - 案 B: テストは Windows だけで走らせる
 

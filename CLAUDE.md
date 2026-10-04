@@ -61,7 +61,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
-- 2026-10-04: [spec 20](specs/20_release-build-actions.md) **Draft**（rev0。査読と裁定の前）。Fuseforks・Lorekeel と同じく、タグの push で GitHub Actions が配布ビルドを作り、インストーラーを下書きの Release に置く。
+- 2026-10-04: [spec 20](specs/20_release-build-actions.md) **Draft**（rev1。裁定 1 = 3 OS、裁定 2 = フォーク元の 2 つは手動だけ。P0 の前）。Fuseforks・Lorekeel と同じく、タグの push で GitHub Actions が配布ビルドを作り、インストーラーを下書きの Release に置く。
   origin はフォークで Actions が一度も走っておらず、有効にするとフォーク元の `ci.yml`・`deploy.yml`（`docs/` をボットが main へコミット）も走り出す（裁定 2）。裁定 1 は OS（推奨は兄弟と同じ 3 OS）
 - 2026-10-04: [spec 19](specs/19_route-frameless-back-edges.md) **Done**（rev3。spec 18 P2 で見つけた候補 ⑧: 枠の無い図の戻る線がノードの後ろに隠れ、ボタンが重なる・隠れて押せない。**spec 17 の裁定 1 を改めた**）。
   裁定: 1 = 案 A（ノードは高さを問わず回す対象）、2 = 案 C（曲線がノードを貫くか、ボタンが縦横とも 12px 以上かかる時に回す）、
