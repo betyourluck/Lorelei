@@ -122,6 +122,20 @@ fn nested_frames_are_ordered_parent_first() {
     );
 }
 
+/// spec 18: エディタは取り込んだ一覧の順で輪をほどく (Mermaid と同じ順, 裁定 1)。デスクトップは Rust の一覧を渡すので、
+/// ノードは最初に出てきた順 (線の中で先に出たものが先)、同じ入れ物に横に並ぶ枠は定義の順でなければならない (TS の mermaid.js の取り込みと同じ)
+#[test]
+fn nodes_in_first_appearance_order_and_sibling_frames_in_definition_order() {
+    let (data, _) = flow("flowchart TD\n B[B] --> C[C]\n A[A] --> B\n C --> A\n");
+    assert_eq!(node_ids(&data), ["B", "C", "A"]);
+    let (data, _) = flow(
+        "flowchart TD\n U[利用者]\n subgraph R[受付]\n A[申込] --> B[確認]\n end\n subgraph S[審査]\n C[一次] --> D[二次]\n end\n subgraph N[通知]\n E[メール]\n end\n U --> R\n R --> S\n S --> N\n N --> U\n",
+    );
+    let frames: Vec<&str> = data.subgraphs.iter().map(|s| s.id.as_str()).collect();
+    assert_eq!(frames, ["R", "S", "N"]);
+    assert_eq!(node_ids(&data), ["U", "A", "B", "C", "D", "E"]);
+}
+
 #[test]
 fn a_node_belongs_to_one_frame() {
     let (data, _) = flow("flowchart TD\n  subgraph X\n    A\n  end\n  subgraph Y\n    A\n  end\n");
