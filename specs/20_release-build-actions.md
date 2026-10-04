@@ -2,7 +2,7 @@
 
 **ID**: 20
 **Date**: 2026-10-04
-**Status**: Draft（rev1。裁定 1・2 と D3 を推奨どおりに確定。P0 の前）
+**Status**: Draft（rev1。裁定 1・2 と D3 を推奨どおりに確定。P0・P1 済み、P2（利用者が Actions を有効にしてタグを push）の前）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。ワークフローはデスクトップ専用の変更（フォーク元へ返さない）
 
 ## Goal
@@ -109,3 +109,31 @@ Actions を有効にした時に `ci.yml`・`deploy.yml` が main への push �
 - macOS・Linux で動くことの確かめ（裁定 1 が案 A でも、作れることまで）
 - フォーク元の `ci.yml` の作り直し（裁定 2 が案 C なら別の spec）
 - crates.io の merman の新版への切り替え（今の `vendor/` の patch のままビルドする）
+
+## P0 結果（2026-10-04）
+
+| 確かめたこと | 結果 |
+|---|---|
+| `tauri-action` が pnpm のリポで何を呼ぶか | README（`tauri-apps/tauri-action`、最新は `action-v1.0.0`、兄弟は `@v0`）: `tauriScript` を省くと、ロックファイルから `npm\|pnpm\|yarn\|bun tauri` を選ぶ。`projectPath` を省くとリポの根（`package.json` と `src-tauri/` がある）。pnpm は `.github/actions/install` が入れる。兄弟と同じ `@v0` にした |
+| `beforeBuildCommand` の `npm run build` が pnpm で入れた依存で通るか | 通る（`npm run` は `node_modules/.bin` の `next` を呼ぶだけ。spec 19 P2 の `tauri build --no-bundle` と、下の bundle 付きのビルドで実行した）。`TAURI_ENV_PLATFORM` が付くので `out/` へ書き出し、`docs/` は書き換わらない |
+| `bundle.targets: all` で Windows に何ができるか | 手元で `tauri build`（bundle 付き、作業場所を分けて最初から 614 秒）: `Lorelei_0.1.0_x64_en-US.msi`（21.7 MB、WiX）と `Lorelei_0.1.0_x64-setup.exe`（15.9 MB、NSIS）の 2 つ。WiX と NSIS は Tauri の CLI が取ってくる |
+| フォークの Actions | origin は一度も走っていない。API は `enabled: true` だが、フォークは Actions の画面で「ワークフローを有効にする」を押すまで走らない（P2 で利用者が押す） |
+
+## P1 結果（2026-10-04）
+
+- `.github/workflows/build.yml`（新規）: 兄弟の形に、Lorelei の違いを入れた — pnpm は `.github/actions/install`、Rust のキャッシュは `.`・`src-tauri` の 2 つ、
+  テストはルートの `cargo test --workspace`・`src-tauri` の `cargo test`・`pnpm test:run`（3 OS とも）、版は `src-tauri/tauri.conf.json` だけ書き換える、
+  Release は下書きで題「Outcasts Lorelei vX.Y.Z」、本文に Windows の SmartScreen と「macOS・Linux は動作を確かめていない」を書く、artifact は上げない
+- `.github/workflows/verify-notary.yml`（新規）: Fuseforks のものをそのまま写した（Lorekeel と同じ中身）
+- `ci.yml`・`deploy.yml`: トリガーを `workflow_dispatch` だけにし、フォーク元の元の形をコメントに残した（裁定 2）
+- 4 つとも YAML として読め、トリガーは `build.yml` がタグの push だけ、ほかの 3 つが手動だけ（PyYAML で確かめた）。Actions の上での実行は P2
+- LORELEI.md に「インストール」の節（Releases の Assets、OS ごとのファイル、Windows の SmartScreen、確かめている OS は Windows だけ）
+
+### P2 の前に利用者がすること
+
+1. main を origin へ push する（ワークフローを origin に載せる）
+2. origin（betyourluck/Lorelei）の Actions の画面で、ワークフローを有効にする
+3. macOS の署名と公証を使うなら、Settings → Secrets and variables → Actions に 5 つを登録する（兄弟のリポジトリと同じ値）:
+   `APPLE_CERTIFICATE`（.p12 を `openssl base64 -A` した改行なしの base64）・`APPLE_CERTIFICATE_PASSWORD`・`APPLE_ID`・`APPLE_PASSWORD`（App 固有パスワード、ハイフン込み 19 文字）・`APPLE_TEAM_ID`。
+   登録したら「Verify notary credentials」を手動で走らせて、公証の資格情報が通るかを 1 分で確かめる
+4. 試しのタグを push する（例: `v0.1.0`）
