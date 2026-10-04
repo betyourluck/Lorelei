@@ -2,7 +2,7 @@
 
 **ID**: 20
 **Date**: 2026-10-04
-**Status**: Draft（rev1。裁定 1・2 と D3 を推奨どおりに確定。P0・P1 済み、P2（利用者が Actions を有効にしてタグを push）の前）
+**Status**: **Done**（rev2。P0〜P2 着地、受け入れ条件 1〜3・5 通過、4 は未確認。裁定 1・2 と D3 は rev1 で確定）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。ワークフローはデスクトップ専用の変更（フォーク元へ返さない）
 
 ## Goal
@@ -138,7 +138,7 @@ Actions を有効にした時に `ci.yml`・`deploy.yml` が main への push �
    登録したら「Verify notary credentials」を手動で走らせて、公証の資格情報が通るかを 1 分で確かめる
 4. 試しのタグを push する（例: `v0.1.0`）
 
-## P2 結果（途中、2026-10-04）
+## P2 結果（2026-10-04）
 
 - 利用者が Actions を有効にし、秘密 5 つを登録した。`APPLE_ID`・`APPLE_TEAM_ID` が一度空の値で登録されていた（`gh secret set` の入力が渡らなかった）のを、
   「Verify notary credentials」の「Check secrets are present」で見つけて登録し直した。2 回目の実行（run 37193720441）で `notarytool history` が通った（ID・App 固有パスワード・Team ID の組が正しい）。
@@ -147,4 +147,23 @@ Actions を有効にした時に `ci.yml`・`deploy.yml` が main への push �
   - Windows（vitest 10 件）・Ubuntu（vitest 3 件）: 取り込みのテストの `waitFor` が既定の 1 秒で時間切れ（failures #34）。`9191949` で既定を 10 秒にした
   - macOS（`src-tauri` の `cargo test`）: `generate_context!` の複数の展開で `_EMBED_INFO_PLIST` が重複（failures #35）。`363594f` で 1 か所にまとめた（Windows で 47 件が通ることは確かめた。macOS は次のタグで確かめる）
   - ルートの `cargo test --workspace` と、Windows・Ubuntu の `src-tauri` の `cargo test` は 3 OS とも通った
-- 次: 直しを push して、新しいタグ（`v0.1.1`）でもう一度ビルドする。`v0.1.0` のタグは残す（兄弟と同じく、タグは push した時点で残る。Release は無い）
+- `v0.1.0` のタグは残した（兄弟と同じく、タグは push した時点で残る。Release は無い）
+- **2 回目: `v0.1.1`（run 37201613944）— 3 OS とも通った**（Ubuntu 19 分 43 秒・Windows 32 分 30 秒・macOS 19 分 51 秒）。failures #34・#35 の直しが効いた
+  - macOS: 「Apple signing: enabled」→ 「Developer ID Application」の証明書で .app と .dmg に署名し、公証は `Accepted`（id `e3bf97bd-ca74-4f33-b85c-52f043efc765`）
+  - 下書きの Release「Outcasts Lorelei v0.1.1」に 7 つ: `Lorelei_0.1.1_x64-setup.exe`（15.9 MB）・`Lorelei_0.1.1_x64_en-US.msi`（21.7 MB）・`Lorelei_0.1.1_aarch64.dmg`（21.3 MB）・
+    `Lorelei_aarch64.app.tar.gz`（21.2 MB）・`Lorelei_0.1.1_amd64.AppImage`（98.1 MB）・`Lorelei_0.1.1_amd64.deb`（24.1 MB）・`Lorelei-0.1.1-1.x86_64.rpm`（24.1 MB）
+- 利用者が Windows の NSIS のインストーラーで入れて起動した: `C:\Program Files\Lorelei\lorelei.exe`、版 0.1.1。MCP の口（39642）はトークン無しで 401、
+  GUI の HTTP の口へ直接送った `list_diagrams` が 24 件を返した（`{app_data_dir}/documents/` のファイル 24 と同じ。前の図の一覧がそのまま読める）
+
+### 受け入れ条件の結果（2026-10-04）
+
+| # | 結果 | 根拠 |
+|---|---|---|
+| 1 | 通過 | `v0.1.1` の push で 3 OS が走り、下書きの Release に 7 つのインストーラーが付いた |
+| 2 | 通過 | NSIS で入れた 0.1.1 が起動し、MCP が待ち受け、`list_diagrams` が前の 24 件を返した |
+| 3 | 通過 | origin の実行の一覧は、タグの Build 2 回と手動の Verify notary credentials 2 回だけ。main への push（2 回）では何も走っていない |
+| 4 | 未確認 | 秘密が揃った状態でしか回していないので、「Report unsigned macOS build」の道は通っていない（兄弟と同じ書き方） |
+| 5 | 通過 | インストーラーの名前と、入れた exe の版が 0.1.1 |
+
+- 見ていないもの: macOS・Linux のインストーラーで入れて動くこと（裁定 1 のとおり、作れることまで）。msi での入れ方。Release の publish（利用者が Assets を見て決める）
+- Actions の注意書き: `actions/checkout@v4`・`actions/setup-node@v4`・`pnpm/action-setup@v4` は Node.js 20 向けで、ランナーが Node.js 24 で動かしている（兄弟も同じ。今は動く）
