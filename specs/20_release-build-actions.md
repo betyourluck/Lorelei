@@ -137,3 +137,14 @@ Actions を有効にした時に `ci.yml`・`deploy.yml` が main への push �
    `APPLE_CERTIFICATE`（.p12 を `openssl base64 -A` した改行なしの base64）・`APPLE_CERTIFICATE_PASSWORD`・`APPLE_ID`・`APPLE_PASSWORD`（App 固有パスワード、ハイフン込み 19 文字）・`APPLE_TEAM_ID`。
    登録したら「Verify notary credentials」を手動で走らせて、公証の資格情報が通るかを 1 分で確かめる
 4. 試しのタグを push する（例: `v0.1.0`）
+
+## P2 結果（途中、2026-10-04）
+
+- 利用者が Actions を有効にし、秘密 5 つを登録した。`APPLE_ID`・`APPLE_TEAM_ID` が一度空の値で登録されていた（`gh secret set` の入力が渡らなかった）のを、
+  「Verify notary credentials」の「Check secrets are present」で見つけて登録し直した。2 回目の実行（run 37193720441）で `notarytool history` が通った（ID・App 固有パスワード・Team ID の組が正しい）。
+  `.p12` は Fuseforks の時に Windows で作ったもの（`~/.apple-signing/`）を使った
+- **1 回目: `v0.1.0`（run 37194306370）— 3 OS ともビルドの前のテストで止まった**（Release はできていない）:
+  - Windows（vitest 10 件）・Ubuntu（vitest 3 件）: 取り込みのテストの `waitFor` が既定の 1 秒で時間切れ（failures #34）。`9191949` で既定を 10 秒にした
+  - macOS（`src-tauri` の `cargo test`）: `generate_context!` の複数の展開で `_EMBED_INFO_PLIST` が重複（failures #35）。`363594f` で 1 か所にまとめた（Windows で 47 件が通ることは確かめた。macOS は次のタグで確かめる）
+  - ルートの `cargo test --workspace` と、Windows・Ubuntu の `src-tauri` の `cargo test` は 3 OS とも通った
+- 次: 直しを push して、新しいタグ（`v0.1.1`）でもう一度ビルドする。`v0.1.0` のタグは残す（兄弟と同じく、タグは push した時点で残る。Release は無い）
