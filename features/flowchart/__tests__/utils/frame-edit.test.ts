@@ -3,6 +3,8 @@
  */
 import type { Edge, Node } from "@xyflow/react";
 import { describe, expect, test } from "vitest";
+import { readMermaidDiagram } from "@/components/ui/mermaid-render";
+import { generateMermaidCode } from "@/features/flowchart/hooks/mermaid";
 import {
   absolutePositions,
   applyDrop,
@@ -19,6 +21,8 @@ import {
   planFrameDelete,
   sortParentsFirst,
 } from "@/features/flowchart/utils/frame-edit";
+import { flowFromMermaid } from "@/features/flowchart/utils/from-mermaid";
+import { layoutNested } from "@/features/flowchart/utils/nested-layout";
 
 const frame = (
   id: string,
@@ -370,5 +374,26 @@ describe("relayoutFrame", () => {
     expect(byId.get("O")!.width!).toBeGreaterThanOrEqual(
       24 + byId.get("F")!.width! + FRAME_PADDING
     );
+  });
+
+  test("枠の中の輪は、生成器が書き出す順 (入れ子の前順) で Mermaid と同じものが上になる (spec 18 D1)", async () => {
+    // 配列の順は F・G・x・y だが、生成器は F の中を G (とその中の y)・x の順に書く。G は中の y が外の x とつながる (外とつながる枠) ので、
+    // Mermaid は y が最初に出てきた所から輪をたどり、G が上・x が下になる
+    const nodes = [
+      frame("F", 0, 0, 600, 400),
+      { ...frame("G", 24, 52, 300, 150), parentId: "F" },
+      node("x", 24, 250, "F"),
+      node("y", 24, 52, "G"),
+    ];
+    const edges = [edge("x", "y"), edge("y", "x")];
+    const out = relayoutFrame(nodes, edges, "F", "TD", METRICS);
+    const byId = new Map(out.map((n) => [n.id, n]));
+    expect(byId.get("G")!.position.y).toBeLessThan(byId.get("x")!.position.y);
+    // 同じ図を生成器で書き出して mermaid.js で取り込んだ時も、G が上
+    const code = generateMermaidCode({ nodes, edges }, "TD");
+    const snapshot = await readMermaidDiagram(code);
+    if (snapshot.kind !== "flowchart") throw new Error(code);
+    const { positions } = layoutNested(flowFromMermaid(snapshot).data, "TD", METRICS);
+    expect(positions.get("G")!.y).toBeLessThan(positions.get("x")!.y);
   });
 });

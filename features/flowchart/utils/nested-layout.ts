@@ -46,22 +46,107 @@ export interface NestedLayout {
   frameSizes: Map<string, Size>;
 }
 
-/** 今の段組み (flow-editor の layoutNodes) と同じ段の数え方: 入る線の無いものを根にして深さ優先で段を振り、振った段は大きい方を採る */
-export function levelsOf(items: string[], edges: [string, string][]): Map<string, number> {
-  const hasIncoming = new Set(edges.map(([, target]) => target));
-  const levels = new Map<string, number>();
-  const visited = new Set<string>();
-  const visit = (id: string, level: number): void => {
-    if (visited.has(id)) return;
-    visited.add(id);
-    levels.set(id, Math.max(levels.get(id) ?? 0, level));
-    edges.filter(([source]) => source === id).forEach(([, target]) => visit(target, level + 1));
+/** 整数に見える ID (0 から 2^32 − 2 の十進表記)。JS のオブジェクトのキーでは、入った順ではなく数の順で先頭に来る */
+const isIndexKey = (k: string): boolean => /^(0|[1-9][0-9]*)$/.test(k) && Number(k) < 4294967295;
+
+/** 枠のたどり始めの扱い (mermaidStartOrder)。anchor は、外とつながる枠の子孫のノードで最初に出てきたものの位置 */
+export interface StartFrame {
+  id: string;
+  external: boolean;
+  anchor: number;
+}
+
+/**
+ * Mermaid (mermaid.js 11.17.2 の dagre、merman の dugong) が、輪をほどく時にたどり始める順 (spec 18 D1、裁定 1)。
+ * flowDb の getData は、枠を枠の一覧の逆順で先に、続いてノードを最初に出てきた順にグラフへ入れ、graphlib はそれをオブジェクトのキーで持つ (P0 の 1)。
+ * 外とつながる枠への線は枠の中のノードへ付け替わるので、その枠は中で最初に出てきたノードの所からたどる (P0 の c18)。
+ * nodes は入れ物の直下のノード (最初に出てきた順)、at はノードの位置 (無ければ nodes の中の位置)
+ */
+export function mermaidStartOrder(
+  nodes: string[],
+  frames: StartFrame[] = [],
+  at: Map<string, number> = new Map(nodes.map((id, i) => [id, i]))
+): string[] {
+  const head = frames
+    .filter((f) => !f.external)
+    .map((f) => f.id)
+    .reverse();
+  const rest = [
+    ...nodes.map((id) => ({ id, at: at.get(id) ?? Infinity })),
+    ...frames.filter((f) => f.external).map((f) => ({ id: f.id, at: f.anchor })),
+  ]
+    .map((x, i) => ({ ...x, i }))
+    .sort((a, b) => a.at - b.at || a.i - b.i)
+    .map((x) => x.id);
+  const all = [...head, ...rest];
+  const numeric = all.filter(isIndexKey).sort((a, b) => Number(a) - Number(b));
+  return [...numeric, ...all.filter((id) => !isIndexKey(id))];
+}
+
+/**
+ * 段の数え方 (spec 18、裁定 1・2)。
+ * 1. 輪をほどく: startOrder の順にたどり始め、線を書いた順に深さ優先でたどり、たどっている途中の祖先へ戻る線を「戻る線」にする (dagre の dfsFAS)
+ * 2. 戻る線を逆向きにした輪の無いグラフで、上からの最長路 (入る線の無いものが 0 段、ほかは入ってくる線の元の段 + 1 の最大)
+ * 自己ループ (両端が同じ線) は 1 にも 2 にも入れない。戻る線を除く全部の線は 1 段以上下へ向き、戻る線は上へ戻る (段の条件)。
+ * 返す Map の順 (同じ段の中の並び) は今までどおり、入る線の無いものから items の順に深さ優先で訪れた順、残り (輪) は startOrder の順にたどって訪れた順。
+ * 今の段 (最初に着いた深さ) が段の条件を満たす輪の無い図では、段も並びも今と同じ (受け入れ条件 4)
+ */
+export function levelsOf(
+  items: string[],
+  edges: [string, string][],
+  startOrder: string[] = items
+): Map<string, number> {
+  const inItems = new Set(items);
+  const list = edges.filter(([a, b]) => inItems.has(a) && inItems.has(b));
+  const real = list.filter(([a, b]) => a !== b);
+
+  // 1. 戻る線 (dfsFAS)
+  const outIndex = new Map<string, number[]>(items.map((id) => [id, []]));
+  real.forEach(([a], i) => outIndex.get(a)!.push(i));
+  const back = new Set<number>();
+  const seen = new Set<string>();
+  const onPath = new Set<string>();
+  const unwind = (v: string): void => {
+    if (seen.has(v)) return;
+    seen.add(v);
+    onPath.add(v);
+    for (const i of outIndex.get(v) ?? []) {
+      const w = real[i][1];
+      if (onPath.has(w)) back.add(i);
+      else unwind(w);
+    }
+    onPath.delete(v);
   };
-  items.filter((id) => !hasIncoming.has(id)).forEach((id) => visit(id, 0));
-  items.forEach((id) => {
-    if (!levels.has(id)) levels.set(id, 0);
-  });
-  return levels;
+  [...startOrder.filter((id) => inItems.has(id)), ...items].forEach(unwind);
+
+  // 2. 上からの最長路 (トポロジカル順)
+  const forward = real.map(([a, b], i): [string, string] => (back.has(i) ? [b, a] : [a, b]));
+  const indegree = new Map(items.map((id) => [id, 0]));
+  forward.forEach(([, b]) => indegree.set(b, indegree.get(b)! + 1));
+  const level = new Map(items.map((id) => [id, 0]));
+  const queue = items.filter((id) => indegree.get(id) === 0);
+  const outs = new Map<string, string[]>(items.map((id) => [id, []]));
+  forward.forEach(([a, b]) => outs.get(a)!.push(b));
+  for (let q = 0; q < queue.length; q++) {
+    const v = queue[q];
+    for (const w of outs.get(v)!) {
+      level.set(w, Math.max(level.get(w)!, level.get(v)! + 1));
+      indegree.set(w, indegree.get(w)! - 1);
+      if (indegree.get(w) === 0) queue.push(w);
+    }
+  }
+
+  // 同じ段の中の並び: 今までと同じ訪れた順 (自己ループも含めた線で、入る線の無いものから)
+  const hasIncoming = new Set(list.map(([, b]) => b));
+  const ordered = new Map<string, number>();
+  const visit = (id: string): void => {
+    if (ordered.has(id)) return;
+    ordered.set(id, level.get(id)!);
+    list.filter(([a]) => a === id).forEach(([, b]) => visit(b));
+  };
+  items.filter((id) => !hasIncoming.has(id)).forEach(visit);
+  [...startOrder.filter((id) => inItems.has(id)), ...items].forEach(visit);
+  return ordered;
 }
 
 /** 向きに沿った軸の取り方と、その向きの寸法での隙間 */
@@ -99,6 +184,32 @@ export function layoutNested(
     ...data.nodes.filter((n) => parentOf.get(n.id) === container).map((n) => n.id),
     ...frames.filter((f) => parentOf.get(f.id) === container).map((f) => f.id),
   ];
+  /**
+   * 輪をほどく時にたどり始める順 (spec 18 D1、裁定 1。mermaidStartOrder)。ノードの位置は最初に出てきた順 (data.nodes の順)、
+   * 枠は枠の一覧の順。外とつながる枠 (spec 16: どれかの線の両端のちょうど片方が枠の子孫) は、子孫のノードで最初に出てきたものの所
+   */
+  const nodeAt = new Map(data.nodes.map((n, i) => [n.id, i]));
+  const isDescendant = (id: string, frame: string): boolean => {
+    const seen = new Set<string>();
+    for (let p = parentOf.get(id); p !== undefined && !seen.has(p); p = parentOf.get(p)) {
+      if (p === frame) return true;
+      seen.add(p);
+    }
+    return false;
+  };
+  const startFrame = (id: string): StartFrame => {
+    const external = data.edges.some(
+      (e) => isDescendant(e.source, id) !== isDescendant(e.target, id)
+    );
+    const inside = data.nodes.filter((n) => isDescendant(n.id, id)).map((n) => nodeAt.get(n.id)!);
+    return { id, external, anchor: inside.length > 0 ? Math.min(...inside) : Infinity };
+  };
+  const startOrderOf = (items: string[]): string[] =>
+    mermaidStartOrder(
+      items.filter((id) => !frameIds.has(id)),
+      items.filter((id) => frameIds.has(id)).map(startFrame),
+      nodeAt
+    );
   /** その枠の中に並ぶ祖先 (自分を含む)。枠の外なら undefined */
   const liftTo = (id: string, container: string | undefined): string | undefined => {
     const seen = new Set<string>();
@@ -139,7 +250,7 @@ export function layoutNested(
       const b = liftTo(e.target, container);
       if (a !== undefined && b !== undefined && a !== b) pairs.set(`${a}\u0000${b}`, [a, b]);
     });
-    const levels = levelsOf(items, Array.from(pairs.values()));
+    const levels = levelsOf(items, Array.from(pairs.values()), startOrderOf(items));
     const byLevel = new Map<number, string[]>();
     levels.forEach((level, id) => byLevel.set(level, [...(byLevel.get(level) ?? []), id]));
     const order = Array.from(byLevel.keys()).sort((a, b) => (reversed ? b - a : a - b));

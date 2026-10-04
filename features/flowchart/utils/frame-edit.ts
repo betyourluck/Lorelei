@@ -400,12 +400,23 @@ export function relayoutFrame(
     const d = (n.data as { direction?: unknown }).direction;
     return d === "TB" || d === "BT" || d === "LR" || d === "RL" ? d : undefined;
   };
+  // 生成器が書き出す順 (入れ物ごとに配列の順で、枠の中を入れ子の前順で)。Mermaid が輪をほどく時にたどり始める順はこの順で決まる (spec 18 D1)
+  const written: Node[] = [];
+  const walk = (parent: string): void =>
+    members
+      .filter((n) => n.parentId === parent)
+      .forEach((n) => {
+        written.push(n);
+        if (isFrame(n)) walk(n.id);
+      });
+  walk(frameId);
   const data: ParsedMermaidData = {
-    nodes: members
+    nodes: written
       .filter((n) => !isFrame(n))
       .map((n) => ({ id: n.id, variableName: n.id, label: "", shapeType: "rectangle" })),
+    // 枠の外とつながる線も渡す (中の枠が外とつながるかの見分けに使う。段は枠の中の線だけで数える)
     edges: edges
-      .filter((e) => inside.has(e.source) && inside.has(e.target))
+      .filter((e) => inside.has(e.source) || inside.has(e.target))
       .map((e) => ({
         id: e.id,
         source: e.source,
@@ -420,7 +431,7 @@ export function relayoutFrame(
         nodes: directOf(frameId),
         direction: direction === "TD" ? "TB" : direction,
       },
-      ...members.filter(isFrame).map((f) => {
+      ...written.filter(isFrame).map((f) => {
         const written = writtenOf(f);
         return {
           id: f.id,

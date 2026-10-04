@@ -53,7 +53,12 @@ import {
   planFrameDelete,
   relayoutFrame,
 } from "./utils/frame-edit";
-import { layoutNested, type NestedLayoutMetrics } from "./utils/nested-layout";
+import {
+  layoutNested,
+  levelsOf,
+  mermaidStartOrder,
+  type NestedLayoutMetrics,
+} from "./utils/nested-layout";
 import { SUBGRAPH_NODE_TYPE } from "./utils/subgraph-tree";
 
 // レイアウト定数
@@ -557,37 +562,14 @@ export function FlowEditor() {
         nodes: ParsedMermaidData["nodes"],
         edges: ParsedMermaidData["edges"]
       ) => {
-        // ルートノード（入力エッジがないノード）を見つける
-        const hasIncomingEdge = new Set(edges.map((edge) => edge.target));
-        const rootNodes = nodes.filter((node) => !hasIncomingEdge.has(node.id));
-
-        // 各ノードのレベル（階層）を計算
-        const levels = new Map<string, number>();
-        const visited = new Set<string>();
-
-        const calculateLevel = (nodeId: string, level: number = 0): void => {
-          if (visited.has(nodeId)) return;
-          visited.add(nodeId);
-
-          const currentLevel = levels.get(nodeId) ?? 0;
-          levels.set(nodeId, Math.max(currentLevel, level));
-
-          // 子ノードのレベルを計算
-          const outgoingEdges = edges.filter((edge) => edge.source === nodeId);
-          outgoingEdges.forEach((edge) => {
-            calculateLevel(edge.target, level + 1);
-          });
-        };
-
-        // ルートノードから階層を計算
-        rootNodes.forEach((node) => calculateLevel(node.id, 0));
-
-        // 残りのノードも処理（循環参照などがある場合）
-        nodes.forEach((node) => {
-          if (!levels.has(node.id)) {
-            levels.set(node.id, 0);
-          }
-        });
+        // 各ノードのレベル（階層）を計算。輪は Mermaid と同じ順でほどき、戻る線を除く線が全部下へ向くように振る (spec 18)。
+        // 同じ段の中の並びは今までどおり、入力エッジの無いノードから深さ優先で訪れた順
+        const ids = nodes.map((node) => node.id);
+        const levels = levelsOf(
+          ids,
+          edges.map((edge): [string, string] => [edge.source, edge.target]),
+          mermaidStartOrder(ids)
+        );
 
         // レベルごとにノードをグループ化
         const nodesByLevel = new Map<number, string[]>();
