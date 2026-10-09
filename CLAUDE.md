@@ -61,6 +61,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-09: **v0.1.2 を publish した**（タグ `v0.1.2` = `8abad2c`。spec 21 の線のボタンのずらし・README の書き直し・ライブデモ。リリースノートは英語と日本語）
 - 2026-10-09: **README を Lorelei の入口に書き換え、ライブデモを Lorelei の Web 版にした**（利用者の言「僕以外のユーザーを増やしたい」）。
   README.md は英語、README.ja.md は日本語（互いにリンク。フォーク元の README の中身は撤去し、クレジットに残した）。
   ライブデモは `node scripts/build-web-demo.mjs ../betyourluck.github.io/docs/lorelei-web` で作って写す（`out-web-demo/` へ書き出し、basePath は `/lorelei-web`。
