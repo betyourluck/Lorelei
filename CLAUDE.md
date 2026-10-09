@@ -52,6 +52,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 | 知りたいこと | 読む場所 |
 |---|---|
 | 使う人向けの入口（英語・日本語） | [README.md](README.md)（英語）/ [README.ja.md](README.ja.md)（日本語）。ライブデモ（Web 版）は https://betyourluck.github.io/lorelei-web/ |
+| 不具合の報告・PR の出し方（英語・日本語） | [CONTRIBUTING.md](CONTRIBUTING.md)、`.github/ISSUE_TEMPLATE/` |
 | 使う人向けの説明の全部（ビルド・Claude Code への登録・ツール・既知の制約） | [LORELEI.md](LORELEI.md) |
 | 名詞・型・MCP ツールの入出力 | [data_contract.yaml](data_contract.yaml) |
 | 決定事項と Phase 計画 | `specs/NN_*.md`（起票 → 査読 → rev 改訂 → Phase 単位で main へ直接コミット） |
@@ -61,6 +62,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-09: **README に操作の GIF・CONTRIBUTING を Lorelei 向けに・Issues を有効に**（v0.1.2 の後）。GIF は `assets/readme/lorelei-demo.gif`（960×625、21 秒）:
+  配布ビルドの窓を ffmpeg の gdigrab で録り（窓の見えている範囲は DwmGetWindowAttribute で測る）、MCP は HTTP の口を直接叩き、GUI は computer-use で操作、字幕は Pillow で作って ffmpeg で重ねた
+  （ffmpeg の drawtext はこの環境で fontconfig が無く落ちる）。CONTRIBUTING は英語と日本語。リポジトリの Issues は無効だったのを利用者が有効にした（README・リリースノート・デモの報告先が開けなかった）
 - 2026-10-09: **v0.1.2 を publish した**（タグ `v0.1.2` = `8abad2c`。spec 21 の線のボタンのずらし・README の書き直し・ライブデモ。リリースノートは英語と日本語）
 - 2026-10-09: **README を Lorelei の入口に書き換え、ライブデモを Lorelei の Web 版にした**（利用者の言「僕以外のユーザーを増やしたい」）。
   README.md は英語、README.ja.md は日本語（互いにリンク。フォーク元の README の中身は撤去し、クレジットに残した）。
