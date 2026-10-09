@@ -8,6 +8,8 @@
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Web%20%E7%89%88-blue)](https://betyourluck.github.io/lorelei-web/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
+![Claude Code が MCP で Lorelei に図を開き、人が配置とラベルを直し、Claude がその編集を読み戻して工程を 1 つ足す様子](assets/readme/lorelei-demo.gif)
+
 Lorelei は **MCP サーバー**を内蔵したデスクトップアプリ（Rust + Tauri 2）です。Claude Code などの AI から Mermaid を受け取り、
 
 - **検査**します（文法と、エディタで開くと何が残り何が省かれるか）

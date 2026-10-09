@@ -8,6 +8,8 @@ English | [日本語](README.ja.md)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Web%20editor-blue)](https://betyourluck.github.io/lorelei-web/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
+![Claude Code opens a diagram in Lorelei over MCP, a person fixes the layout and a label, and Claude reads the edits back and adds a step](assets/readme/lorelei-demo.gif)
+
 Lorelei is a desktop app (Rust + Tauri 2) with a built-in **MCP server**. Claude Code and other MCP clients hand it Mermaid; Lorelei
 
 - **checks** it (syntax, and what the editor can and cannot keep),
