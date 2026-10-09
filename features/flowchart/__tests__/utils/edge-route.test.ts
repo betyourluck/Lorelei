@@ -738,3 +738,225 @@ describe("routeEdges: 回した線どうしの重なりとボタン (D3)", () =>
     expect(apart, "2 本のボタンは重ならない").toBe(true);
   });
 });
+
+describe("routeEdges: 回さない線どうしのボタンの重なり (spec 21)", () => {
+  /** ラベルが全角 4 字 + 半角 1 字のボタン (estimateButtonSize の 155×28) */
+  const LABEL4 = { width: 155, height: 28 };
+  const GAP = 4;
+
+  /** 取り込みと同じ配置の TD の分岐: 元 1 つから同じ段の n 個へ (段の送り 150、同じ段の送り 250) */
+  const fanOut = (n: number) => {
+    const boxes = [
+      box("A", -125 + 300, 50, 240, 48),
+      ...Array.from({ length: n }, (_, i) => box(`B${i}`, -(n * 250) / 2 + i * 250 + 300, 200, 240, 48)),
+    ];
+    const edges = boxes.slice(1).map((b) => ({ ...tdEdge(boxes, "A", b.id), button: LABEL4 }));
+    return { boxes, edges };
+  };
+
+  const isMoved = (routes: Map<string, EdgeRoute>, id: string) =>
+    routes.has(id) && routes.get(id)!.points.length === 0;
+
+  /** 線の部品が置く所: 回した線・ずらした線は返された位置、それ以外は今の位置 (中点 + labelOffset) */
+  const shownButton = (e: RouteEdgeInput, routes: Map<string, EdgeRoute>) => {
+    const r = routes.get(e.id);
+    return r ? buttonRect(r.label, e.button) : curveButton(e);
+  };
+  const grown = (r: { x: number; y: number; width: number; height: number }, m: number) => ({
+    x: r.x - m,
+    y: r.y - m,
+    width: r.width + 2 * m,
+    height: r.height + 2 * m,
+  });
+
+  /**
+   * 全部のボタンが重ならない。ずらしたボタンは、ほかのボタンと GAP 以上離れ、ノード・枠の見出しと重ならず、
+   * 自分の曲線がボタンの縁から 2px 以上内側を通る
+   */
+  function expectLabelsClear(boxes: RouteBox[], edges: RouteEdgeInput[], routes: Map<string, EdgeRoute>) {
+    const shown = edges.map((e) => ({ e, r: shownButton(e, routes) }));
+    for (let i = 0; i < shown.length; i++)
+      for (let j = i + 1; j < shown.length; j++)
+        expect(
+          rectsMeet(shown[i].r, shown[j].r),
+          `${shown[i].e.id} と ${shown[j].e.id} のボタンは重ならない`
+        ).toBe(false);
+    for (const { e, r } of shown) {
+      if (!isMoved(routes, e.id)) continue;
+      for (const o of shown)
+        if (o.e.id !== e.id)
+          expect(rectsMeet(grown(r, GAP / 2), grown(o.r, GAP / 2)), `${e.id} は ${o.e.id} と ${GAP}px 離れる`).toBe(false);
+      for (const b of boxes) {
+        const target = b.frame ? { x: b.x, y: b.y, width: b.width, height: HEADER } : b;
+        expect(rectsMeet(r, target), `${e.id} のボタンは ${b.id} に重ならない`).toBe(false);
+      }
+      const inner = grown(r, -2);
+      expect(
+        bezierPolyline(e.from, e.to, 400).some(
+          (p) => p.x > inner.x && p.x < inner.x + inner.width && p.y > inner.y && p.y < inner.y + inner.height
+        ),
+        `${e.id} の曲線がずらしたボタンの中を通る`
+      ).toBe(true);
+    }
+  }
+
+  test("TD の分岐 (4 本、全角 4 字): 重なっていたボタンが自分の曲線の上へ退き、全部が離れる。先頭の線は動かない", () => {
+    const { boxes, edges } = fanOut(4);
+    // 今の位置では隣どうしが重なっている (前提)
+    expect(rectsMeet(curveButton(edges[0]), curveButton(edges[1]))).toBe(true);
+    const routes = routeEdges(boxes, edges);
+    expect(isMoved(routes, "A-B0"), "先頭の線は動かない").toBe(false);
+    expect(Array.from(routes.keys()).filter((id) => isMoved(routes, id)).length).toBeGreaterThan(0);
+    expectLabelsClear(boxes, edges, routes);
+  });
+
+  test("重ならないボタンは動かない (TD の分岐、全角 2 字)", () => {
+    const { boxes, edges } = fanOut(4);
+    const short = edges.map((e) => ({ ...e, button: { width: 119, height: 28 } }));
+    expect(routeEdges(boxes, short).size).toBe(0);
+  });
+
+  test("4px 以内に近いだけのボタンは動かさない (きっかけに隙間を入れない, D3-2)", () => {
+    const boxes = [box("A", 0, 50, 240, 48), box("B", 0, 200, 240, 48), box("C", 103, 400, 240, 48), box("D", 103, 550, 240, 48)];
+    const ab = tdEdge(boxes, "A", "B");
+    const cd = tdEdge(boxes, "C", "D");
+    // 2 つのボタンを横に 2px 空けて並べる
+    const a = curveButton(ab);
+    const c = curveButton(cd);
+    const edges = [ab, { ...cd, labelOffset: { x: a.x + a.width + 2 - c.x, y: a.y - c.y } }];
+    expect(rectsMeet(curveButton(edges[0]), curveButton(edges[1]))).toBe(false);
+    expect(routeEdges(boxes, edges).size).toBe(0);
+  });
+
+  test("平行な 2 本: 後ろの線のボタンが退く", () => {
+    const boxes = [box("A", 0, 50, 240, 48), box("B", 0, 200, 240, 48)];
+    const edges = [tdEdge(boxes, "A", "B"), { ...tdEdge(boxes, "A", "B"), id: "A-B-1" }];
+    const routes = routeEdges(boxes, edges);
+    expect(isMoved(routes, "A-B")).toBe(false);
+    expect(isMoved(routes, "A-B-1")).toBe(true);
+    expectLabelsClear(boxes, edges, routes);
+  });
+
+  test("3 本が重なる: 先頭は動かず、後ろの 2 本が順に退き、互いにも重ならない", () => {
+    const boxes = [box("A", 0, 50, 240, 48), box("B", 0, 350, 240, 48)];
+    const edges = [0, 1, 2].map((i) => ({ ...tdEdge(boxes, "A", "B"), id: `A-B-${i}` }));
+    const routes = routeEdges(boxes, edges);
+    expect(isMoved(routes, "A-B-0")).toBe(false);
+    expect(isMoved(routes, "A-B-1")).toBe(true);
+    expect(isMoved(routes, "A-B-2")).toBe(true);
+    expectLabelsClear(boxes, edges, routes);
+  });
+
+  test("滑らせた先は、後ろの線のボタン (今の位置) も避ける。後ろの線は何とも重なっていなければ動かない", () => {
+    const boxes = [
+      box("A", 0, 50, 240, 48),
+      box("B", 0, 350, 240, 48),
+      box("X", 400, 50, 240, 48),
+      box("Y", 400, 350, 240, 48),
+    ];
+    // A → B の 2 本目は、出口の側 (上) へ 32px 滑らせるのが最初の候補。そこに X → Y のボタンを置いておく
+    const xy = tdEdge(boxes, "X", "Y");
+    const m = curveButton(xy);
+    const edges = [
+      tdEdge(boxes, "A", "B"),
+      { ...tdEdge(boxes, "A", "B"), id: "A-B-1" },
+      { ...xy, labelOffset: { x: 120 - (m.x + m.width / 2), y: 224 - 36 - (m.y + m.height / 2) } },
+    ];
+    expect(rectsMeet(curveButton(edges[0]), curveButton(edges[2]))).toBe(false);
+    const routes = routeEdges(boxes, edges);
+    expect(isMoved(routes, "A-B-1")).toBe(true);
+    expect(routes.has("X-Y"), "X → Y は今の位置で何とも重ならないので動かない").toBe(false);
+    expectLabelsClear(boxes, edges, routes);
+  });
+
+  test("線がボタンの中を通る範囲より外へはずらさない (LR の短い平行な 2 本は解けずに今の位置のまま)", () => {
+    // 横の線の上では、ボタンを縦にずらせるのは高さの半分 − 2px (12px) まで。2 本目は 32px 離さないと置けない
+    const boxes = [box("A", 50, 0, 240, 48), box("B", 500, 0, 240, 48)];
+    const lr = (id: string): RouteEdgeInput => ({
+      id,
+      source: "A",
+      target: "B",
+      from: { x: 290, y: 24, side: "right" },
+      to: { x: 500, y: 24, side: "left" },
+      button: BUTTON,
+    });
+    const routes = routeEdges(boxes, [lr("A-B"), lr("A-B-1")]);
+    expect(routes.has("A-B-1")).toBe(false);
+  });
+
+  test("自己ループのボタンは動かさず、重なった回さない線の方が退く", () => {
+    const boxes = [box("A", 0, 50, 240, 48), box("B", 0, 250, 240, 48), box("S", 400, 50, 240, 48)];
+    const loop: RouteEdgeInput = {
+      id: "S-S",
+      source: "S",
+      target: "S",
+      from: { x: 520, y: 98, side: "bottom" },
+      to: { x: 520, y: 50, side: "top" },
+      button: BUTTON,
+      // ボタンを S の下の外に置く (S に深くかかる線は spec 19 で回す線になるので、ノードと重ならない所で比べる)
+      labelOffset: { x: 0, y: 60 },
+    };
+    const ab = tdEdge(boxes, "A", "B");
+    const l = curveButton(loop);
+    const m = curveButton(ab);
+    expect(rectsMeet(l, boxes[2])).toBe(false);
+    // A → B のボタンを、自己ループのボタンに半分かかる所へずらしておく
+    const edges = [loop, { ...ab, labelOffset: { x: l.x + 40 - m.x, y: l.y - m.y } }];
+    expect(rectsMeet(curveButton(edges[0]), curveButton(edges[1]))).toBe(true);
+    const routes = routeEdges(boxes, edges);
+    expect(routes.has("S-S")).toBe(false);
+    expect(isMoved(routes, "A-B")).toBe(true);
+  });
+
+  test("ノードに少しかかるだけのボタンは動かさない (D3-1)", () => {
+    // B の右の外を縦に通る線のボタンが、B の右端に 6px かかる
+    const boxes = [box("A", 300, 50, 240, 48), box("C", 300, 350, 240, 48), box("B", 0, 200, 240, 48)];
+    const ac = tdEdge(boxes, "A", "C");
+    const m = curveButton(ac);
+    const edges = [{ ...ac, labelOffset: { x: 240 - 6 - m.x, y: 0 } }];
+    expect(rectsMeet(curveButton(edges[0]), boxes[2])).toBe(true);
+    expect(routeEdges(boxes, edges).size).toBe(0);
+  });
+
+  test("候補が全部端のノードにかかる線は、今の位置のまま (平行 2 本 + 逆向き)", () => {
+    const boxes = [box("A", 0, 50, 240, 48), box("B", 0, 200, 240, 48)];
+    const ab = tdEdge(boxes, "A", "B");
+    const ba: RouteEdgeInput = {
+      id: "B-A",
+      source: "B",
+      target: "A",
+      from: { x: 120, y: 248, side: "bottom" },
+      to: { x: 120, y: 50, side: "top" },
+      button: BUTTON,
+    };
+    // adjustEdgeLabelPosition のずれ (逆向きの組の ±20。平行な 2 本は同じずれを受ける)
+    const edges = [
+      { ...ab, labelOffset: { x: 20, y: 20 } },
+      { ...ab, id: "A-B-1", labelOffset: { x: 20, y: 20 } },
+      { ...ba, labelOffset: { x: -40, y: 40 } },
+    ];
+    const routes = routeEdges(boxes, edges);
+    expect(isMoved(routes, "A-B-1")).toBe(true);
+    expect(routes.has("B-A"), "置ける所が無いので今の位置のまま").toBe(false);
+  });
+
+  test("回した線のボタンは、ずらした後のボタンを避ける (段を飛ばす線 + 平行な線)", () => {
+    const boxes = [box("A", 0, 50, 240, 48), box("B", 0, 200, 240, 48), box("C", 0, 350, 240, 48)];
+    const edges = [
+      tdEdge(boxes, "A", "B"),
+      { ...tdEdge(boxes, "A", "B"), id: "A-B-1" },
+      tdEdge(boxes, "B", "C"),
+      tdEdge(boxes, "A", "C"),
+    ];
+    const routes = routeEdges(boxes, edges);
+    expect(routes.get("A-C")?.points.length ?? 0, "段を飛ばす線は回る").toBeGreaterThan(0);
+    expect(isMoved(routes, "A-B-1")).toBe(true);
+    expectLabelsClear(boxes, edges, routes);
+  });
+
+  test("同じ入力なら同じ位置 (描き直しで変わらない)", () => {
+    const a = fanOut(4);
+    const b = fanOut(4);
+    expect(routeEdges(a.boxes, a.edges)).toEqual(routeEdges(b.boxes, b.edges));
+  });
+});

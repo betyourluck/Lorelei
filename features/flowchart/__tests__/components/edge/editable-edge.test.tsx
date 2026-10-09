@@ -11,6 +11,7 @@ import type { PropsWithChildren } from "react";
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render } from "@/__tests__/test-utils";
 import { EditableEdge } from "@/features/flowchart/components/edge/editable-edge";
+import { EdgeRouteContext, EdgeRouteStore } from "@/features/flowchart/hooks/use-edge-routes";
 import type { MermaidArrowType } from "@/features/flowchart/types/types";
 
 /**
@@ -442,5 +443,34 @@ describe("EditableEdge", () => {
         expect(screen.getByText("テストエッジ")).toBeInTheDocument();
       });
     });
+  });
+});
+
+describe("経路の計算が置いたボタン (spec 21)", () => {
+  test("折れ線が空の経路 (ボタンだけを滑らせた回さない線) は、線を曲線のまま描き、ボタンを返された位置にそのまま置く", async () => {
+    const store = new EdgeRouteStore();
+    store.replace(new Map([["test-edge", { points: [], label: { x: 333, y: 444 } }]]));
+    // 互いに逆向きの組 (adjustEdgeLabelPosition がずれを足す形)。返された位置にはずれを重ねない
+    const props = createMockEdgeProps({
+      data: {
+        ...createMockEdgeProps().data,
+        allEdges: [
+          { id: "test-edge", source: "1", target: "2" },
+          { id: "back", source: "2", target: "1" },
+        ],
+      },
+    });
+    const { container } = render(
+      <ReactFlowTestWrapper>
+        <EdgeRouteContext.Provider value={store}>
+          <EditableEdge {...props} />
+        </EdgeRouteContext.Provider>
+      </ReactFlowTestWrapper>
+    );
+    const label = await screen.findByText("テストエッジ");
+    const box = label.closest(".nodrag.nopan") as HTMLElement;
+    expect(getComputedStyle(box).transform).toContain("translate(333px,444px)");
+    const paths = Array.from(container.querySelectorAll("path")).map((p) => p.getAttribute("d") ?? "");
+    expect(paths.some((d) => d.startsWith("M100,100 C"))).toBe(true);
   });
 });

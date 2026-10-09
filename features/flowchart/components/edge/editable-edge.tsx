@@ -230,16 +230,18 @@ export function EditableEdge({
       })()
     : null;
   // 枠・線より低いノードを貫く線は、外を回した経路で描く (spec 17。計算はエディタが図全体で 1 回)
+  // 経路の計算が返すのは、回した線 (折れ線あり) と、ほかのボタンと重なるのでボタンだけを滑らせた回さない線 (折れ線が空, spec 21)
   const route = useEdgeRoute(id);
-  const routed = !loop && route ? route : null;
+  const placed = !loop && route ? route : null;
+  const routed = placed && placed.points.length > 0 ? placed : null;
   const edgePath = loop ? loop.path : routed ? roundedPath(routed.points) : bezierPath;
-  const labelX = loop ? loop.labelX : routed ? routed.label.x : bezierLabelX;
-  const labelY = loop ? loop.labelY : routed ? routed.label.y : bezierLabelY;
+  const labelX = loop ? loop.labelX : placed ? placed.label.x : bezierLabelX;
+  const labelY = loop ? loop.labelY : placed ? placed.label.y : bezierLabelY;
 
-  // 循環参照対応のラベル位置調整 (回した線のボタンは経路の計算で置いたので動かさない)
+  // 循環参照対応のラベル位置調整 (経路の計算が置いたボタンは、ずれを足した後の位置なので動かさない)
   const adjusted = adjustEdgeLabelPosition(currentEdge, labelX, labelY, allEdges, allNodes);
-  const adjustedX = routed ? labelX : adjusted.adjustedX;
-  const adjustedY = routed ? labelY : adjusted.adjustedY;
+  const adjustedX = placed ? labelX : adjusted.adjustedX;
+  const adjustedY = placed ? labelY : adjusted.adjustedY;
 
   // 循環参照対応のエッジスタイル（オプション）
   // ラベル位置調整のみにしたい場合は enableCyclicEdgeStyling: false にする

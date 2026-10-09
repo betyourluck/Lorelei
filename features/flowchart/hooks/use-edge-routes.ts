@@ -58,7 +58,9 @@ const sameRoute = (a: EdgeRoute, b: EdgeRoute) =>
 export const EdgeRouteContext = createContext<EdgeRouteStore | null>(null);
 
 const noop = () => () => {};
-/** この線の回した経路。回さない線 (と、エディタの外で描く線) は undefined */
+/**
+ * この線の回した経路。ボタンだけを滑らせた回さない線は折れ線が空 (spec 21)。そのままの線 (と、エディタの外で描く線) は undefined
+ */
 export function useEdgeRoute(id: string): EdgeRoute | undefined {
   const store = useContext(EdgeRouteContext);
   return useSyncExternalStore(

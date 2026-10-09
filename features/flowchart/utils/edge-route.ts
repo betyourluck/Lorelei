@@ -2,9 +2,10 @@
  * 枠をまたぐ線・ノードを貫く線を、途中の枠・ノードの外へ回す (spec 17、spec 19)。
  * 今の曲線 (xyflow の getBezierPath) が枠 (端である枠の内側を含む) かノードを貫く線、またはボタンがノードに深くかかる線だけを回し
  * (spec 19 裁定 1・2。spec 17 の裁定 1 はノードを線より低いものに限っていた)、
- * 縦と横の線分だけの道を、道のり + 曲がりの重みが最小になるように探す (spec 17 裁定 2)。回した線どうしの重なりとボタンの位置は spec 17 D3・spec 19 D3
+ * 縦と横の線分だけの道を、道のり + 曲がりの重みが最小になるように探す (spec 17 裁定 2)。回した線どうしの重なりとボタンの位置は spec 17 D3・spec 19 D3。
+ * 回さない線どうしのボタンが重なる時は、後ろの線のボタンを自分の曲線の上で重ならない所へ滑らせる (spec 21)
  */
-import type { HandleSide, Point } from "./frame-edit";
+import { frameSelfLoopPath, type HandleSide, type Point } from "./frame-edit";
 
 /** 定数 (spec 17 D3。初めの値は P0 の 5・6 の測りから) */
 export const ROUTE = {
@@ -20,6 +21,8 @@ export const ROUTE = {
   SPACING: 8,
   /** ボタンをずらす刻み */
   BUTTON_GAP: 8,
+  /** 回さない線のボタンを滑らせて置く時に、ほかのボタンと空ける幅 (spec 21 D3-2。ボタンの大きさの見積もりは実物より最大 3.5px 小さい) */
+  LABEL_GAP: 4,
 } as const;
 
 /** 枠の見出しの帯の高さ (frame-edit の FRAME_TITLE_HEIGHT と同じ) */
@@ -58,7 +61,10 @@ export interface RouteEdgeInput {
 }
 
 export interface EdgeRoute {
-  /** 出口の接続点から入口の接続点までの折れ線 (縦と横の線分だけ) */
+  /**
+   * 出口の接続点から入口の接続点までの折れ線 (縦と横の線分だけ)。
+   * 空の時は回さない線で、ボタンだけをほかのボタンと重ならない所へ滑らせた (spec 21。線は今の曲線のまま)
+   */
   points: Point[];
   /** ラベルのボタンの中心 */
   label: Point;
@@ -692,6 +698,86 @@ function placeButton(
   return { x: (s.a.x + s.b.x) / 2, y: (s.a.y + s.b.y) / 2 };
 }
 
+/**
+ * 回さない線のボタンの候補 (spec 21 D1): 今の曲線の上で、中点 (t = 0.5) から道のり s の点を s = 0, −8, +8, −16, … の順に
+ * (同じ近さは出口の側が先)。置けなければ各点で、曲線の向きが横寄りなら縦に・縦寄りなら横に BUTTON_SHIFT_STEP 刻みで −d, +d ずらして同じ順に
+ * (線がボタンの縁から BUTTON_LINE_INSET 以上内側を通る範囲まで)。どこにも置けなければ null
+ */
+function slideOnCurve(e: RouteEdgeInput, fits: (c: Point) => boolean): Point | null {
+  const pts = bezierPolyline(e.from, e.to);
+  const at = [0];
+  for (let i = 1; i < pts.length; i++)
+    at.push(at[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+  const total = at[at.length - 1];
+  const mid = at[SAMPLES / 2];
+  const pointAt = (s: number): { p: Point; horizontal: boolean } => {
+    let i = 1;
+    while (i < at.length - 1 && at[i] < s) i++;
+    const a = pts[i - 1];
+    const b = pts[i];
+    const t = at[i] > at[i - 1] ? (s - at[i - 1]) / (at[i] - at[i - 1]) : 0;
+    return {
+      p: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t },
+      horizontal: Math.abs(b.x - a.x) >= Math.abs(b.y - a.y),
+    };
+  };
+  const order = [pointAt(mid)];
+  for (let k = 1; mid - k * ROUTE.BUTTON_GAP >= 0 || mid + k * ROUTE.BUTTON_GAP <= total; k++) {
+    if (mid - k * ROUTE.BUTTON_GAP >= 0) order.push(pointAt(mid - k * ROUTE.BUTTON_GAP));
+    if (mid + k * ROUTE.BUTTON_GAP <= total) order.push(pointAt(mid + k * ROUTE.BUTTON_GAP));
+  }
+  for (const c of order) if (fits(c.p)) return c.p;
+  const limitOf = (horizontal: boolean) =>
+    (horizontal ? e.button.height : e.button.width) / 2 - BUTTON_LINE_INSET;
+  const most = Math.max(limitOf(true), limitOf(false));
+  for (let d = BUTTON_SHIFT_STEP; d <= most; d += BUTTON_SHIFT_STEP) {
+    for (const sign of [-1, 1]) {
+      for (const c of order) {
+        if (d > limitOf(c.horizontal)) continue;
+        const q = c.horizontal
+          ? { x: c.p.x, y: c.p.y + sign * d }
+          : { x: c.p.x + sign * d, y: c.p.y };
+        if (fits(q)) return q;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * 回さない線のボタンを置く (spec 21 D2・D3): 線の並びの順に 1 本ずつ確定させる。
+ * 前の線の確定した位置か自己ループのボタンと重なる線だけを、ほかの全部のボタン (前の線は確定した位置、後ろの線は今の位置) と LABEL_GAP 空けて、
+ * 全部のノード (端を含む)・枠の見出しの帯と重ならない所へ滑らせる。置けなければ今の位置のまま。
+ * 返すのは確定した矩形 (自己ループを含む) と、滑らせた線のボタンの中心
+ */
+function placeCurveButtons(
+  boxes: RouteBox[],
+  unrouted: RouteEdgeInput[],
+  loops: Rect[]
+): { taken: Rect[]; moved: Map<string, Point> } {
+  const blocks: Rect[] = boxes.map((b) => (b.frame ? headerOf(b) : b));
+  const current = unrouted.map((e) => rectAround(curveLabel(e), e.button));
+  const settled: Rect[] = [];
+  const moved = new Map<string, Point>();
+  const apart = (a: Rect, b: Rect) => !rectsOverlap(grow(a, ROUTE.LABEL_GAP / 2), grow(b, ROUTE.LABEL_GAP / 2));
+  unrouted.forEach((e, i) => {
+    const mine = current[i];
+    if (!settled.concat(loops).some((r) => rectsOverlap(r, mine))) {
+      settled.push(mine);
+      return;
+    }
+    const buttons = settled.concat(loops, current.slice(i + 1));
+    const fits = (c: Point) => {
+      const r = rectAround(c, e.button);
+      return buttons.every((o) => apart(o, r)) && !blocks.some((b) => rectsOverlap(b, r));
+    };
+    const c = slideOnCurve(e, fits);
+    if (c) moved.set(e.id, c);
+    settled.push(c ? rectAround(c, e.button) : mine);
+  });
+  return { taken: settled.concat(loops), moved };
+}
+
 export interface RouteOptions {
   /**
    * 線ごとの探索の結果 (離す前の道筋。回さない線は null)。渡すと書き込み、reuse にある線はここから使い回す (D4 の案 iii:
@@ -748,10 +834,21 @@ export function routeEdges(
     new Map(Array.from(views).map(([id, v]) => [id, v.passable.filter((f) => f.frame) as Rect[]]))
   );
   const out = new Map<string, EdgeRoute>();
-  // 回さない線のボタンは動かさず、回した線のボタンがそれを避ける (spec 19 D3 の案 A')。自己ループは別の描き方なので入れない
-  const taken: Rect[] = edges
-    .filter((e) => e.source !== e.target && !paths.has(e.id))
-    .map((e) => rectAround(curveLabel(e), e.button));
+  // 回さない線のボタンを先に置き (重なる線だけ滑らせる, spec 21)、回した線のボタンはその後の位置と自己ループのボタンを避ける (spec 19 D3 の案 A')
+  const loops = edges
+    .filter((e) => e.source === e.target)
+    .map((e) => {
+      const b = byId.get(e.source);
+      if (!b?.frame) return rectAround(curveLabel(e), e.button);
+      const l = frameSelfLoopPath(b, e.from, e.to, e.from.side);
+      return rectAround({ x: l.labelX, y: l.labelY }, e.button);
+    });
+  const { taken, moved } = placeCurveButtons(
+    boxes,
+    edges.filter((e) => e.source !== e.target && !paths.has(e.id)),
+    loops
+  );
+  moved.forEach((label, id) => out.set(id, { points: [], label }));
   const byEdge = new Map(edges.map((e) => [e.id, e]));
   for (const id of Array.from(paths.keys()).sort()) {
     const pts = simplify(paths.get(id)!);
