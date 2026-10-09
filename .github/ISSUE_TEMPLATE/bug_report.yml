@@ -38,7 +38,9 @@ body:
   - type: textarea
     id: env
     attributes:
-      label: 環境情報
-      description: OSやブラウザ、バージョンなど関連情報を記載してください。
+      label: 環境情報 / Environment
+      description: |
+        Lorelei の版（タイトルバーの「?」の About）・OS・デスクトップ版か Web 版のデモか・MCP の問題ならクライアント（Claude Code の版など）。MCP のトークンは貼らないでください。
+        Lorelei version (About, the "?" in the title bar), OS, desktop app or web demo, and the MCP client for MCP problems. Never paste your MCP token.
     validations:
       required: false
