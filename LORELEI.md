@@ -7,6 +7,8 @@ Rust + Tauri 2 のデスクトップアプリと **MCP サーバー**を足し�
 - 日本語は同梱フォント（Noto Sans JP）で描くので、端末のフォントに左右されません
 - Lorelei は DB やリポジトリには繋がりません。図の素材（DB のスキーマ・コード）は AI 側が読み、Mermaid にして渡します
 
+エディタだけをブラウザで試せるライブデモ（Web 版。MCP・図の一覧・SVG / PNG / PDF の書き出しは無く、保存もしません）: https://betyourluck.github.io/lorelei-web/
+
 設計と決定事項は [specs/](specs/)（01: Tauri 化と MCP、02: デスクトップの外枠と図の一覧、03: MCP を GUI の中の HTTP へ）、型とツールの入出力は [data_contract.yaml](data_contract.yaml) にあります。
 
 ## インストール

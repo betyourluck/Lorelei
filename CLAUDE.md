@@ -51,7 +51,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 | 知りたいこと | 読む場所 |
 |---|---|
-| 使う人向けの説明（ビルド・Claude Code への登録・ツール・既知の制約） | [LORELEI.md](LORELEI.md)（README からは 1 行で案内） |
+| 使う人向けの入口（英語・日本語） | [README.md](README.md)（英語）/ [README.ja.md](README.ja.md)（日本語）。ライブデモ（Web 版）は https://betyourluck.github.io/lorelei-web/ |
+| 使う人向けの説明の全部（ビルド・Claude Code への登録・ツール・既知の制約） | [LORELEI.md](LORELEI.md) |
 | 名詞・型・MCP ツールの入出力 | [data_contract.yaml](data_contract.yaml) |
 | 決定事項と Phase 計画 | `specs/NN_*.md`（起票 → 査読 → rev 改訂 → Phase 単位で main へ直接コミット） |
 | 踏んだ罠（症状 → 真因 → 処方 → 一般化） | [failures.md](failures.md) |
@@ -60,6 +61,12 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-09: **README を Lorelei の入口に書き換え、ライブデモを Lorelei の Web 版にした**（利用者の言「僕以外のユーザーを増やしたい」）。
+  README.md は英語、README.ja.md は日本語（互いにリンク。フォーク元の README の中身は撤去し、クレジットに残した）。
+  ライブデモは `node scripts/build-web-demo.mjs ../betyourluck.github.io/docs/lorelei-web` で作って写す（`out-web-demo/` へ書き出し、basePath は `/lorelei-web`。
+  写し先が空か、前に写した印 `.lorelei-web-demo` がある時だけ中身を入れ替える）。betyourluck.github.io の `docs/.nojekyll` が無いと Jekyll が `_next/` を配らない。
+  フォーク元の直し: `next.config.mjs` の basePath・書き出し先を `PAGES_BASE_PATH`・`PAGES_DIST_DIR` で、GitHub メニューのリポジトリを `NEXT_PUBLIC_REPOSITORY_URL` で、
+  ページの題を `NEXT_PUBLIC_SITE_TITLE` で差し替えられるようにした（既定はフォーク元のまま）
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
 - 2026-10-09: [spec 21](specs/21_unrouted-label-overlap.md) **Done**（rev2。査読 3 本を反映し、P0 の後に D1〜D6 を裁定。spec 19 の候補 ⑦: 回さない線どうしのボタンが重なる（枠の無い大きな図で 11 組）。ボタンは矢印の切り替えと削除も持つので、違う線を押しうる）。
   推奨: 回さない線を定義の順に 1 本ずつ確定させ、前の線の確定した位置と重なる線だけを、自分の曲線の上で中点に近い順（道のり 8px 刻み）に、ほかの全部のボタン（後ろの線は今の位置）・ノード・枠の見出しと重ならない所へ滑らせる。

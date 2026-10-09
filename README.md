@@ -1,126 +1,107 @@
-# Mermaid フローチャート エディター
+# Lorelei
 
-> **Lorelei（このフォーク）**: デスクトップアプリと MCP サーバーを足し、AI から Mermaid を検査・書き出し・GUI で手直しできるようにしたものです。→ [LORELEI.md](LORELEI.md)
+**Turn the Mermaid your AI writes into diagrams you can actually use.**
 
-[![Test](https://github.com/illionillion/mermaid-editor/actions/workflows/ci.yml/badge.svg)](https://github.com/illionillion/mermaid-editor/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/Coverage-97.5%25-brightgreen)](https://github.com/illionillion/mermaid-editor)
-[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live%20Demo-blue)](https://illionillion.github.io/mermaid-editor/)
+English | [日本語](README.ja.md)
+
+[![Release](https://img.shields.io/github/v/release/betyourluck/Lorelei)](https://github.com/betyourluck/Lorelei/releases)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Web%20editor-blue)](https://betyourluck.github.io/lorelei-web/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-ReactFlowを使った高機能なMermaidフローチャートのGUIエディターです。直感的なドラッグ&ドロップ操作でフローチャートを作成し、Mermaid形式のコードとして出力できます。
+Lorelei is a desktop app (Rust + Tauri 2) with a built-in **MCP server**. Claude Code and other MCP clients hand it Mermaid; Lorelei
 
-## 🌐 Live Demo
+- **checks** it (syntax, and what the editor can and cannot keep),
+- **renders** it to **SVG / PNG / PDF** with a bundled font (Noto Sans JP), so Japanese text looks the same on every machine,
+- **opens** it in a GUI editor, where you fix the layout and labels by hand,
+- and lets the AI **read back** and **update** the diagram you edited.
 
-**[https://illionillion.github.io/mermaid-editor/](https://illionillion.github.io/mermaid-editor/)**
+The AI reads your source code or database schema and writes the Mermaid. Lorelei never connects to your database or repository, and has no place to put secrets.
 
-## ✨ 主要機能
-
-### 🎯 エディター機能
-
-- **直感的な操作**: ドラッグ&ドロップでフローチャート作成
-- **リアルタイム編集**: ダブルクリックでノード・エッジラベルを編集
-- **モバイル対応**: タッチ操作による完全なスマホ・タブレット対応
-- **自動レイアウト**: 階層的なフローチャートを自動配置
-
-### 🎨 ビジュアル機能
-
-- **豊富な図形**: 矩形、円形、菱形、六角形のノードタイプ
-- **柔軟な接続**: 実線、点線、太線の矢印タイプ
-- **変数名編集**: Mermaidコードでの識別子をカスタマイズ可能
-
-### � インポート・エクスポート
-
-- **📥 Mermaidコードインポート**: 既存のMermaidコードから視覚的なフローチャートを生成
-- **📋 リアルタイムコード生成**: フローチャートの変更が即座にMermaidコードに反映
-- **🌟 シンタックスハイライト**: PrismJSによる美しいコード表示
-- **💾 多様なエクスポート**: ワンクリックでコピー・ダウンロード
-
-### 🛡️ 品質・セキュリティ
-
-- **🧪 高いテストカバレッジ**: 97.5%以上のテストカバレッジ
-- **🔒 XSS対策**: HTMLエスケープによる安全なコード処理
-- **🌏 日本語対応**: 完全日本語インターフェース
-
-## 🚀 クイックスタート
-
-```bash
-# リポジトリをクローン
-git clone https://github.com/illionillion/mermaid-editor.git
-cd mermaid-editor
-
-# 依存関係をインストール
-pnpm install
-
-# 開発サーバー起動
-pnpm dev
+```text
+Claude Code ──MCP over HTTP (127.0.0.1:39642, Bearer token)──▶ Lorelei (desktop app)
+                                                               ├─ validate / render (SVG, PNG, PDF)
+                                                               └─ GUI editor (flowchart, ER diagram) ⇄ read_diagram / update_diagram
 ```
 
-[http://localhost:3000](http://localhost:3000) で確認できます。
+## Try it in your browser
 
-## 📚 Storybook（コンポーネントカタログ）
+**[Live demo → betyourluck.github.io/lorelei-web](https://betyourluck.github.io/lorelei-web/)**
 
-本プロジェクトはStorybookによるUIコンポーネントのカタログ・ドキュメントを同梱しています。
+The demo is the editor alone: paste Mermaid with 「インポート」 (Import), edit flowcharts (with subgraphs) and ER diagrams, and copy the result from 「コード生成」 (Generate code). The UI is in Japanese.
+Nothing is saved, and the MCP server, the diagram list, and SVG / PNG / PDF export are available only in the desktop app.
 
-- **URL例**:  
-  [https://illionillion.github.io/mermaid-editor/storybook/](https://illionillion.github.io/mermaid-editor/storybook/)
+## Install
 
-### 主な特徴
+Download an installer from [Releases](https://github.com/betyourluck/Lorelei/releases).
 
-- 主要UIコンポーネントの動作・APIをブラウザ上で確認可能
-- デザイン・実装の共通認識やレビューに活用
-- 各種Propsやイベントの挙動をインタラクティブにテスト
+| OS | File | Notes |
+|---|---|---|
+| Windows | `*_x64-setup.exe` or `*_x64_en-US.msi` | Not code-signed: SmartScreen asks on first launch ("More info" → "Run anyway") |
+| macOS (Apple silicon) | `*.dmg` | Signed and notarized |
+| Linux | `*.AppImage` / `*.deb` / `*.rpm` | |
 
-### ローカルでの起動
+**Only Windows is tested by hand.** The macOS and Linux builds are produced by CI but have not been tried on a real machine yet — reports are welcome.
+
+## Use it from Claude Code
+
+The MCP server runs **inside the Lorelei window** and listens on `127.0.0.1:39642` only. It works while Lorelei is open.
+(The app's UI is in Japanese for now; the button names below are given with translations.)
+
+1. Start Lorelei. The dot next to "MCP" in the title bar turns green when the server is listening.
+2. Click "MCP" to open the settings, then press 「登録コマンドをコピー」 (copy the registration command).
+3. Run the copied command in the folder where you use Claude Code:
+   ```bash
+   claude mcp add --transport http lorelei http://127.0.0.1:39642/mcp --header "Authorization: Bearer <token>"
+   ```
+   Add `--scope user` to use it from every folder.
+4. Restart Claude Code, or reconnect with `/mcp`.
+
+### Tools
+
+| Tool | What it does |
+|---|---|
+| `validate` | Checks the syntax, and tells whether the GUI editor can open the diagram and what it would drop |
+| `render` | Renders to SVG / PNG / PDF (`output_path` for files). Also returns a small PNG preview |
+| `open_in_editor` | Opens a flowchart or ER diagram in the editor as a new item in the diagram list |
+| `list_diagrams` | Lists the diagrams in the editor |
+| `read_diagram` | Reads a diagram as Mermaid, including the edits you made by hand |
+| `update_diagram` | Replaces a diagram's content. Refuses if you edited it after the AI last read it |
+
+Things to ask:
+
+- "Draw an ER diagram of this database schema in Mermaid, check it with Lorelei, and export it to `D:/out/schema.pdf`."
+- "Turn the flow in `src/order.rs` into a flowchart and open it in Lorelei."
+- "Read the diagram I fixed in Lorelei and make `src/order.rs` follow that flow."
+
+## Limitations
+
+- The GUI editor opens **flowcharts and ER diagrams** only. Styling (`style`, `classDef`, …) is dropped in the editor; rendering and export keep it.
+- Claude Code running **inside WSL** cannot export files (its `/home/...` paths are not absolute paths on Windows).
+- The preview in the editor is drawn by mermaid.js, while export uses [merman](https://github.com/Latias94/merman) (Rust). Both follow Mermaid 11.17.2, but layout and fonts can differ slightly.
+
+The full documentation — every tool's details, the diagram list, the known limitations — is in Japanese: [LORELEI.md](LORELEI.md).
+
+## Build from source
+
+Requirements: Rust 1.95+, Node.js (pnpm 9 via corepack).
 
 ```bash
-pnpm storybook
+corepack pnpm@9 install --ignore-scripts
 ```
-
-→ [http://localhost:6006](http://localhost:6006) で確認
-
-### 静的ビルド
 
 ```bash
-pnpm build-storybook
-# docs/storybook/ に静的ファイルが出力されます
+corepack pnpm@9 exec tauri build --no-bundle
 ```
 
-### デプロイ
+This produces `src-tauri/target/release/lorelei.exe` (Windows). Design decisions are recorded in [specs/](specs/), and types and tool I/O in [data_contract.yaml](data_contract.yaml) (both in Japanese).
 
-- CIでNext.js静的サイト（docs/）とStorybook（docs/storybook/）を同時にGitHub Pagesへデプロイ
-- `/storybook/` サブパスでアクセス可能
+## Credits and license
 
-## 🛠️ 技術スタック
+Lorelei is a fork of **[illionillion/mermaid-editor](https://github.com/illionillion/mermaid-editor)** (MIT), the web-based Mermaid flowchart / ER diagram editor that Lorelei's GUI is built on. Fixes that do not depend on the desktop app are kept in separate commits so they can be sent back upstream.
 
-- **Frontend**: Next.js 14, ReactFlow, TypeScript
-- **UI**: Yamada UI, CodeMirror 6（Mermaid の色付け・補完・文法の赤線）, mermaid.js（プレビュー）
-- **Quality**: ESLint, Prettier, Vitest (97.5% カバレッジ)
-- **CI/CD**: GitHub Actions, lefthook
-- **Deploy**: GitHub Pages
-- **Testing**: Vitest, @testing-library/react, JSDOM
+- Lorelei / mermaid-editor — MIT ([LICENSE](LICENSE))
+- [merman](https://github.com/Latias94/merman) — MIT OR Apache-2.0
+- [mermaid.js](https://github.com/mermaid-js/mermaid) — MIT
+- Noto Sans JP — SIL Open Font License 1.1 ([OFL.txt](crates/lorelei_core/fonts/OFL.txt))
 
-## 📚 ドキュメント
-
-- [📖 使い方ガイド](./USAGE.md) - 基本操作とベストプラクティス
-- [⚙️ 開発者ガイド](./DEVELOPMENT.md) - 開発環境構築とアーキテクチャ
-- [🧪 テストガイド](./TESTING.md) - テスト戦略と実行方法
-- [🤝 コントリビューション](./CONTRIBUTING.md) - 貢献方法とガイドライン
-- [📄 ライセンス](./LICENSE) - MIT ライセンス
-
-## 🤝 コントリビューション
-
-コントリビューションを歓迎します！詳細は [CONTRIBUTING.md](./CONTRIBUTING.md) をご覧ください。
-
-## 📄 ライセンス
-
-MIT License - 詳細は [LICENSE](./LICENSE) をご覧ください。
-
-## 👨‍💻 作者
-
-**illionillion**
-
-- GitHub: [@illionillion](https://github.com/illionillion)
-
----
-
-⭐ このプロジェクトが役に立った場合は、スターをつけていただけると嬉しいです！
+Bug reports and questions: [Issues](https://github.com/betyourluck/Lorelei/issues).
