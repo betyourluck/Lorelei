@@ -61,6 +61,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 ## 現状
 
 - 2026-09-24: [spec 01](specs/01_tauri-mcp-foundation.md) rev3。**spec 01 Done**（P0〜P5。未確認・未達は spec 01「受け入れ条件の結果」）。
+- 2026-10-09: [spec 21](specs/21_unrouted-label-overlap.md) **Draft**（rev0。spec 19 の候補 ⑦: 回さない線どうしのボタンが重なる（枠の無い大きな図で 11 組）。ボタンは矢印の切り替えと削除も持つので、違う線を押しうる）。
+  推奨: 重なる組の後ろの線のボタンを、自分の曲線の上で中点に近い順に、ほかのボタン・ノード・枠の見出しと重ならない所へ滑らせる（`routeEdges` が求めて返す）。重ならないボタンは動かさない。
+  現況で、同じ向きの平行な線は曲線もボタンも重なり、逆向きの組に混じると `adjustEdgeLabelPosition` が出口と入口で線を探すので同じずれを受けることを確かめた。次は査読と P0（重なりの組を形で分けて数える）
 - 2026-10-04: [spec 20](specs/20_release-build-actions.md) **Done**（rev2。Fuseforks・Lorekeel と同じく、`v*.*` のタグの push で GitHub Actions が 3 OS をテスト → ビルドし、インストーラーを下書きの Release に置く）。
   `.github/workflows/build.yml`・`verify-notary.yml` を足し、フォーク元の `ci.yml`・`deploy.yml` は手動だけにした（裁定 2。main への push で `docs/` をボットがコミットしないように）。
   `v0.1.1` で 3 OS が通り、macOS は署名と公証（`Accepted`）まで、Windows の NSIS で入れた版で MCP と図の一覧を確かめた。`v0.1.0` はテストで止まった（failures #34: 遅いランナーで `waitFor` の 1 秒が足りない →
