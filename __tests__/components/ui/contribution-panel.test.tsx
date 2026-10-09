@@ -1,5 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
-import { describe, test, expect, vi, beforeEach } from "vitest";
+import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render } from "@/__tests__/test-utils";
 import { ContributionPanel, ContributionPanelContent } from "@/components/ui/contribution-panel";
 
@@ -91,6 +91,38 @@ describe("ContributionPanel", () => {
       );
       expect(issueLink).toHaveAttribute("target", "_blank");
       expect(issueLink).toHaveAttribute("rel", "noopener noreferrer");
+    });
+  });
+
+  describe("リポジトリをビルド時に差し替える (NEXT_PUBLIC_REPOSITORY_URL)", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    test("指定した時は、リポジトリと Issue のリンクがそのリポジトリを指す", async () => {
+      vi.stubEnv("NEXT_PUBLIC_REPOSITORY_URL", "https://github.com/betyourluck/Lorelei");
+      const { user } = render(<ContributionPanelContent />);
+      await user.click(screen.getByRole("button", { name: "コントリビューションメニュー" }));
+
+      expect(await screen.findByRole("menuitem", { name: "リポジトリを見る" })).toHaveAttribute(
+        "href",
+        "https://github.com/betyourluck/Lorelei"
+      );
+      expect(screen.getByRole("menuitem", { name: "Issueを作成" })).toHaveAttribute(
+        "href",
+        "https://github.com/betyourluck/Lorelei/issues/new/choose"
+      );
+    });
+
+    test("空の時は元のリポジトリのまま", async () => {
+      vi.stubEnv("NEXT_PUBLIC_REPOSITORY_URL", "");
+      const { user } = render(<ContributionPanelContent />);
+      await user.click(screen.getByRole("button", { name: "コントリビューションメニュー" }));
+
+      expect(await screen.findByRole("menuitem", { name: "リポジトリを見る" })).toHaveAttribute(
+        "href",
+        "https://github.com/illionillion/mermaid-editor"
+      );
     });
   });
 

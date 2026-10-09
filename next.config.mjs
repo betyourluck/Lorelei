@@ -7,16 +7,21 @@ const isPages = process.env.NODE_ENV === "production" && !isTauri;
 // Tauri の dev では output を外して自分の作業場所を持たせ、動いている dev を build が上書きしないようにする
 const isTauriDev = isTauri && process.env.NODE_ENV !== "production";
 
+// GitHub Pages の置き場所と書き出し先 (既定はフォーク元の /mermaid-editor と docs/)。
+// 別の場所へ配る時は PAGES_BASE_PATH (例: /lorelei-web) と PAGES_DIST_DIR で差し替える (git の中の docs/ を上書きしないように, failures #18)
+const pagesBasePath = process.env.PAGES_BASE_PATH || "/mermaid-editor";
+const pagesDistDir = process.env.PAGES_DIST_DIR || "docs";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: isTauriDev ? undefined : "export",
-  distDir: isTauriDev ? ".next-tauri-dev" : isTauri ? "out" : isPages ? "docs" : ".next",
+  distDir: isTauriDev ? ".next-tauri-dev" : isTauri ? "out" : isPages ? pagesDistDir : ".next",
   trailingSlash: true,
   images: {
     unoptimized: true,
   },
-  basePath: isPages ? "/mermaid-editor" : "",
-  assetPrefix: isPages ? "/mermaid-editor/" : "",
+  basePath: isPages ? pagesBasePath : "",
+  assetPrefix: isPages ? `${pagesBasePath}/` : "",
 };
 
 export default nextConfig;

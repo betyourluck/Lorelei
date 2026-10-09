@@ -7,7 +7,8 @@ import { DesktopShell } from "../lib/desktop";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Mermaid フローチャート エディター",
+  // フォークで Web 版を配る時は、ビルド時に NEXT_PUBLIC_SITE_TITLE で差し替える
+  title: process.env.NEXT_PUBLIC_SITE_TITLE || "Mermaid フローチャート エディター",
   description: "Mermaidフローチャートを作成・編集するためのWebベースのツール",
 };
 
