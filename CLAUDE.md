@@ -64,7 +64,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 - 2026-10-13: **リポジトリの About を英語に、homepage をライブデモに、Topics を 13 個**（利用者を増やす方面。`gh repo edit -R betyourluck/Lorelei`）。
   **この作業場所の `gh` は `-R` なしだとフォーク元（`upstream`）を読み書きする**（failures #37。同日 `gh repo set-default betyourluck/Lorelei` 済み）
-- 2026-10-13: [spec 22](specs/22_drag-reroute-scope.md) **P0 着地、裁定待ち**。本番と同じ組み立て（`build-web-demo.mjs` の書き出し）で 4 案を 128 回測った:
+- 2026-10-14: [spec 22](specs/22_drag-reroute-scope.md) **rev2（裁定）**: D1 = 案 B だけ（探索を速くする。出す道は変えない）、D3 = failures #38 の穴を直して手を離した時の全部の探し直しを効かせる、
+  D2・D4 は推奨どおり（本番と同じ組み立てで中央値 16ms 以下・間引きは今のまま）、描き直しの重さは次の spec。P1 待ち
+- 2026-10-13: [spec 22](specs/22_drag-reroute-scope.md) **P0 着地**。本番と同じ組み立て（`build-web-demo.mjs` の書き出し）で 4 案を 128 回測った:
   **案 B（`search` の割り当てと格子の作り方だけを変える。出す道は今と同じ、vitest で 978 回比べて食い違い 0）だけで、ノードのドラッグ中の 1 回は中央値 13.1ms 以下・手を離した時の全部の計算は 3 分の 1**。
   案 A（使い回しの判定）は重ねても目に見える差が無く、手を離した時に道が大きく変わる場面がある。
   **手を離してもノードの `dragging` が true のまま残り、「手を離したら全部を探し直す」が実物で一度も走っていなかった**（failures #38、`onNodeDragStop` の上書き）。
