@@ -461,6 +461,15 @@
   `onNodeDragStop` を飛ばす切り替えを試作に足すと、`dragging` が外れ、手を離した時の全部の探し直し（58ms・探索 54 回）が走り、17 本の線の道が変わった。
   spec 17 D4 の「手を離したら全部を探し直す」は spec 15 の後に足したので、足した時から実物では効いていなかった
   （この分岐の単体テストは無く、spec 19 の受け入れ条件 4「ドラッグを終えた時は必ず全部を計算し直す」も画面では確かめていなかった。2026-10-13 に grep で確かめた）
-- **処方**: spec 22 P1 で直す（`onNodeDragStop` は `setNodes` に関数を渡し、その時のノードに `applyDrop` をかける形を見込む）
+- **処方**: `onNodeDragStop` は `setNodes` に関数を渡し、その時のノード（xyflow が積んだ `dragging: false` を当てた後）に `applyDrop` をかける（確かめのダイアログの後も同じ）。`d91f5ec`（spec 22 P1）。
+  テストは xyflow の手を離した時の手順（`updateNodePositions(…, false)` → `onNodeDragStop`）をストアから同じ順で起こす（`flow-editor-drag-stop.test.tsx`。直す前の形では 3 件とも落ちる）。
+  本番と同じ組み立ての Web 版で、直す前は 24 回のドラッグで手を離した時の探し直しが 0 回、直した後は 24 回
 - **一般化**: xyflow の `onNode*Stop` の中で `getNodes()` から作った配列を `setNodes` に値で渡すと、同じ事件で xyflow が積んだ変更を消す。
   止める側の手当て（手を離した時の処理）は、始まる側・続く側より確かめが抜けやすい。実物の事件の順で起きるかを、画面で「手を離した後の回」を記録して確かめる
+
+## #39 Git Bash から `build-web-demo.mjs --base-path /new` を呼ぶと、使い方の誤りで止まった（2026-10-14, spec 22 P1）
+
+- **症状**: `node scripts/build-web-demo.mjs <写し先> --base-path /new` が「使い方: …」を出して終了コード 2 で止まり、組み立てが走らなかった。出力を `grep` で絞っていたので、最初は何も出ずに通ったように見えた
+- **真因**: Git Bash（MSYS）は `/` で始まる引数を Windows のパスに書き換えて渡す（`/new` → `C:/Program Files/Git/new`）。スクリプトは `--base-path` が `/` で始まるかを確かめるので、使い方の誤りになる
+- **処方**: `MSYS_NO_PATHCONV=1 node scripts/build-web-demo.mjs … --base-path /new`。`--base-path` を渡さない時（既定の `/lorelei-web`）は書き換えが起きない
+- **一般化**: Git Bash から `/` で始まる引数（URL のパス・basePath）を node や python に渡す時は、`MSYS_NO_PATHCONV=1` を付けるか PowerShell から呼ぶ。出力を絞って流す長い処理は、終了コードと「書き出した」の行を必ず見る
