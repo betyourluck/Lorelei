@@ -278,156 +278,354 @@ function stubEnd(end: RouteEnd, avoid: Rect[]): Point | null {
   return null;
 }
 
-/** 最小の重みの取り出し */
-class MinHeap {
-  private a: [number, number][] = [];
-  get size() {
-    return this.a.length;
-  }
-  push(item: [number, number]) {
-    const a = this.a;
-    a.push(item);
-    let i = a.length - 1;
-    while (i > 0) {
-      const j = (i - 1) >> 1;
-      if (a[j][0] <= a[i][0]) break;
-      [a[i], a[j]] = [a[j], a[i]];
-      i = j;
-    }
-  }
-  pop(): [number, number] {
-    const a = this.a;
-    const top = a[0];
-    const last = a.pop()!;
-    if (a.length) {
-      a[0] = last;
-      let i = 0;
-      for (;;) {
-        const l = 2 * i + 1;
-        const r = l + 1;
-        let m = i;
-        if (l < a.length && a[l][0] < a[m][0]) m = l;
-        if (r < a.length && a[r][0] < a[m][0]) m = r;
-        if (m === i) break;
-        [a[i], a[m]] = [a[m], a[i]];
-        i = m;
-      }
-    }
-    return top;
-  }
-}
-
 /** 向き: 0 右・1 左・2 下・3 上 */
 const DIR_OF: Record<HandleSide, number> = { right: 0, left: 1, bottom: 2, top: 3 };
 const OPPOSITE = [1, 0, 3, 2];
 /** 同じ重みなら右・下を先に取るための、ごく小さな重み (道のりの選び方は変えない) */
 const TIE = [0, 1e-6, 0, 1e-6];
 
+/*
+ * search の入れ物 (spec 22 D1 の案 B): 呼び出しごとに作らず、大きくなる時だけ作り直して使い回す (search は同期で 1 本ずつ呼ぶので、入れ子に呼ばない)。
+ * 出す道は前の実装 (__tests__/utils/search-reference.ts に写した) と同じ。割り当てと格子の作り方だけを変えた
+ */
+let coordCap = 0;
+let XS = new Float64Array(0);
+let YS = new Float64Array(0);
+let MX = new Float64Array(0);
+let MY = new Float64Array(0);
+let cellCap = 0;
+/** 1 = 塞がる: 格子の点・右への辺・下への辺が、避けるものの内側を通る */
+let blkF = new Uint8Array(0);
+let blkR = new Uint8Array(0);
+let blkD = new Uint8Array(0);
+let stateCap = 0;
+let DIST = new Float64Array(0);
+let PREV = new Int32Array(0);
+/** dist を Infinity で埋める代わりに、この呼び出しで書いた状態に gen を付ける */
+let STAMP = new Uint32Array(0);
+let gen = 0;
+/** 最小の重みの取り出し (二分ヒープ)。重みと状態を別々の配列に持つ。比べ方は前の実装と同じで、取り出しの順も同じ */
+let heapCap = 1024;
+let HK = new Float64Array(heapCap);
+let HV = new Int32Array(heapCap);
+let hn = 0;
+
+function heapPush(key: number, val: number): void {
+  if (hn === heapCap) {
+    heapCap *= 2;
+    const k2 = new Float64Array(heapCap);
+    k2.set(HK);
+    HK = k2;
+    const v2 = new Int32Array(heapCap);
+    v2.set(HV);
+    HV = v2;
+  }
+  const hk = HK;
+  const hv = HV;
+  // 親が <= なら止まる。入れた要素を穴として上げる (入れ替えを繰り返すのと同じ並び)
+  let i = hn++;
+  while (i > 0) {
+    const j = (i - 1) >> 1;
+    if (hk[j] <= key) break;
+    hk[i] = hk[j];
+    hv[i] = hv[j];
+    i = j;
+  }
+  hk[i] = key;
+  hv[i] = val;
+}
+
+function heapPop(): number {
+  const hk = HK;
+  const hv = HV;
+  const top = hv[0];
+  hn--;
+  if (hn > 0) {
+    // 最後の要素を根に置き、左・右の順に < で小さい方へ下ろす
+    const key = hk[hn];
+    const val = hv[hn];
+    let i = 0;
+    for (;;) {
+      const l = 2 * i + 1;
+      const r = l + 1;
+      let m = i;
+      let mk = key;
+      if (l < hn && hk[l] < mk) {
+        m = l;
+        mk = hk[l];
+      }
+      if (r < hn && hk[r] < mk) {
+        m = r;
+        mk = hk[r];
+      }
+      if (m === i) break;
+      hk[i] = hk[m];
+      hv[i] = hv[m];
+      i = m;
+    }
+    hk[i] = key;
+    hv[i] = val;
+  }
+  return top;
+}
+
+/** 昇順に並べて同じ値を除く (Array.from(new Set(..)).sort((p, q) => p - q) と同じ値の並び)。残った数を返す */
+function sortUniq(buf: Float64Array, n: number): number {
+  buf.subarray(0, n).sort();
+  let m = 0;
+  for (let k = 0; k < n; k++) {
+    const x = buf[k];
+    if (m === 0 || x !== buf[m - 1]) buf[m++] = x;
+  }
+  return m;
+}
+/** 昇順の v[0..n) で v[k] > t となる最初の k */
+function firstAbove(v: Float64Array, n: number, t: number): number {
+  let lo = 0;
+  let hi = n;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (v[mid] > t) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
+}
+/** 昇順の v[0..n) で v[k] < t とならない最初の k (v[k] < t の k は [0, これ)) */
+function firstNotBelow(v: Float64Array, n: number, t: number): number {
+  let lo = 0;
+  let hi = n;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (v[mid] < t) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+const W0 = 1 + TIE[0];
+const W1 = 1 + TIE[1];
+const W2 = 1 + TIE[2];
+const W3 = 1 + TIE[3];
+const BEND = ROUTE.BEND_COST;
+
 /**
  * 直交の見通しの格子 (避けるものを MARGIN 広げた矩形の辺の座標と、突き出しの先の座標) の上で、
- * 道のり + BEND_COST × 曲がりの数が最小の道を探す (A*)。状態は「点 × 来た向き」で、来た向きと逆へは進まない
+ * 道のり + BEND_COST × 曲がりの数が最小の道を探す (A*)。状態は「点 × 来た向き」で、来た向きと逆へは進まない。
+ * 書き出しはテストのため (spec 22: 速くした後も、出す道が前の実装と同じかを比べる)
  */
-function search(a: Point, aDir: number, b: Point, bDir: number, avoid: Rect[]): Point[] | null {
+export function search(
+  a: Point,
+  aDir: number,
+  b: Point,
+  bDir: number,
+  avoid: Rect[]
+): Point[] | null {
   const pad = 2 * ROUTE.MARGIN;
-  const uniq = (xs: number[]) => Array.from(new Set(xs)).sort((p, q) => p - q);
-  const xs = uniq([
-    a.x,
-    b.x,
-    ...avoid.flatMap((r) => [r.x, r.x + r.width]),
-    Math.min(a.x, b.x, ...avoid.map((r) => r.x)) - pad,
-    Math.max(a.x, b.x, ...avoid.map((r) => r.x + r.width)) + pad,
-  ]);
-  const ys = uniq([
-    a.y,
-    b.y,
-    ...avoid.flatMap((r) => [r.y, r.y + r.height]),
-    Math.min(a.y, b.y, ...avoid.map((r) => r.y)) - pad,
-    Math.max(a.y, b.y, ...avoid.map((r) => r.y + r.height)) + pad,
-  ]);
-  const X = xs.length;
-  const Y = ys.length;
-  // 内側の判定は縁から EDGE_EPS より内側だけ (別々に求めた縁が誤差の幅で食い違うと、縁に沿う通り道が塞がる。P2 の配布ビルド)
-  const free = new Uint8Array(X * Y);
-  const rightOk = new Uint8Array(X * Y);
-  const downOk = new Uint8Array(X * Y);
-  for (let j = 0; j < Y; j++) {
-    const y = ys[j];
-    const row = avoid.filter((r) => y > r.y + EDGE_EPS && y < r.y + r.height - EDGE_EPS);
-    for (let i = 0; i < X; i++) {
-      const x = xs[i];
-      free[j * X + i] = row.some((r) => x > r.x + EDGE_EPS && x < r.x + r.width - EDGE_EPS) ? 0 : 1;
-      if (i + 1 < X) {
-        const mx = (x + xs[i + 1]) / 2;
-        rightOk[j * X + i] = row.some((r) => mx > r.x && mx < r.x + r.width) ? 0 : 1;
+  const R = avoid.length;
+  const nc = 2 * R + 4;
+  if (nc > coordCap) {
+    coordCap = Math.max(nc, 2 * coordCap);
+    XS = new Float64Array(coordCap);
+    YS = new Float64Array(coordCap);
+    MX = new Float64Array(coordCap);
+    MY = new Float64Array(coordCap);
+  }
+  const xs = XS;
+  const ys = YS;
+  // 格子の座標: 2 点・矩形の辺・外周
+  let minX = Math.min(a.x, b.x);
+  let maxX = Math.max(a.x, b.x);
+  let minY = Math.min(a.y, b.y);
+  let maxY = Math.max(a.y, b.y);
+  let k = 0;
+  xs[k] = a.x;
+  ys[k++] = a.y;
+  xs[k] = b.x;
+  ys[k++] = b.y;
+  for (let n = 0; n < R; n++) {
+    const r = avoid[n];
+    const rx2 = r.x + r.width;
+    const ry2 = r.y + r.height;
+    xs[k] = r.x;
+    ys[k++] = r.y;
+    xs[k] = rx2;
+    ys[k++] = ry2;
+    minX = Math.min(minX, r.x);
+    maxX = Math.max(maxX, rx2);
+    minY = Math.min(minY, r.y);
+    maxY = Math.max(maxY, ry2);
+  }
+  xs[k] = minX - pad;
+  ys[k++] = minY - pad;
+  xs[k] = maxX + pad;
+  ys[k++] = maxY + pad;
+  const X = sortUniq(xs, k);
+  const Y = sortUniq(ys, k);
+  const cells = X * Y;
+  if (cells > cellCap) {
+    cellCap = Math.max(cells, 2 * cellCap);
+    blkF = new Uint8Array(cellCap);
+    blkR = new Uint8Array(cellCap);
+    blkD = new Uint8Array(cellCap);
+  } else {
+    blkF.fill(0, 0, cells);
+    blkR.fill(0, 0, cells);
+    blkD.fill(0, 0, cells);
+  }
+  const bF = blkF;
+  const bR = blkR;
+  const bD = blkD;
+  const mx = MX;
+  const my = MY;
+  for (let i = 0; i + 1 < X; i++) mx[i] = (xs[i] + xs[i + 1]) / 2;
+  for (let j = 0; j + 1 < Y; j++) my[j] = (ys[j] + ys[j + 1]) / 2;
+  // 矩形ごとに、塞ぐ行・列の範囲 (座標は昇順なので、内側の比べが真になる添字は連続する) を二分探索で求めて塗る
+  for (let n = 0; n < R; n++) {
+    const r = avoid[n];
+    // 行: y > r.y + EDGE_EPS && y < r.y + r.height - EDGE_EPS
+    const j0 = firstAbove(ys, Y, r.y + EDGE_EPS);
+    const j1 = firstNotBelow(ys, Y, r.y + r.height - EDGE_EPS);
+    // 列: x > r.x + EDGE_EPS && x < r.x + r.width - EDGE_EPS
+    const i0 = firstAbove(xs, X, r.x + EDGE_EPS);
+    const i1 = firstNotBelow(xs, X, r.x + r.width - EDGE_EPS);
+    // 横の辺の中点: mx > r.x && mx < r.x + r.width
+    const m0 = firstAbove(mx, X - 1, r.x);
+    const m1 = firstNotBelow(mx, X - 1, r.x + r.width);
+    for (let j = j0; j < j1; j++) {
+      const row = j * X;
+      for (let i = i0; i < i1; i++) bF[row + i] = 1;
+      for (let i = m0; i < m1; i++) bR[row + i] = 1;
+    }
+    if (i0 < i1) {
+      // 縦の辺の中点: my > r.y && my < r.y + r.height
+      const n0 = firstAbove(my, Y - 1, r.y);
+      const n1 = firstNotBelow(my, Y - 1, r.y + r.height);
+      for (let j = n0; j < n1; j++) {
+        const row = j * X;
+        for (let i = i0; i < i1; i++) bD[row + i] = 1;
       }
     }
   }
-  for (let i = 0; i < X; i++) {
-    const x = xs[i];
-    const col = avoid.filter((r) => x > r.x + EDGE_EPS && x < r.x + r.width - EDGE_EPS);
-    for (let j = 0; j + 1 < Y; j++) {
-      const my = (ys[j] + ys[j + 1]) / 2;
-      downOk[j * X + i] = col.some((r) => my > r.y && my < r.y + r.height) ? 0 : 1;
-    }
+  // 2 点の添字 (値は xs・ys にちょうど 1 つある)
+  const si = firstNotBelow(xs, X, a.x);
+  const sj = firstNotBelow(ys, Y, a.y);
+  const ti = firstNotBelow(xs, X, b.x);
+  const tj = firstNotBelow(ys, Y, b.y);
+  const states = cells * 4;
+  if (states > stateCap) {
+    stateCap = Math.max(states, 2 * stateCap);
+    DIST = new Float64Array(stateCap);
+    PREV = new Int32Array(stateCap);
+    STAMP = new Uint32Array(stateCap);
+    gen = 0;
   }
-  const si = xs.indexOf(a.x);
-  const sj = ys.indexOf(a.y);
-  const ti = xs.indexOf(b.x);
-  const tj = ys.indexOf(b.y);
-  const states = X * Y * 4;
-  const dist = new Float64Array(states).fill(Infinity);
-  const prev = new Int32Array(states).fill(-1);
-  const h = (i: number, j: number) => Math.abs(xs[i] - xs[ti]) + Math.abs(ys[j] - ys[tj]);
+  gen++;
+  if (gen >= 0xffffffff) {
+    STAMP.fill(0);
+    gen = 1;
+  }
+  const g = gen;
+  const dist = DIST;
+  const prev = PREV;
+  const stamp = STAMP;
+  const tx = xs[ti];
+  const ty = ys[tj];
   const start = (sj * X + si) * 4 + aDir;
+  stamp[start] = g;
   dist[start] = 0;
-  const heap = new MinHeap();
-  heap.push([h(si, sj), start]);
+  prev[start] = -1;
+  hn = 0;
+  heapPush(Math.abs(xs[si] - tx) + Math.abs(ys[sj] - ty), start);
+  const oppB = OPPOSITE[bDir];
   let goal = -1;
-  while (heap.size) {
-    const [, st] = heap.pop();
-    const p = Math.floor(st / 4);
-    const d = st % 4;
+  while (hn > 0) {
+    const st = heapPop();
+    const p = st >> 2;
+    const d = st & 3;
     const i = p % X;
-    const j = Math.floor(p / X);
+    const j = (p - i) / X;
     if (i === ti && j === tj && d === bDir) {
       goal = st;
       break;
     }
     const base = dist[st];
-    const moves: [number, number, number][] = [];
-    if (i + 1 < X && rightOk[j * X + i]) moves.push([i + 1, j, 0]);
-    if (i > 0 && rightOk[j * X + i - 1]) moves.push([i - 1, j, 1]);
-    if (j + 1 < Y && downOk[j * X + i]) moves.push([i, j + 1, 2]);
-    if (j > 0 && downOk[(j - 1) * X + i]) moves.push([i, j - 1, 3]);
-    for (const [ni, nj, nd] of moves) {
-      if (nd === OPPOSITE[d]) continue;
-      const q = nj * X + ni;
-      const atGoal = ni === ti && nj === tj;
-      if (!free[q] && !atGoal) continue;
-      const len = Math.abs(xs[ni] - xs[i]) + Math.abs(ys[nj] - ys[j]);
-      const cost = base + len * (1 + TIE[nd]) + (nd !== d ? ROUTE.BEND_COST : 0);
-      const ns = q * 4 + nd;
-      if (cost < dist[ns]) {
-        dist[ns] = cost;
-        prev[ns] = st;
-        heap.push([cost + h(ni, nj), ns]);
+    const od = OPPOSITE[d];
+    const row = j * X;
+    // 右・左・下・上の順に進む。来た向きと逆へは進まない
+    if (i + 1 < X && !bR[row + i] && od !== 0) {
+      const ni = i + 1;
+      const q = row + ni;
+      if (!bF[q] || (ni === ti && j === tj)) {
+        const cost = base + Math.abs(xs[ni] - xs[i]) * W0 + (d !== 0 ? BEND : 0);
+        const ns = q * 4;
+        if (stamp[ns] !== g || cost < dist[ns]) {
+          stamp[ns] = g;
+          dist[ns] = cost;
+          prev[ns] = st;
+          heapPush(cost + (Math.abs(xs[ni] - tx) + Math.abs(ys[j] - ty)), ns);
+        }
+      }
+    }
+    if (i > 0 && !bR[row + i - 1] && od !== 1) {
+      const ni = i - 1;
+      const q = row + ni;
+      if (!bF[q] || (ni === ti && j === tj)) {
+        const cost = base + Math.abs(xs[ni] - xs[i]) * W1 + (d !== 1 ? BEND : 0);
+        const ns = q * 4 + 1;
+        if (stamp[ns] !== g || cost < dist[ns]) {
+          stamp[ns] = g;
+          dist[ns] = cost;
+          prev[ns] = st;
+          heapPush(cost + (Math.abs(xs[ni] - tx) + Math.abs(ys[j] - ty)), ns);
+        }
+      }
+    }
+    if (j + 1 < Y && !bD[row + i] && od !== 2) {
+      const nj = j + 1;
+      const q = row + X + i;
+      if (!bF[q] || (i === ti && nj === tj)) {
+        const cost = base + Math.abs(ys[nj] - ys[j]) * W2 + (d !== 2 ? BEND : 0);
+        const ns = q * 4 + 2;
+        if (stamp[ns] !== g || cost < dist[ns]) {
+          stamp[ns] = g;
+          dist[ns] = cost;
+          prev[ns] = st;
+          heapPush(cost + (Math.abs(xs[i] - tx) + Math.abs(ys[nj] - ty)), ns);
+        }
+      }
+    }
+    if (j > 0 && !bD[row - X + i] && od !== 3) {
+      const nj = j - 1;
+      const q = row - X + i;
+      if (!bF[q] || (i === ti && nj === tj)) {
+        const cost = base + Math.abs(ys[nj] - ys[j]) * W3 + (d !== 3 ? BEND : 0);
+        const ns = q * 4 + 3;
+        if (stamp[ns] !== g || cost < dist[ns]) {
+          stamp[ns] = g;
+          dist[ns] = cost;
+          prev[ns] = st;
+          heapPush(cost + (Math.abs(xs[i] - tx) + Math.abs(ys[nj] - ty)), ns);
+        }
       }
     }
     // 入口の突き出しの先で、入る向きへ曲がる
-    if (i === ti && j === tj && d !== bDir && d !== OPPOSITE[bDir]) {
+    if (i === ti && j === tj && d !== bDir && d !== oppB) {
       const ns = p * 4 + bDir;
-      const cost = base + ROUTE.BEND_COST;
-      if (cost < dist[ns]) {
+      const cost = base + BEND;
+      if (stamp[ns] !== g || cost < dist[ns]) {
+        stamp[ns] = g;
         dist[ns] = cost;
         prev[ns] = st;
-        heap.push([cost, ns]);
+        heapPush(cost, ns);
       }
     }
   }
-  if (goal < 0) return null;
+  if (goal < 0) {
+    return null;
+  }
   const pts: Point[] = [];
   for (let st = goal; st >= 0; st = prev[st]) {
-    const p = Math.floor(st / 4);
+    const p = st >> 2;
     const pt = { x: xs[p % X], y: ys[Math.floor(p / X)] };
     const last = pts[pts.length - 1];
     if (!last || last.x !== pt.x || last.y !== pt.y) pts.push(pt);
