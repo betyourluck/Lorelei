@@ -64,10 +64,11 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 - 2026-10-13: **リポジトリの About を英語に、homepage をライブデモに、Topics を 13 個**（利用者を増やす方面。`gh repo edit -R betyourluck/Lorelei`）。
   **この作業場所の `gh` は `-R` なしだとフォーク元（`upstream`）を読み書きする**（failures #37。同日 `gh repo set-default betyourluck/Lorelei` 済み）
-- 2026-10-13: [spec 22](specs/22_drag-reroute-scope.md) **起票**（rev0。査読待ち。spec 19・21 の候補「大きな図のドラッグを軽くする」）。
+- 2026-10-13: [spec 22](specs/22_drag-reroute-scope.md) **rev1**（起票 → 査読 2 本を反映。P0 待ち。spec 19・21 の候補「大きな図のドラッグを軽くする」）。
   起票前の下調べ（vitest）: ドラッグ中の時間の 85〜90% は A* の探索で、n57 の線は 5 本なのに 1 回ごとに約 27 本を探し直していた
   （回り道の線の外接矩形が図の大部分を覆い、動いたノードが入るだけで使い回せない。「線の多いノード」は当たっていない）。
-  推奨は使い回しの判定を「動いたものが折れ線にかかるか」に細かくする案（写しで 45〜72ms → 5〜14ms）。代わりに、ドラッグ中は遠回りのまま残る線があり、手を離した時に縮む
+  推奨は、動いたものが `needsRoute` の見る範囲（曲線とボタン）に重なる線だけ回す要を求め直し、回した線は動いたものが折れ線にかかる時だけ探し直す案
+  （写しでノードのドラッグ 37〜53ms → 5〜14ms、回す要との食い違いは毎歩 0）。代わりに、ドラッグ中は遠回りのまま残る線があり、手を離した時に縮む。枠のドラッグは 22〜24ms 残る
 - 2026-10-09: **README に操作の GIF・CONTRIBUTING を Lorelei 向けに・Issues を有効に**（v0.1.2 の後）。GIF は `assets/readme/lorelei-demo.gif`（960×625、21 秒）:
   配布ビルドの窓を ffmpeg の gdigrab で録り（窓の見えている範囲は DwmGetWindowAttribute で測る）、MCP は HTTP の口を直接叩き、GUI は computer-use で操作、字幕は Pillow で作って ffmpeg で重ねた
   （ffmpeg の drawtext はこの環境で fontconfig が無く落ちる）。CONTRIBUTING は英語と日本語。リポジトリの Issues は無効だったのを利用者が有効にした（README・リリースノート・デモの報告先が開けなかった）
