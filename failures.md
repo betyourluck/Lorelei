@@ -449,3 +449,18 @@
 - **処方**: Lorelei へ向ける `gh` には `-R betyourluck/Lorelei` を付ける（読み出しも書き込みも）。この作業場所は同日 `gh repo set-default betyourluck/Lorelei` 済み
   （`.git/config` に書かれ、git の対象外。**新しく clone した作業場所では未設定**）
 - **一般化**: フォークの作業場所で `gh` の書き込み（`issue create`・`pr create`・`release`・`repo edit`）を `-R` なしで呼ぶと、フォーク元に公開で書きうる。読み出しの結果が予想と違う時は、まずどのリポジトリを見たかを疑う
+
+## #38 手を離してもノードの `dragging` が true のまま残り、「手を離したら全部を探し直す」（spec 17 D4）が実物で一度も走っていなかった（2026-10-13, spec 22 P0）
+
+- **症状**: Web 版で大きな図のノードをドラッグして離した後も、xyflow のストアのノードが `dragging: true` のまま残った（ノードの `dragging` の class は外れる）。
+  経路のフック（`use-edge-routes.ts`）は `nodes.some((n) => n.dragging)` でドラッグ中と見続け、手を離した後の全部の探し直しの回が 0 だった。合成のマウスの事件でも、Browser pane の入力（`left_click_drag`）でも同じ。
+  一度ドラッグしたノードは true のまま残るので、その後のどの変更もドラッグ中の扱い（使い回し・間引き）になる
+- **真因**: xyflow（`@xyflow/system` 0.0.66 の `XYDrag`）は手を離すと、`updateNodePositions(dragItems, false)` で `dragging: false` の変更を `onNodesChange`（`useNodesState` の `setNodes` に関数で積む）に渡し、
+  続けて同じ処理の中で `onNodeDragStop` を呼ぶ。`flow-editor.tsx` の `onNodeDragStop`（spec 15 D5 の枠への付け替え）は `getNodes()`（描き直す前で `dragging: true`）から `applyDrop` の結果を作り、
+  `setNodes(after)` で**値として**書く。React は積まれた順に処理するので、後の値が `dragging: false` を上書きする。
+  `onNodeDragStop` を飛ばす切り替えを試作に足すと、`dragging` が外れ、手を離した時の全部の探し直し（58ms・探索 54 回）が走り、17 本の線の道が変わった。
+  spec 17 D4 の「手を離したら全部を探し直す」は spec 15 の後に足したので、足した時から実物では効いていなかった
+  （この分岐の単体テストは無く、spec 19 の受け入れ条件 4「ドラッグを終えた時は必ず全部を計算し直す」も画面では確かめていなかった。2026-10-13 に grep で確かめた）
+- **処方**: spec 22 P1 で直す（`onNodeDragStop` は `setNodes` に関数を渡し、その時のノードに `applyDrop` をかける形を見込む）
+- **一般化**: xyflow の `onNode*Stop` の中で `getNodes()` から作った配列を `setNodes` に値で渡すと、同じ事件で xyflow が積んだ変更を消す。
+  止める側の手当て（手を離した時の処理）は、始まる側・続く側より確かめが抜けやすい。実物の事件の順で起きるかを、画面で「手を離した後の回」を記録して確かめる
