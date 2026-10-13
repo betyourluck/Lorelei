@@ -446,5 +446,6 @@
   Issue は 2025-09 の #48（多重エッジ）が 1 件と出た。Lorelei の説明文は日本語の「…を想定。」で、Issue は 0 件だった
 - **真因**: この作業場所には remote が `origin`（betyourluck/Lorelei）と `upstream`（illionillion/mermaid-editor）の 2 つあり、`gh repo set-default` は未設定。
   既定が決まっていない時、`gh` は `upstream` という名前の remote を優先して読む
-- **処方**: Lorelei へ向ける `gh` には `-R betyourluck/Lorelei` を付ける（読み出しも書き込みも）。既定を決めるなら `gh repo set-default betyourluck/Lorelei`（`.git/config` に書かれ、git の対象外）
+- **処方**: Lorelei へ向ける `gh` には `-R betyourluck/Lorelei` を付ける（読み出しも書き込みも）。この作業場所は同日 `gh repo set-default betyourluck/Lorelei` 済み
+  （`.git/config` に書かれ、git の対象外。**新しく clone した作業場所では未設定**）
 - **一般化**: フォークの作業場所で `gh` の書き込み（`issue create`・`pr create`・`release`・`repo edit`）を `-R` なしで呼ぶと、フォーク元に公開で書きうる。読み出しの結果が予想と違う時は、まずどのリポジトリを見たかを疑う
