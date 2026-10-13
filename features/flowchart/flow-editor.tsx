@@ -485,14 +485,13 @@ export function FlowEditor() {
   // 付け替えで枠と自分の中を結ぶようになる線は描画されない (spec 16 裁定 2) ので、確かめてから消す。やめたらドラッグの前の位置へ戻す
   const onNodeDragStop = useCallback(
     async (_: unknown, __: Node, dragged: Node[]) => {
+      const ids = dragged.map((n) => n.id);
       const before = getNodes();
-      const after = applyDrop(
-        before,
-        dragged.map((n) => n.id)
-      );
-      const broken = edgesBrokenByDrop(before, after, getEdges());
+      const broken = edgesBrokenByDrop(before, applyDrop(before, ids), getEdges());
+      // 付け替えは setNodes に関数で渡し、その時のノードにかける。手を離した時に xyflow が同じ処理の中で積んだ dragging: false の変更の後に当てるため
+      // (getNodes() から作った配列を値で渡すと、その変更を上書きしてノードに dragging が残り、経路の全部の探し直しが走らなかった, failures #38)
       if (broken.length === 0) {
-        setNodes(after);
+        setNodes((nds) => applyDrop(nds, ids));
         return;
       }
       const ok = await askDelete(
@@ -506,7 +505,7 @@ export function FlowEditor() {
         return;
       }
       const brokenIds = new Set(broken.map((e) => e.id));
-      setNodes(after);
+      setNodes((nds) => applyDrop(nds, ids));
       setEdges((eds) => eds.filter((e) => !brokenIds.has(e.id)));
     },
     [getNodes, getEdges, setNodes, setEdges, askDelete]

@@ -94,7 +94,8 @@ function gridCase(rand: () => number) {
   };
 }
 
-describe("search は速くする前と同じ道を返す (spec 22 D1)", () => {
+// 参照の実装 (速くする前の search) が重く、単独で 6〜9 秒、全件の並列実行で 15 秒を超えたことがある (failures #3 と同じ型で上限を上げる)
+describe("search は速くする前と同じ道を返す (spec 22 D1)", { timeout: 60000 }, () => {
   test("乱数の格子の入力 1000 通り", () => {
     const rand = rng(22);
     let bent = 0;
