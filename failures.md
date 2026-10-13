@@ -439,3 +439,12 @@
   `requestAnimationFrame` と `requestIdleCallback` を `setTimeout` に差し替えてから読み込み直しても止まった（#26・#32 の処方では足りない）。`document.fonts` は読み込み済みだった
 - **処方**: 利用者に Browser pane を表示してもらう。表示した後は、読み込み直したページでインポートが毎回通った
 - **一般化**: #26 の続き。Browser pane が隠れていると、描画の予約だけでなく mermaid.js の描画を待つ処理も止まりうる。隠れた窓で Web 版を測る時は、インポートが閉じるまで待つ処理に上限を付けて「止まった」を先に見分け、止まったら差し替えで粘らずに pane の表示を頼む
+
+## #37 `-R` を付けない `gh` が、Lorelei でなくフォーク元のリポジトリを読んだ（2026-10-13, リポジトリの About の更新）
+
+- **症状**: About を直す前の確かめで `gh repo view`・`gh issue list` を `-R` なしで呼ぶと、説明文は空、homepage は `illionillion.github.io/mermaid-editor/`、
+  Issue は 2025-09 の #48（多重エッジ）が 1 件と出た。Lorelei の説明文は日本語の「…を想定。」で、Issue は 0 件だった
+- **真因**: この作業場所には remote が `origin`（betyourluck/Lorelei）と `upstream`（illionillion/mermaid-editor）の 2 つあり、`gh repo set-default` は未設定。
+  既定が決まっていない時、`gh` は `upstream` という名前の remote を優先して読む
+- **処方**: Lorelei へ向ける `gh` には `-R betyourluck/Lorelei` を付ける（読み出しも書き込みも）。既定を決めるなら `gh repo set-default betyourluck/Lorelei`（`.git/config` に書かれ、git の対象外）
+- **一般化**: フォークの作業場所で `gh` の書き込み（`issue create`・`pr create`・`release`・`repo edit`）を `-R` なしで呼ぶと、フォーク元に公開で書きうる。読み出しの結果が予想と違う時は、まずどのリポジトリを見たかを疑う

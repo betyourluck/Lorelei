@@ -62,6 +62,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-13: **リポジトリの About を英語に、homepage をライブデモに、Topics を 13 個**（利用者を増やす方面。`gh repo edit -R betyourluck/Lorelei`）。
+  **この作業場所の `gh` は `-R` なしだとフォーク元（`upstream`）を読み書きする**（failures #37）
 - 2026-10-09: **README に操作の GIF・CONTRIBUTING を Lorelei 向けに・Issues を有効に**（v0.1.2 の後）。GIF は `assets/readme/lorelei-demo.gif`（960×625、21 秒）:
   配布ビルドの窓を ffmpeg の gdigrab で録り（窓の見えている範囲は DwmGetWindowAttribute で測る）、MCP は HTTP の口を直接叩き、GUI は computer-use で操作、字幕は Pillow で作って ffmpeg で重ねた
   （ffmpeg の drawtext はこの環境で fontconfig が無く落ちる）。CONTRIBUTING は英語と日本語。リポジトリの Issues は無効だったのを利用者が有効にした（README・リリースノート・デモの報告先が開けなかった）
