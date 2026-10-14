@@ -49,27 +49,29 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## どこに何が書いてあるか
 
-| 知りたいこと | 読む場所 |
-|---|---|
-| 使う人向けの入口（英語・日本語） | [README.md](README.md)（英語）/ [README.ja.md](README.ja.md)（日本語）。ライブデモ（Web 版）は https://betyourluck.github.io/lorelei-web/ |
-| 不具合の報告・PR の出し方（英語・日本語） | [CONTRIBUTING.md](CONTRIBUTING.md)、`.github/ISSUE_TEMPLATE/` |
-| 使う人向けの説明の全部（ビルド・Claude Code への登録・ツール・既知の制約） | [LORELEI.md](LORELEI.md) |
-| 名詞・型・MCP ツールの入出力 | [data_contract.yaml](data_contract.yaml) |
-| 決定事項と Phase 計画 | `specs/NN_*.md`（起票 → 査読 → rev 改訂 → Phase 単位で main へ直接コミット） |
-| 踏んだ罠（症状 → 真因 → 処方 → 一般化） | [failures.md](failures.md) |
-| 上流 crate に当てている修正（merman-core） | [vendor/merman-core/LORELEI_PATCH.md](vendor/merman-core/LORELEI_PATCH.md) |
-| フォーク元の開発手順・テスト・VRT | [DEVELOPMENT.md](DEVELOPMENT.md) / [TESTING.md](TESTING.md) |
+| 知りたいこと                                                               | 読む場所                                                                                                                                  |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 使う人向けの入口（英語・日本語）                                           | [README.md](README.md)（英語）/ [README.ja.md](README.ja.md)（日本語）。ライブデモ（Web 版）は https://betyourluck.github.io/lorelei-web/ |
+| 不具合の報告・PR の出し方（英語・日本語）                                  | [CONTRIBUTING.md](CONTRIBUTING.md)、`.github/ISSUE_TEMPLATE/`                                                                             |
+| 使う人向けの説明の全部（ビルド・Claude Code への登録・ツール・既知の制約） | [LORELEI.md](LORELEI.md)                                                                                                                  |
+| 名詞・型・MCP ツールの入出力                                               | [data_contract.yaml](data_contract.yaml)                                                                                                  |
+| 決定事項と Phase 計画                                                      | `specs/NN_*.md`（起票 → 査読 → rev 改訂 → Phase 単位で main へ直接コミット）                                                              |
+| 踏んだ罠（症状 → 真因 → 処方 → 一般化）                                    | [failures.md](failures.md)                                                                                                                |
+| 上流 crate に当てている修正（merman-core）                                 | [vendor/merman-core/LORELEI_PATCH.md](vendor/merman-core/LORELEI_PATCH.md)                                                                |
+| フォーク元の開発手順・テスト・VRT                                          | [DEVELOPMENT.md](DEVELOPMENT.md) / [TESTING.md](TESTING.md)                                                                               |
 
 ## 現状
 
-- 2026-10-14: [spec 23](specs/23_edge-label-render.md) **起票**（rev0。査読待ち。spec 22 の次の候補「ドラッグ中の描き直しを軽くする」）。
+- 2026-10-14: [spec 23](specs/23_edge-label-render.md) **rev1**（起票 → 査読 3 本を反映。P0 待ち。spec 22 の次の候補「ドラッグ中の描き直しを軽くする」）。
   下調べ: 自動スクロールを起こさない測り（failures #40）では、**経路の計算を止めるとノード 100・線 150 の図でもドラッグは表示の速さのまま**（95 パーセンタイル 21.1ms）。
   引っかかるのは経路の計算が走るフレームで、中身は**経路が変わった線（1 回に 18 本前後）のラベルの描き直し**（yamada-ui のラベルの箱・矢印のメニュー・×、1 本 2〜2.5ms）。
-  ラベルを素の要素で描く写しで 95 パーセンタイル 104 → 21ms、スクリプト 2.5 秒 → 0.08 秒。推奨は閉じたラベルを素の要素にし、矢印のメニューは押した時だけ出す案（見た目と操作は今と同じ）
+  ラベルを素の要素で描く写しで 95 パーセンタイル 104 → 21ms、長いフレームの中のスクリプト 2.5 秒 → 0.08 秒。推奨は閉じたラベルを素の要素にし、矢印のメニューは押した時だけ出す案（見た目と操作は今と同じ）。
+  rev1 で決めた・足したこと: `ArrowTypeSelector` が閉じた時の素のボタンと開閉を持つ / スタイルは CSS Modules を推す（リポジトリで最初の自前の CSS）/ 速さの基準は 24 場面の交互の比べを主にする案を推す（P0 で今の main の揺れを見て利用者と決める）/
+  **閉じた yamada-ui の `Menu` は項目の文字を DOM に持つが `role="menuitem"` は付かない**ので、「閉じた時に描かない」テストは文字で見る（role で見ると最初から緑, failures #22 の形）
 - 2026-10-13: **リポジトリの About を英語に、homepage をライブデモに、Topics を 13 個**（利用者を増やす方面。`gh repo edit -R betyourluck/Lorelei`）。
   **この作業場所の `gh` は `-R` なしだとフォーク元（`upstream`）を読み書きする**（failures #37。同日 `gh repo set-default betyourluck/Lorelei` 済み）
 - 2026-10-14: [spec 22](specs/22_drag-reroute-scope.md) **Done**（rev3。spec 19・21 の候補「大きな図のドラッグを軽くする」。起票 → 査読 2 本 → P0 → 裁定 → P1 → 受け入れ条件 1 の改め → P2）。
-  下調べ: ドラッグ中の時間の 85〜90% は A* の探索で、n57 の線は 5 本なのに 1 回ごとに約 27 本を探し直していた（回り道の線の外接矩形が図の大部分を覆う。「線の多いノード」は当たっていなかった）。
+  下調べ: ドラッグ中の時間の 85〜90% は A\* の探索で、n57 の線は 5 本なのに 1 回ごとに約 27 本を探し直していた（回り道の線の外接矩形が図の大部分を覆う。「線の多いノード」は当たっていなかった）。
   P0（本番と同じ組み立てで 4 案を 128 回）: **探索の割り当てと格子の作り方だけを変える案 B で足り、出す道は前と同じ**。使い回しの判定を細かくする案 A は重ねても目に見える差が無く採らなかった。
   **手を離してもノードの `dragging` が残り、「手を離したら全部を探し直す」（spec 17 D4）が実物で一度も走っていなかった**（failures #38）。
   P1（フォーク元 `afd495b`: 探索を速くする。前の実装の写しと乱数の格子 1000 通り・大きな図の golden で一致を確かめる / `d91f5ec`: `onNodeDragStop` を `setNodes` に関数で渡す）。
