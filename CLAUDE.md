@@ -62,10 +62,12 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
-- 2026-10-14: [spec 25](specs/25_mmd-save-dialog.md) **起票・P0 着地**（rev1。起票 → P0（コードと文書を読む下調べ）→ 査読 1 本。D1〜D5 の裁定待ち。spec 24 P3 の利用者の言「ダウンロード押した後に保存されたという通知がないから、なにが起こったかわからない」）。
+- 2026-10-14: [spec 25](specs/25_mmd-save-dialog.md) **起票・P0 着地**（rev2。起票 → P0（コードと文書を読む下調べ）→ 査読 3 本（1 本はこちらから、2 本は利用者が貼った）。D1〜D6 の裁定待ち。spec 24 P3 の利用者の言「ダウンロード押した後に保存されたという通知がないから、なにが起こったかわからない」）。
   コード生成のダイアログの「ダウンロード」（`.mmd`）はフォーク元の `<a download>` のままで、Windows は WebView2 が保存先を尋ねずに「ダウンロード」フォルダへ保存し、**macOS は wry がハンドラの無いダウンロードを取り消すので押しても何も起きないはず**。
   **WebView2 のイベントの中で同期のモーダルを出すのは再入で対応していない**（Microsoft の Threading model の文書。wry のダウンロードのハンドラは同期で deferral を使わない）ので、`on_download` の中で保存ダイアログを出す形は使えない。
-  推奨は、`lib/desktop` に保存の口を足してフォーク元の 2 つのダイアログのボタンから呼び（Web 版は Blob に戻る）、`export_diagram` の `format` に `mmd` を足す形（`RenderFormat` は MCP の enum なので変えず、`write_output` の拡張子の確かめを分ける）
+  推奨は、`lib/desktop` の `useMmdDownload(fileStem, webDownload): { download, busy }` をフォーク元の 2 つのダイアログの「ダウンロード」から呼び（Web 版は今の Blob の処理をそのまま呼ぶ、デスクトップでは呼ばない）、
+  `export_diagram` が `ExportKind { Render(RenderFormat), Mmd }` で振り分ける形（`RenderFormat` は MCP の enum なので変えず、`export_to` も変えず、`.mmd` は `save_mmd`、`write_output` の中身を拡張子で受ける `write_file` に分ける）。
+  保存ダイアログは窓に 1 つだけ（4 つのボタンで共有）。`OutputPathPolicy` は「共通・MCP だけ・GUI だけ」に分けて書き直す（上書きの規則が MCP と GUI で違う）
 - 2026-10-14: [spec 24](specs/24_mermaid-theme-output.md) **Done**（rev1。起票 → P0 → 裁定 → P1（フォーク元 `d94a161`: 生成器・Web の取り込み・コード生成のダイアログのテーマのメニューとプレビューの背景）→ P2（`17889ab`: デスクトップ・Rust）→
   P3（配布ビルドで利用者が「確認しました。完璧です」）。GitHub・Zenn が frontmatter を読むかは未確認。利用者の言「Mermaid のテーマを切り替えられるようにしたい。編集画面に被せるより、出力ファイルに反映されるように」）。
   下調べ（直す前）: 書き出しの口（`RenderOptions.theme`）を使うのは MCP の `render` だけで GUI の書き出しは default に固定、生成器はテーマを書かず、取り込み（Web・デスクトップ・MCP）はテーマを黙って落とし、
