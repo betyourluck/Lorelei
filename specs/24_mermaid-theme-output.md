@@ -2,7 +2,7 @@
 
 **ID**: 24
 **Date**: 2026-10-14
-**Status**: Draft（rev0。起票。査読待ち）
+**Status**: Draft（rev0。**P0 着地**（「P0 結果」）。D1〜D7 と D4-2 の裁定、GitHub・Zenn の確かめ待ち）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。spec 15〜23 と同じく、**フォーク元の改善と台帳・デスクトップはコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする
 （フォーク元のコミットは `lib/desktop/`・`src-tauri/`・`crates/` と台帳を含まない。PR を出すか・いつ出すかは利用者が決める, CLAUDE.md）
 
@@ -152,3 +152,90 @@
 - フォント（同梱の Noto Sans JP のまま。テーマの `fontFamily` は効かせない, spec 01）
 - neo・redux などの新しいテーマ（D3）
 - アプリの UI の暗い配色（ダークモード）
+
+## P0 結果（2026-10-14）
+
+**コミットするコードは変えていない**（使い捨てのテストは消した）。確かめた道具: 配布ビルド（`b113ccf` の作業ツリー）の MCP `render`・`open_in_editor`・`update_diagram`・`read_diagram`、
+裏の Edge（Playwright、`channel: "msedge"`）で動かした mermaid.js 11.17.2（`node_modules/mermaid/dist/mermaid.min.js`。コード生成のプレビューと同じ初期設定）、vitest、`lorelei_core` の使い捨ての統合テスト。
+図は、枠・線のラベル・点線・太線・ひし形・丸を含むフローチャートと、属性 2 つずつ・関係 1 本の ER 図（frontmatter の `config.theme` で指定）。
+
+### 1. merman（書き出し）と mermaid.js（プレビュー）の配色（P0 の 1）
+
+5 つのテーマ（default・neutral・dark・forest・base）× 2 種類の図を両方で描き、部品ごとの計算された色を比べた。
+
+- **ノード（四角・ひし形・丸）・枠・線・線のラベルの背景の色・矢じり・ER の箱・行（奇数・偶数）・関係の線の色は、10 通りの全部で一致**
+- 違ったのは 2 つ:
+  - **SVG の背景**: merman は白で塗る（`RenderOptions.background` の既定）。mermaid.js は塗らない（透過）
+  - **線のラベルの背景の見え方**: CSS は同じ（dark は `hsl(0,0%,34.4%)`）だが、書き出しは `htmlLabels: false` なので merman は「不透明度 0.5 の四角」で描き、
+    mermaid.js は HTML のラベル（不透明）で描く。白の上では merman の方が薄く、線が文字に透ける（テーマに関係なく今もある違い。dark で目立つ）
+- 文字の色は、merman は `<text>` の `fill`、mermaid.js は HTML の `color` で、見える色は同じ（並べた画像で確かめた）。ER 図の線のラベルは merman の方で文字が箱からはみ出す（書体の幅の違いと見ている。テーマに関係ない）
+
+### 2. dark の書き出しの背景（P0 の 2）
+
+dark のフローチャートと ER 図を、背景を白（今）・#333（dark の `background`）・透過で PNG に書き出して並べた。
+
+- **白**: 枠の外の線（lightgrey）と線のラベルがほとんど見えない
+- **#333**: 線・線のラベル・枠・文字が読める。線のラベルの 0.5 の四角も暗く混ざり、mermaid.js の見え方に近づく。ER 図の「0 以上」の丸（白で塗られる）が見えるようになる（mermaid.js も同じ塗り）
+- **透過**: 貼る先しだい。明るいページでは白と同じになる
+- → **D5 の案 A（テーマの背景に合わせる）を推す**
+
+### 3. 外の描き手（P0 の 3）
+
+- Mermaid の公式の文書は、init（ディレクティブ）を v10.5.0 から非推奨とし、frontmatter の `config` を推す（新しい機能は init に足さない）
+- merman と mermaid.js 11.17.2 は、frontmatter・init のどちらでもテーマを読む（下調べと上の 1）
+- **GitHub と Zenn が今どちらを読むかは、公開されている情報では分からなかった**（どちらも使っている Mermaid の版を出していない）。実物で試すのは利用者に頼む（下の「利用者に頼む確かめ」）
+
+### 4. 取り込みの往復（今のコード、P0 の 4）
+
+| 入口 | テーマ | テーマ以外の設定（`themeVariables`・`flowchart.rankSpacing`） | 消えるものの要約 |
+|---|---|---|---|
+| Web の取り込み（frontmatter・init） | 消える（取り込みの結果のどこにも無い） | 消える | 空（`dropped: []`） |
+| MCP `open_in_editor`（frontmatter） | `original_source` にだけ残る。GUI が読み込むと `source` は生成器の出力になり、テーマが無い | 同じ | 空 |
+| MCP `update_diagram`（init） | 直後の `source` は原文のまま。8 秒後には GUI が揃え直して消える | 同じ | 空 |
+
+- **今は 3 つの入口のどれも、テーマを黙って落とす**（現況のとおり。要約にも出ない）
+
+### 5. `themeVariables` の守りを外すと（P0 の 5、D4 の案 B の材料）
+
+`lorelei_core` の使い捨てのテストで、Lorelei と同じ組み立て（`resvg_safe`・`htmlLabels: false`）の merman に、守りの一覧から `themeVariables` だけを外した設定を渡した。
+
+- 外すと、図の `themeVariables` が書き出しに効く: `primaryColor`（ノードの塗り #6A7FAB）・`lineColor`（線 #ff0000）・`primaryTextColor`（文字 #FAFBF9）。今の守りのままだと、どれも効かない
+- `themeVariables.fontFamily` は、外しても効かなかった（書体は同梱の指定のまま。トップの `fontFamily` は守りに残している）
+- 色の値に CSS を混ぜると（`red;} svg{background:url(…)} …`）、merman は `Unsupported color format` で**描画ごとエラーにする**（色の値は CSS に入る前に色として読まれる）。
+  外す危険は、色の値からの CSS の差し込みについては小さい。代わりに、色として読めない値を書いた図は、今は黙って無視されるのが、外すと書き出せなくなる
+- merman が `themeVariables` を守りに入れた理由は、merman の文書と変更履歴には見当たらなかった（`HARDENED_SECURE_KEYS` に説明の注記も無い）。見当は、知らない人の図を描くサーバーで CSS を差し込ませないため（確かめていない）
+
+### 利用者に頼む確かめ（P0 の 3 の残り）
+
+次の 2 つの囲みを、GitHub（非公開の gist か、Issue・コメントの「Preview」）と Zenn（記事のプレビュー）に貼り、どちらが森の緑（forest）になるかを見てほしい。
+
+````text
+```mermaid
+---
+config:
+  theme: forest
+---
+flowchart LR
+  A[開始] --> B{判定}
+```
+
+```mermaid
+%%{init: {"theme": "forest"}}%%
+flowchart LR
+  A[開始] --> B{判定}
+```
+````
+
+### 推奨（P0 の後。裁定待ち）
+
+- **D1: 案 A**（図の Mermaid の先頭に書く）。今の 3 つの入口がテーマを黙って落とす穴（上の 4）も、これで塞がる
+- **D2: 案 A**（frontmatter。Mermaid の推す書き方）。ただし Zenn・GitHub が frontmatter を読まないと分かったら、init にするか、書き方を選べる形を考える（上の「利用者に頼む確かめ」の結果で決める）
+- **D3: 案 A**（default・neutral・dark・forest）
+- **D4: 案 A**（この spec で GUI が扱うのはテーマの名前だけ。取り込みでテーマ以外の設定が消える時は、消えるものの要約に出す）。
+  これに加えて、**書き出しの守りから `themeVariables` を外すかを決めてほしい（新しい決めごと D4-2）**:
+  - 外す（推奨）: AI が書いた色が書き出しにも効き、プレビュー（mermaid.js）との食い違いが消える。色として読めない値を書いた図は書き出しがエラーになる（今は黙って無視）。`themeCSS`・`fontFamily` は守りに残す
+  - 今のまま: 食い違いは LORELEI.md の既知の制約に書く
+- **D5: 案 A**（テーマの背景に合わせる。dark は #333、ほかは今と同じ白）。コード生成のプレビューの枠も同じ背景にする
+- **D6: 案 A**（コード生成のダイアログ）
+- **D7: 推奨どおり**（`render` の `ThemeParam` は 4 つのまま。説明に一言）
+- **スコープ外に足す**: 線のラベルの背景が書き出しで薄く、線が文字に透けること（`htmlLabels: false` の描き方、テーマに関係ない）・ER 図の線のラベルの文字がはみ出すこと
