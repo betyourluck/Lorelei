@@ -527,3 +527,10 @@
   pnpm 9 は形の違う node_modules を見ると消して入れ直すかを尋ね、答えの来ない呼び出しでは進まない
 - **処方**: `corepack pnpm@9 install --ignore-scripts --config.confirmModulesPurge=false` で入れ直した（2 分 48 秒。pnpm 9 の store `v3` から）。lockfile は pnpm 9 の形（`lockfileVersion: '9.0'`）のまま
 - **一般化**: install の出力は絞らずに最後の `Done` と lockfile の差を見る。ほかの道具（別の版の pnpm・scripts 付きの install）が node_modules を触ったかは、`.modules.yaml` の `packageManager` と git の hooks で分かる
+
+## #44 型の誤りがあるのに、`tsc` の終了コードが 0 に見えた（2026-10-14, spec 25 P1）
+
+- **症状**: `corepack pnpm@9 exec tsc --noEmit 2>&1 | tail -3; echo "tsc=$?"` が、`lib/desktop/save-dialog.ts` の `TS2802`（`Set` の for-of）を出しながら `tsc=0` と出した
+- **真因**: パイプの後ろの `$?` は最後のコマンド（`tail`）の終了コードで、`tsc` のものではない。出力を読んで気付いたが、`tsc=0` の行だけを見ていれば型の誤りを通していた
+- **処方**: 終了コードを見るコマンドはパイプに通さずに回し、その直後に `$?` を見る（`tsc --noEmit; echo "tsc=$?"`）。絞りたい時は Git Bash の `${PIPESTATUS[0]}`（vitest の全件はこれで見ていた）。直して回し直すと `tsc=0`・`eslint=0`
+- **一般化**: #43 と同じく、出力を絞るとそのコマンドの合否が見えなくなる。合否は終了コードで、終了コードはパイプの前のコマンドから取る
