@@ -27,6 +27,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   設定は `{app_data_dir}/mcp_server.json`、設定画面から切り替え）。保存ダイアログと About は rfd（JS に権限を足さない）。
   CSP は style-src の自動ハッシュ追記を止めている
 - **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは spec 01 の 4 ファイル・8 行 + spec 02 の 5 ファイル・12 行（`app/layout.tsx` の外枠、エディタ 2 つの高さ、パネル 2 つの `useDesktopActions`。重なりを除いて計 7 ファイル）+ spec 04 P0 でエディタ 2 つの初期図を export（`initialFlowNodes` / `initialERNodes`。初期図の突き合わせ用。ファイルは既存の 7 つに含まれる）+ spec 07 P2 でパネル 2 つの `useDesktopActions` に向き（`direction` / `setDirection`）を足した（同じ 2 ファイル）+ spec 15 P3 でフローチャートのパネルの `useDesktopActions` に `addFrame` を足した（同じファイル）
+  + spec 24 P2 でパネル 2 つの `useDesktopActions` に `theme` を足した（同じ 2 ファイル）+ spec 25 P1 でコード生成のダイアログ 2 つ（`download-modal.tsx`・`er-diagram-mermaid-modal.tsx`。spec 01 から `ExportButtons` を差し込んである）の「ダウンロード」を `useMmdDownload` に通した（各 2 行 + import）
 - **フロント（`app/` `features/` `components/`）**: フォーク元のコード。直してよい（下の掟の「フォーク元は必要なら直してよい」）。
   **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」「P4 結果」、spec 15（フローチャートのサブグラフ）の「P1 結果」「P3 結果」、spec 16（枠を指す線・枠の中の向き）の「P1 結果」〜「P3 結果」「P5 結果」、spec 23（線のラベル）の「P1 結果」、spec 24（テーマ）の「P1 結果」に一覧がある。PR を出すかは利用者が決める。
   **フォーク元へ出した PR**: [illionillion/mermaid-editor#74](https://github.com/illionillion/mermaid-editor/pull/74)（spec 13 の生成器の直しだけを移植。Lorelei のコミットはデスクトップの差し込みの上で作ったので cherry-pick では載らない — spec 13「フォーク元への PR」）。
@@ -62,12 +63,12 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
-- 2026-10-14: [spec 25](specs/25_mmd-save-dialog.md) **起票・P0 着地**（rev2。起票 → P0（コードと文書を読む下調べ）→ 査読 3 本（1 本はこちらから、2 本は利用者が貼った）。D1〜D6 の裁定待ち。spec 24 P3 の利用者の言「ダウンロード押した後に保存されたという通知がないから、なにが起こったかわからない」）。
+- 2026-10-14: [spec 25](specs/25_mmd-save-dialog.md) **P1 着地**（rev3。起票 → P0（コードと文書を読む下調べ）→ 査読 3 本（1 本はこちらから、2 本は利用者が貼った）→ 裁定（推奨どおり）→ P1（`9f9879c`）。P2（配布ビルドで利用者）待ち。spec 24 P3 の利用者の言「ダウンロード押した後に保存されたという通知がないから、なにが起こったかわからない」）。
   コード生成のダイアログの「ダウンロード」（`.mmd`）はフォーク元の `<a download>` のままで、Windows は WebView2 が保存先を尋ねずに「ダウンロード」フォルダへ保存し、**macOS は wry がハンドラの無いダウンロードを取り消すので押しても何も起きないはず**。
   **WebView2 のイベントの中で同期のモーダルを出すのは再入で対応していない**（Microsoft の Threading model の文書。wry のダウンロードのハンドラは同期で deferral を使わない）ので、`on_download` の中で保存ダイアログを出す形は使えない。
-  推奨は、`lib/desktop` の `useMmdDownload(fileStem, webDownload): { download, busy }` をフォーク元の 2 つのダイアログの「ダウンロード」から呼び（Web 版は今の Blob の処理をそのまま呼ぶ、デスクトップでは呼ばない）、
+  P1 で入れた形（裁定は推奨どおり）: `lib/desktop` の `useMmdDownload(fileStem, webDownload): { download, busy }` をフォーク元の 2 つのダイアログの「ダウンロード」から呼び（Web 版は今の Blob の処理をそのまま呼ぶ、デスクトップでは呼ばない）、
   `export_diagram` が `ExportKind { Render(RenderFormat), Mmd }` で振り分ける形（`RenderFormat` は MCP の enum なので変えず、`export_to` も変えず、`.mmd` は `save_mmd`、`write_output` の中身を拡張子で受ける `write_file` に分ける）。
-  保存ダイアログは窓に 1 つだけ（4 つのボタンで共有）。`OutputPathPolicy` は「共通・MCP だけ・GUI だけ」に分けて書き直す（上書きの規則が MCP と GUI で違う）
+  保存ダイアログは窓に 1 つだけ（4 つのボタンで共有）。`OutputPathPolicy` は「共通・MCP だけ・GUI だけ」に分けて書き直した（上書きの規則が MCP と GUI で違う）。テストは Rust 3 件・vitest 8 件（要の分岐を 4 つ壊してそれぞれ落ちる）
 - 2026-10-14: [spec 24](specs/24_mermaid-theme-output.md) **Done**（rev1。起票 → P0 → 裁定 → P1（フォーク元 `d94a161`: 生成器・Web の取り込み・コード生成のダイアログのテーマのメニューとプレビューの背景）→ P2（`17889ab`: デスクトップ・Rust）→
   P3（配布ビルドで利用者が「確認しました。完璧です」）。GitHub・Zenn が frontmatter を読むかは未確認。利用者の言「Mermaid のテーマを切り替えられるようにしたい。編集画面に被せるより、出力ファイルに反映されるように」）。
   下調べ（直す前）: 書き出しの口（`RenderOptions.theme`）を使うのは MCP の `render` だけで GUI の書き出しは default に固定、生成器はテーマを書かず、取り込み（Web・デスクトップ・MCP）はテーマを黙って落とし、
@@ -79,7 +80,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   守りは `engine.rs` の `Guard`（書き出し = render・validate は `themeVariables` を通す、取り込み = to_editor は守る）。色として読めない値は merman が**解析の段階**でエラーにし、validate も ok=false。
   dark で背景の指定が無ければ書き出しの背景は #333（効いているテーマは図の中が勝つ）。GUI の書き出しは引数を足さず、ダイアログのコードの先頭のテーマで決まる。
   `tauri dev` で MCP の HTTP の口を直接叩いて往復を確かめた（GUI の画面は computer-use の許可が下りず押していない, spec 24「P2 結果」）。図の一覧に確かめ用の図が 4 つ残る（P2・P3 の各 2 つ）。
-  P3 で見つけた次の候補: **コード生成のダイアログの「ダウンロード」（`.mmd`）は、デスクトップでは確認も知らせも無く「ダウンロード」フォルダへ保存される**
+  P3 で見つけた次の候補（→ spec 25）: **コード生成のダイアログの「ダウンロード」（`.mmd`）は、デスクトップでは確認も知らせも無く「ダウンロード」フォルダへ保存される**
   （フォーク元の `<a download>` のまま。Lorelei は Tauri の `on_download` を設定しておらず、WebView2 の既定で黙って保存され、押すたびに `(1)`・`(2)` … と増える。SVG・PNG・PDF は rfd の保存ダイアログ, spec 24「P3 結果」）
 - 2026-10-14: [spec 23](specs/23_edge-label-render.md) **Done**（rev2。起票 → 査読 3 本 → P0 → 裁定 → P1 → P2（配布ビルドで利用者が「すべて問題ありません」）。spec 22 の次の候補「ドラッグ中の描き直しを軽くする」）。
   下調べ: 自動スクロールを起こさない測り（failures #40）では、引っかかるのは経路の計算が走るフレームで、中身は**経路が変わった線（1 回に 18 本前後）のラベルの描き直し**（yamada-ui の部品、1 本 2〜2.5ms）。

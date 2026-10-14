@@ -2,7 +2,7 @@
 
 **ID**: 25
 **Date**: 2026-10-14
-**Status**: Draft（rev3。起票 → P0（コードと文書を読む下調べ。「P0 結果」）→ 査読 3 本を反映（「査読」）→ D1〜D6 を裁定（「裁定」）。P1 着手）
+**Status**: Draft（rev3。起票 → P0（コードと文書を読む下調べ。「P0 結果」）→ 査読 3 本を反映（「査読」）→ D1〜D6 を裁定（「裁定」）→ **P1 着地**（「P1 結果」、`9f9879c`）。P2（配布ビルド）待ち）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。変える所は `crates/lorelei_core` の出力（`output.rs`）・`src-tauri/`・`lib/desktop/` と、フォーク元の 2 つのダイアログへのデスクトップの差し込み。
 上流へ返す分は無い見込み（フォーク元のファイルの変更は `@/lib/desktop` を呼ぶ差し込みだけ）
 
@@ -240,3 +240,35 @@ Web の落とし方       = フォーク元の今の Blob + <a download> の処�
 - **D4: `useMmdDownload(fileStem, webDownload): { download, busy }`**。押した時に判定し、知らせはフックが出す
 - **D5: 保存ダイアログは窓に 1 つだけ**（4 つのボタンで共有。書き出しのボタンは押せなくなり、ダウンロードのボタンは見た目を変えず押しても何もしない）
 - **D6: ボタンの名前と並びは変えない**
+
+## P1 結果（2026-10-14）
+
+**`9f9879c`**（`crates/lorelei_core`・`src-tauri`・`lib/desktop` と、フォーク元の 2 つのダイアログへの差し込み）。data_contract は先に `c25a799` で書いた（`GuiCommands.export_diagram`・`OutputPathPolicy`・`DesktopMmdDownload`・`DesktopSaveDialog`）。
+
+- **Rust**: `output.rs` の `write_output` の中身を `write_file(path, extension, bytes, overwrite)` に移し、`write_output` はそれを `RenderFormat` の拡張子で呼ぶだけにした。
+  `desktop.rs` に `ExportKind { Render(RenderFormat), Mmd }`・`parse_kind`（今の `parse_format` を置き換え）・`save_mmd`。`export_diagram` は保存ダイアログの題・名前・絞り込みを `ExportKind::extension()` で作り、`export_to` か `save_mmd` を呼ぶ。
+  `export_to`・`write_output`・`RenderFormat` の署名は変えていない（既存のテストは 1 行も変えずに通った）
+- **lib/desktop**: `tauri.ts` の `ExportFormat` に `"mmd"`。`save-dialog.ts`（`runSaveDialog`・`useSaveDialogBusy`。モジュールの状態 + `useSyncExternalStore`）・`mmd-download.ts`（`useMmdDownload`）を足し、`index.ts` から `useMmdDownload` を export。
+  `ExportButtons` は `runSaveDialog` を通して呼び、どれから出した保存ダイアログの間でも押せない（`disabled={busy !== null || dialogBusy}`）
+- **フォーク元の差し込み**: `download-modal.tsx`・`er-diagram-mermaid-modal.tsx` の「ダウンロード」の `onClick` を `useMmdDownload` の `download` にした（各 2 行 + import。`downloadMermaidCode`・パネルの `handleDownload` と props の `onDownload` は変えていない）
+- 台帳: CLAUDE.md の差し込みの台帳（spec 24 P2 でパネルに `theme` を足した分の書き漏れも足した）・「現状」、LORELEI.md（「GUI の図の一覧」に `.mmd` の保存、spec 24 P3 で足した既知の制約を外した）
+
+### テスト（Red → Green）
+
+- Rust: `core.rs` の `write_file_checks_the_given_extension`（渡した拡張子で確かめる・大文字も通る・違う拡張子は `ExtensionMismatch { expected: "mmd" }`・上書きの規則は同じ）、
+  `src-tauri/src/lib.rs` の `mmd_is_saved_as_is_without_rendering`（テーマの frontmatter と日本語を含むコードがバイト単位で同じ・描けないコードも保存できる・既にあるファイルを上書きする・`.svg` のパスは拒んで何も書かない）と
+  `export_kinds_are_the_three_render_formats_and_mmd`。直す前はどれも新しい口が無くコンパイルが通らなかった（回して確かめた）。core 20 件・src-tauri 50 件が緑
+- vitest: `__tests__/lib/desktop/mmd-download.test.tsx`（8 件。本物の 2 つのダイアログを描き、`@/lib/desktop/tauri` の `isTauri`・`exportDiagram` を静的に模擬する, failures #14）。
+  デスクトップ: `export_diagram` が `mmd`・`flowchart` / `er-diagram`・コードそのもの（テーマ込み）で 1 回呼ばれ、`URL.createObjectURL`・`<a>` の `click()`・`onDownload` は呼ばれず、「保存しました」とパスが出る /
+  取り消しは知らせ無し / 失敗は「保存できませんでした」と誤りの文 / 保存ダイアログを出している間、SVG・PNG・PDF は押せず、「ダウンロード」は押せるが 2 つ目を出さず、閉じたら押せる / SVG の保存ダイアログの間に「ダウンロード」を押しても 2 つ目を出さない。
+  Web 版: フローチャートは Blob と `<a>` の `click()` を 1 回ずつ（書き出しのボタンは出ない）、ER 図は `onDownload` を 1 回、`export_diagram` は呼ばない。
+  直す前に回すと、デスクトップの 6 件が落ち、Web の 2 件は通った（今の振る舞いを押さえるもので、前のコードでも通るのが正しい）。直す前は jsdom がデスクトップの経路でも `<a>` の blob: への移動を試みて「Not implemented: navigation」を出していた（今のコードがデスクトップでも Web の落とし方を踏む跡）
+- 要の分岐を 1 つずつ壊して落ちることを確かめた: デスクトップでも Web の落とし方を呼ぶ → 5 件 / 書き出しのボタンが共有の状態を見ない → 2 件 / 出している間も 2 つ目を出す → 2 件 / 取り消しでも知らせる → 1 件
+- 既存のテスト（`download-modal.test.tsx`・`er-diagram-mermaid-modal.test.tsx` の「ダウンロードは今どおり onDownload を呼ぶ」など）は変えずに通った（jsdom では `isTauri()` が偽 = Web の経路）
+- vitest の全件は 2 回とも 98 ファイル・1,164 件が全部緑で exit 0。`cargo test --workspace`・`cd src-tauri && cargo test`・clippy（2 か所）・`tsc --noEmit`・ESLint が通る（`tsc` は `Set` の for-of を `forEach` に直してから）。
+  整形は HEAD で整形済みのファイルと新しいファイルにだけかけた（`src-tauri/src/lib.rs` は HEAD で整形されていないのでかけていない）
+
+### 受け入れ条件の見込み
+
+- 4（上書きの確認は OS のダイアログ）・1〜3 の画面と保存ダイアログは、P2 で利用者が押す（computer-use の許可が下りていないので、こちらでは保存ダイアログを押せない）
+- 5・6・7・8 は単体テストで通過。9 は確かめる範囲の取り決め
