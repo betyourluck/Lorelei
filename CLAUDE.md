@@ -62,6 +62,10 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-14: [spec 24](specs/24_mermaid-theme-output.md) **起票**（rev0。査読待ち。利用者の言「Mermaid のテーマを切り替えられるようにしたい。編集画面に被せるより、出力ファイルに反映されるように」）。
+  下調べ: 書き出しの口（`RenderOptions.theme`）はあるが使うのは MCP の `render` だけで、**GUI の書き出しは default に固定**。生成器はテーマを書かず、**取り込み（Web・デスクトップ・MCP）はテーマを黙って落とす**。
+  merman は図の先頭の init・frontmatter のテーマ名を効かせるが、**`themeVariables` は `SECURE_KEYS`（merman の既定の守りの写し）で書き出しに効かない**（mermaid.js のプレビューでは効く）。背景はどのテーマでも白（dark は見づらい）。
+  推奨は、テーマを図の Mermaid の先頭（frontmatter）に書いて持ち回り、コード生成のダイアログで選ぶ形（編集画面は変えない）
 - 2026-10-14: [spec 23](specs/23_edge-label-render.md) **Done**（rev2。起票 → 査読 3 本 → P0 → 裁定 → P1 → P2（配布ビルドで利用者が「すべて問題ありません」）。spec 22 の次の候補「ドラッグ中の描き直しを軽くする」）。
   下調べ: 自動スクロールを起こさない測り（failures #40）では、引っかかるのは経路の計算が走るフレームで、中身は**経路が変わった線（1 回に 18 本前後）のラベルの描き直し**（yamada-ui の部品、1 本 2〜2.5ms）。
   P0 で形を絞り、裁定は推奨どおり（memo は採らない、パネルは触らない）、**アイコンは `lucide-react` を直接の依存に足して描く**（`@yamada-ui/lucide` が固定で入れている 0.475.0。`@yamada-ui/lucide` は yamada-ui の `Icon`（Emotion）で包むので重さの一部だった）。
