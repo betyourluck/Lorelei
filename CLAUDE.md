@@ -28,7 +28,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   CSP は style-src の自動ハッシュ追記を止めている
 - **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは spec 01 の 4 ファイル・8 行 + spec 02 の 5 ファイル・12 行（`app/layout.tsx` の外枠、エディタ 2 つの高さ、パネル 2 つの `useDesktopActions`。重なりを除いて計 7 ファイル）+ spec 04 P0 でエディタ 2 つの初期図を export（`initialFlowNodes` / `initialERNodes`。初期図の突き合わせ用。ファイルは既存の 7 つに含まれる）+ spec 07 P2 でパネル 2 つの `useDesktopActions` に向き（`direction` / `setDirection`）を足した（同じ 2 ファイル）+ spec 15 P3 でフローチャートのパネルの `useDesktopActions` に `addFrame` を足した（同じファイル）
 - **フロント（`app/` `features/` `components/`）**: フォーク元のコード。直してよい（下の掟の「フォーク元は必要なら直してよい」）。
-  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」「P4 結果」、spec 15（フローチャートのサブグラフ）の「P1 結果」「P3 結果」、spec 16（枠を指す線・枠の中の向き）の「P1 結果」〜「P3 結果」「P5 結果」に一覧がある。PR を出すかは利用者が決める。
+  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」「P4 結果」、spec 15（フローチャートのサブグラフ）の「P1 結果」「P3 結果」、spec 16（枠を指す線・枠の中の向き）の「P1 結果」〜「P3 結果」「P5 結果」、spec 23（線のラベル）の「P1 結果」、spec 24（テーマ）の「P1 結果」に一覧がある。PR を出すかは利用者が決める。
   **フォーク元へ出した PR**: [illionillion/mermaid-editor#74](https://github.com/illionillion/mermaid-editor/pull/74)（spec 13 の生成器の直しだけを移植。Lorelei のコミットはデスクトップの差し込みの上で作ったので cherry-pick では載らない — spec 13「フォーク元への PR」）。
   **デスクトップではフォーク元のパネル（インポートを含む）を隠し、ツールバーから `lib/desktop/` のダイアログを開く** — フォーク元の部品を直したら、デスクトップのどの操作がどの部品を開くかを確かめる（failures #17）
 
@@ -62,7 +62,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
-- 2026-10-14: [spec 24](specs/24_mermaid-theme-output.md) **rev1**（起票 → P0 → 裁定。P1 待ち。GitHub・Zenn が frontmatter を読むかは未確認。利用者の言「Mermaid のテーマを切り替えられるようにしたい。編集画面に被せるより、出力ファイルに反映されるように」）。
+- 2026-10-14: [spec 24](specs/24_mermaid-theme-output.md) **P1 着地**（rev1。起票 → P0 → 裁定 → P1（フォーク元 `d94a161`: 生成器・Web の取り込み・コード生成のダイアログのテーマのメニューとプレビューの背景）。P2 待ち。GitHub・Zenn が frontmatter を読むかは未確認。利用者の言「Mermaid のテーマを切り替えられるようにしたい。編集画面に被せるより、出力ファイルに反映されるように」）。
   下調べ: 書き出しの口（`RenderOptions.theme`）はあるが使うのは MCP の `render` だけで、**GUI の書き出しは default に固定**。生成器はテーマを書かず、**取り込み（Web・デスクトップ・MCP）はテーマを黙って落とす**。
   merman は図の先頭の init・frontmatter のテーマ名を効かせるが、**`themeVariables` は `SECURE_KEYS`（merman の既定の守りの写し）で書き出しに効かない**（mermaid.js のプレビューでは効く）。背景はどのテーマでも白（dark は見づらい）。
   推奨は、テーマを図の Mermaid の先頭（frontmatter）に書いて持ち回り、コード生成のダイアログで選ぶ形（編集画面は変えない）。

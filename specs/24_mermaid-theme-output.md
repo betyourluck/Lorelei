@@ -2,7 +2,7 @@
 
 **ID**: 24
 **Date**: 2026-10-14
-**Status**: Draft（rev1。起票 → P0 着地（「P0 結果」）→ D1〜D7・D4-2 を裁定（「裁定」）。P1 待ち）
+**Status**: Draft（rev1。起票 → P0 着地（「P0 結果」）→ D1〜D7・D4-2 を裁定（「裁定」）→ **P1 着地**（「P1 結果」、フォーク元 `d94a161`）。P2 待ち）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。spec 15〜23 と同じく、**フォーク元の改善と台帳・デスクトップはコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする
 （フォーク元のコミットは `lib/desktop/`・`src-tauri/`・`crates/` と台帳を含まない。PR を出すか・いつ出すかは利用者が決める, CLAUDE.md）
 
@@ -269,3 +269,37 @@ flowchart LR
 - **D6: 案 A**（コード生成のダイアログ）
 - **D7: 推奨どおり**（`render` の `ThemeParam` は 4 つのまま。説明に一言）
 - **スコープ外に足す**: 線のラベルの背景が書き出しで薄く、線が文字に透けること（`htmlLabels: false` の描き方、テーマに関係ない）・ER 図の線のラベルの文字がはみ出すこと
+
+## P1 結果（2026-10-14）
+
+**フォーク元 `d94a161`**（`lib/desktop/`・`src-tauri/`・`crates/` と台帳を含まない。上流へ返せる形）:
+
+- `components/ui/mermaid-theme.ts`（新しい）: テーマの型と 4 つの一覧（`MERMAID_THEMES`）、図の先頭の frontmatter（`themeFrontmatter`。default は空）、背景（`themeBackground`。dark は #333）、
+  取り込みでテーマを取り出し、持てない設定を数える `themeFromConfig`
+- 生成器: `generateMermaidCode(flowData, direction, theme?)`・`generateERDiagramMermaidCode(nodes, edges, direction, theme?)` が、default 以外のテーマを先頭に frontmatter で書く
+- 取り込み（Web）: `readMermaidDiagram` の写しに図の設定（`config: { theme?, keys }`）を足した。frontmatter か init がある図だけ、`mermaid.parse` が返す設定を読む
+  （プレビューの `render` と同じ前処理。読んだ後は `mermaidAPI.reset()` で `initialize` の値へ戻す）。
+  `ParsedMermaidData`・`ParsedMermaidERData` に `theme?`（default は持たない）。テーマ以外の設定は `config:<名前>`、選べないテーマは `theme:<名前>` として消えるものに出し、
+  要約では「設定 themeVariables ×1」「テーマ base（選べないテーマ） ×1」と書く
+- エディタ: フローチャートと ER 図のエディタが、向きと同じ持ち方でテーマを持つ（取り込みで受け取る）。コード生成のダイアログに、向きのメニューと並べて `ThemeMenu`。
+  プレビューの枠（`MermaidTwoPane`）の背景を外から渡せるようにし、コード生成のダイアログからテーマの背景を渡す（取り込みのダイアログは今のまま白）
+- テスト（足した 4 ファイル・17 件）: テーマの部品（4）・フローチャートの生成と取り込みと往復（7）・ER 図（3）・ダイアログ（3）。
+  直す前のコードで回すと 13 件中 11 件が落ちた（Red）。通った 2 件は「default の時は今までの出力と同じ」を押さえるもの（前のコードでも通るのが正しい）。
+  既存の `download-modal.test.tsx` の 2 件は、生成器を呼ぶ引数が `(flowData, "TD")` から `(flowData, "TD", "default")` になったので期待を直した
+- vitest の全件は 1 回目に 3 件（`direction-save`・`er-diagram-editor-delete`・`update-diagram` の重いテスト。単独ではどれも通る）が並列の時の待ちを超え、
+  2 回目は 95 ファイル・1,152 件が全部緑で exit 0（failures #3 の形。本物の mermaid を読むテストが増えた）。`tsc --noEmit`・ESLint（import の順を 2 か所直した）は通り、
+  整形は HEAD で整形済みの 8 ファイルと新しい 6 ファイルにだけかけた
+- 生成器の default の出力は変えていないので、fixture（`er_names.json`・`flow_subgraphs.json`）は書き直していない（全件のテストで一致を確かめた）
+
+### Web 版の画面（`next dev`、裏の Edge で押した）
+
+- フローチャートのコード生成で dark を選ぶと、コードの先頭が `---`/`config:`/`theme: dark`/`---` になり、プレビューの枠が #333（`rgb(51, 51, 51)`）・ノードが dark の配色になった。default の時の枠は今までどおり（`rgb(251, 251, 251)`）
+- `%%{init: {"theme": "forest"}}%%` で書いた図を取り込むと、メニューが forest になり、生成し直したコードは frontmatter の形（init は書かない）、プレビューは forest の配色
+- ER 図のダイアログでも dark で同じ
+- 後ろの編集画面（キャンバス）の見た目は変わらない
+- デスクトップのツールバーの「コード生成」も、同じフォーク元のダイアログを開く（`useDesktopActions` の `code`。failures #17 の確かめ。画面で押すのは P3）
+
+### P2 に回したこと
+
+- デスクトップの自動保存（`lib/desktop/doc-session.ts` の `toSource`）は、まだテーマを書かない。P1 の時点のデスクトップでは、ダイアログで選んだテーマは書き出しとコピーには効くが、保存される `source` には残らない
+- Rust の取り込み（`to_editor`）がテーマを読むこと・書き出しの守り（D4-2）・dark の書き出しの背景（D5）・data_contract・LORELEI.md
