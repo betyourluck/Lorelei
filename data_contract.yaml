@@ -50,8 +50,8 @@ RenderFormat:
 RenderOptions:
   fields:
     scale: { type: float, default: 2.0, range: [0.5, 8.0] }    # png のみ有効
-    background: { type: string, nullable: true, default: null } # null = Mermaid の既定 (白)。CSS 色文字列か "transparent"。SVG ルートの background-color を書き換えるので 3 形式で同じ結果
-    theme: { enum: [default, neutral, dark, forest], default: default }
+    background: { type: string, nullable: true, default: null } # null = Mermaid の既定 (白)。ただし効いているテーマ (theme か図の中のテーマ) が dark なら #333 (spec 24 D5)。CSS 色文字列か "transparent"。SVG ルートの background-color を書き換えるので 3 形式で同じ結果
+    theme: { enum: [default, neutral, dark, forest], default: default }   # サイトの設定。図の先頭 (frontmatter・init) の theme が勝つ (spec 24 D7)
 
 RenderResult:
   fields:
@@ -85,7 +85,8 @@ EditorPayload:
     dropped: "EditorCompat.dropped"
   mapping:
     flowchart:
-      output: "ParsedMermaidData { nodes: [{ id, variableName, label, shapeType }], edges: [{ id, source, target, label, arrowType }], direction?, subgraphs?: [{ id, title, nodes, parent?, direction? }] }"
+      output: "ParsedMermaidData { nodes: [{ id, variableName, label, shapeType }], edges: [{ id, source, target, label, arrowType }], direction?, subgraphs?: [{ id, title, nodes, parent?, direction? }], theme? }"
+      theme: "図の先頭のテーマ (spec 24。MermaidTheme.import と同じ規則。Rust は merman の ParseMetadata.config を editor.rs の theme_of で読む)"
       subgraph: >-
         spec 15 D1 (TS の取り込み = P1、Rust の to_editor = P2。同じ規則で、FlowSubgraph { id, title, nodes, parent? })。枠が無ければ subgraphs を持たない。
         一覧の nodes には子の枠の ID も入るので、それを子の枠の parent にする (親は「自分の ID を nodes に持つ枠」)。subgraphs は親から順に並べ直す
@@ -147,9 +148,10 @@ EditorPayload:
       edge_to_subgraph: "枠を指す線は、線の端を枠の ID にして写す (spec 16 D2。外 → 枠・枠 → 外・枠 → 枠・枠の自己ループ。線が枠の定義より前にあっても同じ)。生成器も線を全部最後に外へ書く"
       edge_into_own_subgraph: "枠と自分の子孫 (中のノード・中の枠) を結ぶ線は落として dropped edge_into_own_subgraph (spec 16 裁定 2。mermaid.js・merman とも誤りにしないが、描画では長さ 0 の線で見えず、枠を外とつながる扱いにして中の向きを変える, P0)。生成器も書かない。枠の自己ループは当たらない"
       subgraph_direction: "枠の中の direction を枠の direction? に写す (spec 16。subgraph_direction_value)"
-      dropped_constructs: [edge_into_own_subgraph, classDef, class, style, click, tooltip, "shape:<名前>", "edge:<矢印>", edge_length, accessibility]   # direction は spec 07、subgraph は spec 15、枠を指す線と枠の中の向きは spec 16 で写すようにした (TS の取り込みは P1、Rust の to_editor は P2)
+      dropped_constructs: [edge_into_own_subgraph, classDef, class, style, click, tooltip, "shape:<名前>", "edge:<矢印>", edge_length, accessibility, "config:<名前>", "theme:<名前>"]   # direction は spec 07、subgraph は spec 15、枠を指す線と枠の中の向きは spec 16 で写すようにした (TS の取り込みは P1、Rust の to_editor は P2)
     erDiagram:
-      output: "ParsedMermaidERData { nodes: [{ id, name, columns: [{ name, type, pk, uk, fk? }] }], edges: [{ id: edge-N, type: erEdge, source, target, data: { label, cardinality } }], direction? }"
+      output: "ParsedMermaidERData { nodes: [{ id, name, columns: [{ name, type, pk, uk, fk? }] }], edges: [{ id: edge-N, type: erEdge, source, target, data: { label, cardinality } }], direction?, theme? }"
+      theme: "flowchart と同じ (spec 24)"
       direction: "flowchart と同じ GraphType。無ければ TD (spec 07 D1)"
       keys: "merman の attribute.keys (PK / UK / FK の配列、順は問わない) → pk / uk / fk。fk は無ければ false (spec 07 D2。古い保存データ・フォーク元の既存データを壊さない)"
       entity: "id = name = merman の entities のキー (alias は使わない) を、mermaid の内部の符号と HTML の実体参照を戻した文字 (spec 13 P3。Rust は merman::entities::decode_mermaid_entities_to_unicode、TS は写しの decodeText。関係の両端も同じ名前)"
@@ -165,7 +167,7 @@ EditorPayload:
       cardinality_fallback: "表に無い組はフォーク元の既定 one-to-many にして dropped cardinality_unsupported"
       subgraph: "関係が subgraph を指すと、関係はその subgraph の id を指し、同じ名前のテーブルも現れうる。テーブルにせず、指す関係を落として dropped subgraph / edge_to_subgraph (spec 11。以前は形の誤りで止まった)"
       edge_id: "edge-N。N は落とした関係を除いて数える"
-      dropped_constructs: [alias, attribute_comment, non_identifying, cardinality_unsupported, subgraph, edge_to_subgraph, classDef, class, style, accessibility]   # fk と direction は spec 07 で写すようにした
+      dropped_constructs: [alias, attribute_comment, non_identifying, cardinality_unsupported, subgraph, edge_to_subgraph, classDef, class, style, accessibility, "config:<名前>", "theme:<名前>"]   # fk と direction は spec 07 で写すようにした
     ts_mirror: "フォーク元の取り込み (spec 11) は同じ対応を TS で持つ: features/flowchart/utils/from-mermaid.ts・features/er-diagram/utils/from-mermaid.ts (mermaid.js の解析の結果から)。tests で Rust の tests/editor.rs と同じ入力で同じ出力を確かめる。TS だけの足し: click は class の clickable でも数える (strict では haveCallback が付かない) / @{ shape: rect | rounded | diam | hex } もエディタの形"
 
 EditorDirection:
@@ -186,9 +188,14 @@ MermaidTheme:
   owner: "エディタの状態 (フローチャート・ER 図とも向きと同じ持ち方)。取り込みで受け取り、コード生成のダイアログの ThemeMenu (features/flowchart/components/theme-menu.tsx) で読み書きする"
   module: "components/ui/mermaid-theme.ts (MERMAID_THEMES・isMermaidTheme・themeFrontmatter・themeBackground・themeFromConfig)"
   frontmatter: "図の先頭に「---」「config:」「  theme: <テーマ>」「---」の 4 行を書く (D2)。default は何も書かない (今までの出力とバイト単位で同じ)"
-  import: "frontmatter か init がある図だけ、mermaid.parse が返す図の設定 (プレビューの render と同じ前処理) を MermaidSnapshot.config { theme?, keys } に写し、読んだ後は mermaidAPI.reset() で initialize の値へ戻す。theme が values に入っていれば ParsedMermaidData / ParsedMermaidERData の theme (default は持たない)。テーマ以外の設定は dropped config:<名前>、選べないテーマは dropped theme:<名前>"
-  background: "themeBackground: dark は #333 (Mermaid の dark の background)、ほかは white (D5)。コード生成のダイアログはプレビューの枠 (MermaidTwoPane の previewBg) をこれにする。書き出しの背景は P2"
-  desktop: "P1 (d94a161) の時点では、デスクトップの自動保存 (toSource)・Rust の取り込み (to_editor)・書き出しの背景・書き出しの守り (D4-2) はまだテーマを扱わない (spec 24 P2)"
+  import: "frontmatter か init がある図だけ、mermaid.parse が返す図の設定 (プレビューの render と同じ前処理) を MermaidSnapshot.config { theme?, keys } に写し、読んだ後は mermaidAPI.reset() で initialize の値へ戻す。theme が values に入っていれば ParsedMermaidData / ParsedMermaidERData の theme (default は持たない)。テーマ以外の設定は dropped config:<名前>、選べないテーマは dropped theme:<名前>。文字でない theme は黙って無視。frontmatter と init の両方があれば init が勝つ。frontmatter の title は設定ではない"
+  import_rust: >-
+    デスクトップ・MCP の取り込み (lorelei_core::to_editor、spec 24 P2) は merman の ParseMetadata.config (mermaid.parse の config と同じ形) を editor.rs の theme_of で読み、TS と同じ theme と dropped にする。
+    merman の config には mermaid.js が図の設定から消す鍵 (mermaid の既定の secure: secure・securityLevel・startOnLoad・maxTextSize・suppressErrorRendering・maxEdges) も残るので、それは数えない。
+    fontFamily は両方とも themeVariables.fontFamily にも写す (config:fontFamily と config:themeVariables の 2 つ)。取り込みの守りで読むので、themeVariables の色が読めない図でも取り込める (TS は mermaid.parse がその図の設定ごと失敗し、theme も dropped も持たない — 描けない図なので揃えない)
+  background: "themeBackground: dark は #333 (Mermaid の dark の background)、ほかは white (D5)。コード生成のダイアログはプレビューの枠 (MermaidTwoPane の previewBg) をこれにする。書き出しの背景は RenderOptions.background (同じ規則を Rust の render_svg が効いているテーマで決める)"
+  desktop: "デスクトップの自動保存 (toSource) はエディタのテーマを DesktopActions.theme で受け取り、生成器に渡す (spec 24 P2。P1 の時点では開いた直後の自動保存でテーマが消えた)。書き出し (export_diagram) はダイアログのコードの先頭のテーマで描くので引数は無い"
+  fixture: "crates/lorelei_core/tests/fixtures/themes.json = [{ name, kind, source, theme, dropped }]。__tests__/lorelei/themes-fixture.test.ts が生成器の出力 (4 つのテーマ × 2 種類) と AI が書きうる形 (init・両方・base と themeVariables・選べないテーマ・文字でない theme・wrap・init の config・守られる鍵) を本物の mermaid.js の取り込みに通して期待どおりかを検めて書き (LORELEI_UPDATE_FIXTURES=1)、editor.rs の theme_import_matches_the_ts_import が to_editor で同じ theme と dropped になることを確かめる"
 
 DesktopActions:
   description: エディタのパネルが外枠 (lib/desktop) に登録する操作 (spec 02 D3、useDesktopActions)。外枠はこれでツールバーを動かす
@@ -197,8 +204,9 @@ DesktopActions:
     code: "() => void。コード生成のモーダルを開く"
     direction: "EditorDirection。今のエディタの向き (spec 07 D3)。外枠はツールバーの切り替えに出し、保存 (toSource) に使う"
     setDirection: "(EditorDirection) => void。ツールバーの切り替えから向きを変える (spec 07 D3)"
+    theme: "MermaidTheme (任意、無ければ default)。今のエディタのテーマ (spec 24 P2)。外枠は保存 (toSource) にだけ使う。選ぶのはコード生成のダイアログで、ツールバーには出さない"
     addFrame: "() => void (任意)。フローチャートのパネルだけが登録し、登録した時だけツールバーに「枠を追加」を出す (spec 15 D5)"
-  autosave: "外枠は向きの変化でも自動保存する (ノード・辺が変わらなくても。spec 07 D3)"
+  autosave: "外枠は向き・テーマの変化でも自動保存する (ノード・辺が変わらなくても。spec 07 D3・spec 24 P2)"
 
 MermaidPreview:
   description: コード生成のモーダルの右の列で、生成した Mermaid を mermaid.js で描く (spec 09 D3)。フォーク元の改善 (Web 版でも動く、Tauri に依らない)
@@ -256,7 +264,11 @@ CodeEditor:
 RenderConfigOverrides:
   description: 入力の %%{init}%% より優先して Lorelei が固定する設定
   htmlLabels: false            # 最上位と flowchart.htmlLabels。true だと resvg-safe の代替テキストが折り返しを失う (P0-2)
-  secure: "crates/lorelei_core/src/engine.rs の SECURE_KEYS = merman の HARDENED_SECURE_KEYS (secure・securityLevel・startOnLoad・maxTextSize・suppressErrorRendering・maxEdges・fontFamily・altFontFamily・themeCSS・themeVariables) + htmlLabels。図の frontmatter・init はこれを上書きできない (theme は入っていないので図の中が勝つ)。spec 24 D4-2 で themeVariables を外す (P2。取り込みの読みは今の守りのまま)"
+  secure: >-
+    crates/lorelei_core/src/engine.rs の 2 つの守り (spec 24 D4-2、P2)。図の frontmatter・init はこれを上書きできない (theme はどちらにも入っていないので図の中が勝つ)。
+    書き出し (render・validate) = EXPORT_SECURE_KEYS = merman の HARDENED_SECURE_KEYS から themeVariables を外したもの (secure・securityLevel・startOnLoad・maxTextSize・suppressErrorRendering・maxEdges・fontFamily・altFontFamily・themeCSS) + htmlLabels。
+    図に書いた themeVariables の色は書き出しに効く (プレビューの mermaid.js と同じ。themeVariables.fontFamily は外しても効かない, spec 24 P0 結果の 5)。色として読めない値は merman が解析で ThemeColor のエラーにし、validate も ok=false (「図の設定 (themeVariables) の色を読めません (…)」、行は無し) になる。
+    取り込み (to_editor) = IMPORT_SECURE_KEYS = 書き出しの守り + themeVariables (spec 24 より前と同じ)。取り込みは themeVariables を落とすので、その色の値で取り込みを落とさない。validate の失敗の時に図の種類を読むのもこちら
 
 FontBundle:
   description: PNG / PDF 変換で使うフォント。OS のフォントに依存しない
@@ -397,7 +409,7 @@ GuiCommands:
   documents_event: "lorelei://documents-changed (本体は DocumentSummary)。update_diagram がファイルを書けた時に出す (spec 08 D3)。外枠はその 1 件だけを一覧で差し替える (setList(map)。一覧を丸ごと読み直さない — 読み直しは自動保存の 1 件差し替えと競合して ● が戻ることがある)"
   last_opened: "() → id | null。起動時に開く図 (DocumentState.last_opened)"
   set_last_opened: "(id) → ()"
-  export_diagram: "(source, format: svg|png|pdf, fileStem) → 保存したパス | null (取り消し)。保存ダイアログは rfd。上書きの確認は OS のダイアログが行う"
+  export_diagram: "(source, format: svg|png|pdf, fileStem) → 保存したパス | null (取り消し)。保存ダイアログは rfd。上書きの確認は OS のダイアログが行う。RenderOptions は既定のまま: テーマと背景は source (コード生成のダイアログのコード) の先頭のテーマで決まる (spec 24 P2)"
   show_about: "() → ()。About (rfd の MessageDialog) を出す。入口はタイトルバーの「?」(spec 02 D5。ネイティブのメニューは持たない)。フォーク元への謝辞とライセンス一覧を載せ、全文は bundle.resources で licenses/ に同梱"
   window: "自作タイトルバーのウィンドウ操作は @tauri-apps/api/window (minimize / toggleMaximize / close / data-tauri-drag-region)。権限は capabilities/default.json の core:window:*"
   mcp_status: "() → McpStatus。設定画面とタイトルバーの印が読む (spec 03 D4・D6)"

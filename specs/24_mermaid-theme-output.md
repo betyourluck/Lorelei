@@ -2,7 +2,7 @@
 
 **ID**: 24
 **Date**: 2026-10-14
-**Status**: Draft（rev1。起票 → P0 着地（「P0 結果」）→ D1〜D7・D4-2 を裁定（「裁定」）→ **P1 着地**（「P1 結果」、フォーク元 `d94a161`）。P2 待ち）
+**Status**: Draft（rev1。起票 → P0 着地（「P0 結果」）→ D1〜D7・D4-2 を裁定（「裁定」）→ P1 着地（「P1 結果」、フォーク元 `d94a161`）→ **P2 着地**（「P2 結果」、`17889ab`）。P3（配布ビルド）待ち）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。spec 15〜23 と同じく、**フォーク元の改善と台帳・デスクトップはコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする
 （フォーク元のコミットは `lib/desktop/`・`src-tauri/`・`crates/` と台帳を含まない。PR を出すか・いつ出すかは利用者が決める, CLAUDE.md）
 
@@ -303,3 +303,58 @@ flowchart LR
 
 - デスクトップの自動保存（`lib/desktop/doc-session.ts` の `toSource`）は、まだテーマを書かない。P1 の時点のデスクトップでは、ダイアログで選んだテーマは書き出しとコピーには効くが、保存される `source` には残らない
 - Rust の取り込み（`to_editor`）がテーマを読むこと・書き出しの守り（D4-2）・dark の書き出しの背景（D5）・data_contract・LORELEI.md
+
+## P2 結果（2026-10-14）
+
+**`17889ab`**（デスクトップ・Rust。フォーク元のファイルはパネル 2 つの `useDesktopActions` に `theme` を足しただけで、デスクトップの差し込みなので上流へ返す分は無い）:
+
+- **デスクトップの自動保存**: `toSource(editor, nodes, edges, direction, theme)`。パネルが `useDesktopActions` に `theme` を渡し（`DesktopActions.theme`）、外枠は向きと同じくテーマの変化でも保存し直す。
+  直す前は、テーマを書いた図を開くと最初の自動保存で生成器の出力（テーマ無し）になった（P0 の 4 の 2 行目。下のテストの Red で同じことを見た）
+- **Rust の取り込み**: `to_editor` が merman の `ParseMetadata.config`（mermaid.parse の config と同じ形）を `editor.rs` の `theme_of` で読み、`FlowData.theme`・`ErData.theme`（default と書いていない時は持たない）にする。
+  テーマ以外の設定は `config:<名前>`、選べないテーマは `theme:<名前>`（TS の `themeFromConfig` と同じ）
+  - merman の config には、mermaid.js が図の設定から消す鍵（mermaid の既定の `secure`: `securityLevel` など 6 つ）も残っていた。TS の取り込みに揃えて数えない
+  - `fontFamily` は、mermaid.js も merman も `themeVariables.fontFamily` にも写す（`config:fontFamily` と `config:themeVariables` の 2 つになる。両方とも同じ）
+- **書き出しの守り（D4-2）**: `engine.rs` の守りを 2 つに分けた。書き出し（render・validate）は `themeVariables` を外し、取り込み（`to_editor`）は今までどおり守る。
+  validate が失敗した時に図の種類を読むのは取り込みの守り（色が読めない図でも種類は分かる）
+  - 色として読めない値は、merman が**解析の段階**で `ThemeColor` のエラーにする（描画まで行かない）。`validate` は ok=false・「図の設定 (themeVariables) の色を読めません (Unsupported color format: "nope")」・行は無し、`render` も同じ文のエラー
+  - 取り込みは同じ図を落とさず、テーマは残し、`themeVariables` を消えるものに出す
+- **背景（D5）**: `render_svg` が書き出しの守りで読んだ `effective_config` のテーマ（図の中が勝つ）を見て、`background` の指定が無く dark なら #333（ルートの `background-color:rgba(51,51,51,1)`）。SVG・PNG・PDF・MCP の preview が同じ
+- **GUI の書き出し**（`export_diagram`）は引数を足していない。コード生成のダイアログのコード（P1 から先頭にテーマを書く）を `RenderOptions::default()` で描けば、テーマと背景はコードで決まる（src-tauri のテストで dark の背景と配色を確かめた）
+- MCP の説明: `validate`（テーマは残る・`config:<名前>`・色が読めなければ ok=false）・`render`（図の先頭の theme と `themeVariables` の色が効く・`themeCSS` と `fontFamily` は効かない）・
+  `open_in_editor`・`read_diagram`（テーマが残り、frontmatter で書かれる）・`options.theme` と `options.background`（dark は #333）
+- 台帳: data_contract（`RenderOptions`・`EditorPayload` の `theme`・`MermaidTheme` の `import_rust`・`background`・`desktop`・`fixture`・`DesktopActions.theme`・`RenderConfigOverrides.secure`・`GuiCommands.export_diagram`）、
+  LORELEI.md（「テーマ」の節・読み戻しの注意・既知の制約 3 つ）
+
+### テスト（Red → Green）
+
+- Rust（`lorelei_core`）: `core.rs` に 5 件（`themeVariables` が書き出しに効く・`themeCSS` と `fontFamily` は守ったまま・色が読めない値で validate と render がそろって失敗・dark の背景・テーマの無い図の背景は白のまま）、
+  `editor.rs` に 4 件（frontmatter と init のテーマ・テーマ以外の設定・色が読めなくても取り込む・TS との突き合わせ）。直す前に回すと、`core.rs` の 3 件が落ちた（守りを外す・dark の背景・色の誤り）。
+  通った 2 件は「今のまま変わらないこと」（守りに残す鍵・テーマの無い図）を押さえるもので、前のコードでも通るのが正しい。`editor.rs` の 4 件は、直す前は `theme` の欄が無くコンパイルが通らない形だった（直す前には回していない）
+- 要の分岐を 1 つずつ壊して、別々のテストが落ちることを確かめた（mermaid.js が消す鍵を数える → TS との突き合わせ、default もテーマとして持つ → frontmatter と init の件、取り込みを書き出しの守りで読む → 色が読めなくても取り込む件）
+- TS ↔ Rust の fixture: `crates/lorelei_core/tests/fixtures/themes.json`（21 通り。生成器の出力 4 テーマ × 2 種類と、AI が書きうる形 13 通り）。`__tests__/lorelei/themes-fixture.test.ts` が本物の mermaid.js の取り込みで期待どおりかを検めて書き、Rust が同じ theme と dropped になる
+  - 揃えていない 1 つ: dark と読めない色を両方書いた init は、TS では mermaid.parse がその図の設定ごと失敗し、テーマも消えるものも持たない（Rust はテーマを残す）。どちらの描き手でも描けない図なので fixture に入れていない
+- src-tauri: `export_to` が dark のコードを背景 #333・dark の配色で書く（1 件）。48 件が緑
+- vitest: `doc-session.test.ts` に `toSource` のテーマ（1 件）、`theme-save.test.tsx`（2 件。テーマを書いたフローチャート・ER 図を開くと自動保存でもテーマが残り、コード生成のダイアログで変えたテーマで保存する）。直す前は 3 件とも落ちた
+  - 全件では `theme-save` が 20 秒の上限を超えた（単独では 2〜3 秒。開く・ダイアログ・メニューを通す。failures #3 の形）。上限を 40 秒にし、default に戻す段（`toSource` の単体で押さえる）を外した。その後の全件 2 回は 97 ファイル・1,156 件が全部緑で exit 0
+- `cargo test --workspace`・`cd src-tauri && cargo test`・clippy・`tsc --noEmit`・ESLint が通る。整形は HEAD で整形済みのファイルと新しいファイルにだけかけた
+
+### `tauri dev` での確かめ（MCP の HTTP の口を直接叩いた）
+
+このセッションの MCP の接続が切れていたので、README の GIF の時と同じく、設定ファイルのトークンで `127.0.0.1:39642/mcp` を直接呼んだ。
+
+- `validate`: dark の frontmatter → ok・dropped 無し / base と `themeVariables` → ok・`config:themeVariables`・`theme:base` / 読めない色 → ok=false と上の文
+- `render`: dark → ルートの背景 `rgba(51,51,51,1)`、preview の画像は #333 の上に dark の配色で線とラベルが読める / init の base と `primaryColor`・`lineColor` → ノードが #6A7FAB、線が赤（直す前は base の既定のまま, 下調べ） /
+  読めない色 → ツール結果のエラー / dark に `options.background: "#ffffff"` → 白（指定が勝つ）
+- `open_in_editor`（init の forest と `themeVariables`）→ opened・dropped `config:themeVariables`。すぐ後（開いて 1 秒ほど）の `read_diagram` は先頭が frontmatter の forest（init から書き直された）、`updated_at` は進まない（first_fill）
+- `update_diagram`（init の dark とノードを 1 つ足した図）→ 2 秒後の `read_diagram` は frontmatter の dark と足したノード
+- ER 図の `open_in_editor`（frontmatter の dark）→ `read_diagram` は frontmatter の dark のまま
+- **GUI の画面（コード生成のダイアログ・SVG / PNG / PDF のボタン）は押していない**（computer-use で Lorelei を操作する許可が下りなかった）。書き出しの経路は src-tauri のテストで、ダイアログのテーマのメニューは P1 の Web 版の画面で確かめた。画面で押すのは P3
+- 図の一覧に確かめ用の図が 2 つ残った（「spec24 P2 テーマの往復」「spec24 P2 テーマの往復 ER」）
+- 見つけたこと: このセッションの PowerShell の `Get-NetTCPConnection` は、待ち受けている 39642 番を出さなかった（curl は 401 を返した）。待ち受けの確かめは curl で口を叩く
+
+### P3 で確かめてほしいこと
+
+1. コード生成のダイアログでテーマ（dark など）を選び、SVG・PNG・PDF を書き出して開く（dark は背景が #333、配色がプレビューと同じか）。`.mmd` とコピーの先頭に frontmatter が入るか
+2. テーマを選んだ図を別の図に切り替えてから開き直すと、ダイアログのテーマが残っているか（保存される `source` に入る）
+3. 編集画面（キャンバス）の見た目が変わらないか
+4. （P0 の残り）GitHub と Zenn が frontmatter と init のどちらを読むか（「利用者に頼む確かめ」の 2 つの囲み）
