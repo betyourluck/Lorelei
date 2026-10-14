@@ -2,7 +2,7 @@
 
 **ID**: 24
 **Date**: 2026-10-14
-**Status**: Draft（rev1。起票 → P0 着地（「P0 結果」）→ D1〜D7・D4-2 を裁定（「裁定」）→ P1 着地（「P1 結果」、フォーク元 `d94a161`）→ **P2 着地**（「P2 結果」、`17889ab`）。P3（配布ビルド）待ち）
+**Status**: Done（rev1。起票 → P0 着地（「P0 結果」）→ D1〜D7・D4-2 を裁定（「裁定」）→ P1 着地（「P1 結果」、フォーク元 `d94a161`）→ P2 着地（「P2 結果」、`17889ab`）→ P3（配布ビルドで利用者、「P3 結果」）。**Done**）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。spec 15〜23 と同じく、**フォーク元の改善と台帳・デスクトップはコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする
 （フォーク元のコミットは `lib/desktop/`・`src-tauri/`・`crates/` と台帳を含まない。PR を出すか・いつ出すかは利用者が決める, CLAUDE.md）
 
@@ -358,3 +358,23 @@ flowchart LR
 2. テーマを選んだ図を別の図に切り替えてから開き直すと、ダイアログのテーマが残っているか（保存される `source` に入る）
 3. 編集画面（キャンバス）の見た目が変わらないか
 4. （P0 の残り）GitHub と Zenn が frontmatter と init のどちらを読むか（「利用者に頼む確かめ」の 2 つの囲み）
+
+## P3 結果（2026-10-14、配布ビルド。画面は利用者）
+
+- `corepack pnpm@9 exec tauri build --no-bundle`（`43a092a` の作業ツリー。`docs/` は書き換わらない）で作った `lorelei.exe` を起動し、MCP の `open_in_editor` で 2 つの図を開いた
+  （テーマを書かないフローチャートと、AI が frontmatter の dark を書いた ER 図。`validate` はどちらも dropped 無し）
+- 利用者がコード生成のダイアログでテーマを選び、SVG・PNG・PDF・`.mmd` を書き出して開き、図の切り替え・開き直し・編集画面を確かめた: **「確認しました。完璧です」**
+- 読み戻し（`read_diagram`）: フローチャートは利用者が forest を選んだ後に frontmatter の forest で保存され（枠も 1 つ足してあった）、ER 図は利用者が default に戻して「確定」した状態で保存されていた。
+  途中で、ER 図 2 つが forest でフローチャートがテーマ無しの時があり、別の図へテーマが書かれる不具合を疑ったが、利用者がその時はフローチャートを変えていなかった（後から変えた）
+- `.mmd`: 「ダウンロード」フォルダの `flowchart (20).mmd` は先頭が frontmatter の forest、`er-diagram (3).mmd` は default の時のものでテーマ無し（保存された図と一致）
+- 画面の操作（computer-use）の許可は下りなかったので、こちらで配布ビルドの画面は撮っていない
+
+受け入れ条件 1〜9 は P1〜P3 で通過した（7 は P1 の Web 版の画面、8・9 は P2 の MCP の `render`、2・3・5 は P3 で利用者）。**spec 24 Done**。
+
+### 見つけたこと（spec 24 の外）
+
+- **コード生成のダイアログの「ダウンロード」（`.mmd`）は、デスクトップでは確認も知らせも無く「ダウンロード」フォルダへ保存される**（利用者の問い「今はイベントがあるのか」）。
+  フォーク元の Web 版の作り（Blob の URL を `<a download>` で踏ませる）のままで、Lorelei は Tauri の `on_download` を設定していない。wry は `on_download` が無いと WebView2 の `DownloadStarting` に口を挟まず、
+  WebView2 の既定の振る舞いで保存され、画面には何も出ない（P3 の間に `flowchart (17)`〜`(20).mmd`・`er-diagram.mmd`〜`(3).mmd` のように押した回数だけ増え、`.mmd` は 25 個たまっていた）。
+  SVG・PNG・PDF のボタン（`lib/desktop/export-buttons.tsx`）は rfd の保存ダイアログを出し、「保存しました」を知らせる。次の spec の候補（`.mmd` も同じ保存ダイアログにする）
+- GitHub と Zenn が frontmatter と init のどちらを読むかは、まだ確かめていない（「利用者に頼む確かめ」。D2 は frontmatter のまま）

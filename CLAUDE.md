@@ -62,8 +62,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
-- 2026-10-14: [spec 24](specs/24_mermaid-theme-output.md) **P2 着地**（rev1。起票 → P0 → 裁定 → P1（フォーク元 `d94a161`: 生成器・Web の取り込み・コード生成のダイアログのテーマのメニューとプレビューの背景）→ P2（`17889ab`: デスクトップ・Rust）。
-  P3（配布ビルドで利用者）待ち。GitHub・Zenn が frontmatter を読むかは未確認。利用者の言「Mermaid のテーマを切り替えられるようにしたい。編集画面に被せるより、出力ファイルに反映されるように」）。
+- 2026-10-14: [spec 24](specs/24_mermaid-theme-output.md) **Done**（rev1。起票 → P0 → 裁定 → P1（フォーク元 `d94a161`: 生成器・Web の取り込み・コード生成のダイアログのテーマのメニューとプレビューの背景）→ P2（`17889ab`: デスクトップ・Rust）→
+  P3（配布ビルドで利用者が「確認しました。完璧です」）。GitHub・Zenn が frontmatter を読むかは未確認。利用者の言「Mermaid のテーマを切り替えられるようにしたい。編集画面に被せるより、出力ファイルに反映されるように」）。
   下調べ（直す前）: 書き出しの口（`RenderOptions.theme`）を使うのは MCP の `render` だけで GUI の書き出しは default に固定、生成器はテーマを書かず、取り込み（Web・デスクトップ・MCP）はテーマを黙って落とし、
   `themeVariables` は merman の既定の守りの写しで書き出しに効かなかった（mermaid.js のプレビューでは効く）。背景はどのテーマでも白（dark は見づらい）。
   P0: 5 つのテーマ × 2 種類の図で、**merman（書き出し）と mermaid.js（プレビュー）の配色は部品ごとに一致**（違いは背景を塗るかと、`htmlLabels: false` の線のラベルの描き方）。dark は背景を #333 にすると読める。
@@ -72,7 +72,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   TS と同じ `config:<名前>`・`theme:<名前>` を dropped に出す（mermaid.js が図の設定から消す `securityLevel` などは数えない。TS ↔ Rust の fixture `themes.json` 21 通りで突き合わせ）。
   守りは `engine.rs` の `Guard`（書き出し = render・validate は `themeVariables` を通す、取り込み = to_editor は守る）。色として読めない値は merman が**解析の段階**でエラーにし、validate も ok=false。
   dark で背景の指定が無ければ書き出しの背景は #333（効いているテーマは図の中が勝つ）。GUI の書き出しは引数を足さず、ダイアログのコードの先頭のテーマで決まる。
-  `tauri dev` で MCP の HTTP の口を直接叩いて往復を確かめた（GUI の画面は computer-use の許可が下りず押していない, spec 24「P2 結果」）。図の一覧に確かめ用の図が 2 つ残る
+  `tauri dev` で MCP の HTTP の口を直接叩いて往復を確かめた（GUI の画面は computer-use の許可が下りず押していない, spec 24「P2 結果」）。図の一覧に確かめ用の図が 4 つ残る（P2・P3 の各 2 つ）。
+  P3 で見つけた次の候補: **コード生成のダイアログの「ダウンロード」（`.mmd`）は、デスクトップでは確認も知らせも無く「ダウンロード」フォルダへ保存される**
+  （フォーク元の `<a download>` のまま。Lorelei は Tauri の `on_download` を設定しておらず、WebView2 の既定で黙って保存され、押すたびに `(1)`・`(2)` … と増える。SVG・PNG・PDF は rfd の保存ダイアログ, spec 24「P3 結果」）
 - 2026-10-14: [spec 23](specs/23_edge-label-render.md) **Done**（rev2。起票 → 査読 3 本 → P0 → 裁定 → P1 → P2（配布ビルドで利用者が「すべて問題ありません」）。spec 22 の次の候補「ドラッグ中の描き直しを軽くする」）。
   下調べ: 自動スクロールを起こさない測り（failures #40）では、引っかかるのは経路の計算が走るフレームで、中身は**経路が変わった線（1 回に 18 本前後）のラベルの描き直し**（yamada-ui の部品、1 本 2〜2.5ms）。
   P0 で形を絞り、裁定は推奨どおり（memo は採らない、パネルは触らない）、**アイコンは `lucide-react` を直接の依存に足して描く**（`@yamada-ui/lucide` が固定で入れている 0.475.0。`@yamada-ui/lucide` は yamada-ui の `Icon`（Emotion）で包むので重さの一部だった）。
