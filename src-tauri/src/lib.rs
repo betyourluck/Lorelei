@@ -624,6 +624,48 @@ mod tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 
+    // spec 25 D2: .mmd は描かず検査もせず、コード生成のコードをそのまま書く。描く 3 形式 (export_to) は今のまま
+    #[test]
+    fn mmd_is_saved_as_is_without_rendering() {
+        let dir = scratch();
+        let themed = "---
+config:
+  theme: forest
+---
+flowchart TD
+    A[注文を受ける]
+    A --> B
+";
+        let path = dir.join("図.mmd");
+        // 保存ダイアログで既にあるファイルを選んだ時は上書きする (確認は OS のダイアログ)
+        std::fs::write(&path, b"old").unwrap();
+        desktop::save_mmd(&path, themed).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), themed.as_bytes(), "BOM なしで一字一句同じ");
+        // 描けない (文法の誤りのある) コードでも保存できる (今の Blob と同じ)
+        let broken = "flowchart TD
+  A[a --> B
+";
+        desktop::save_mmd(&path, broken).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), broken);
+        // 拡張子の違うパスは拒む
+        assert!(desktop::save_mmd(&dir.join("図.svg"), themed).is_err());
+        assert!(!dir.join("図.svg").exists());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn export_kinds_are_the_three_render_formats_and_mmd() {
+        use desktop::ExportKind;
+        use lorelei_core::RenderFormat;
+        assert_eq!(desktop::parse_kind("svg"), Ok(ExportKind::Render(RenderFormat::Svg)));
+        assert_eq!(desktop::parse_kind("png"), Ok(ExportKind::Render(RenderFormat::Png)));
+        assert_eq!(desktop::parse_kind("pdf"), Ok(ExportKind::Render(RenderFormat::Pdf)));
+        assert_eq!(desktop::parse_kind("mmd"), Ok(ExportKind::Mmd));
+        assert_eq!(desktop::parse_kind("gif"), Err("未対応の形式です: gif".to_string()));
+        assert_eq!(ExportKind::Mmd.extension(), "mmd");
+        assert_eq!(ExportKind::Render(RenderFormat::Pdf).extension(), "pdf");
+    }
+
     // 届いた図は新しい 1 件になる (spec 02 D8・D10、P3 の設計の補足 1)
     #[test]
     fn incoming_source_becomes_a_new_document() {

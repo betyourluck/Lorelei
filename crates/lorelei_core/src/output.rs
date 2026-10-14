@@ -1,4 +1,4 @@
-//! MCP 経由のファイル書き出し (data_contract `OutputPathPolicy`, spec 01 D7)。
+//! ファイルの書き出し (data_contract `OutputPathPolicy`, spec 01 D7)。MCP の render と GUI の書き出し (spec 25) が使う。
 //!
 //! AI クライアントは元々ファイルを書けるので、これは権限の制限ではない。相対パスの解釈違い・
 //! 既存ファイルの上書き・途中で切れた壊れファイルという事故を防ぐための規則。
@@ -26,10 +26,21 @@ pub enum OutputPathError {
     Io { path: String, message: String },
 }
 
-/// 規則を満たしていれば `bytes` を書き出し、書いた絶対パスを返す。何かを書く前に全部検査する。
+/// 描いた絵を書き出す (MCP の render と GUI の書き出し)。拡張子は `format` で確かめる。
 pub fn write_output(
     path: &Path,
     format: RenderFormat,
+    bytes: &[u8],
+    overwrite: bool,
+) -> Result<PathBuf, OutputPathError> {
+    write_file(path, format.extension(), bytes, overwrite)
+}
+
+/// 規則を満たしていれば `bytes` を書き出し、書いた絶対パスを返す。何かを書く前に全部検査する。
+/// `extension` は書く種類の拡張子 (`.` なし。大文字小文字は問わない)。GUI の `.mmd` は RenderFormat を通らずここを呼ぶ (spec 25 D2)
+pub fn write_file(
+    path: &Path,
+    extension: &'static str,
     bytes: &[u8],
     overwrite: bool,
 ) -> Result<PathBuf, OutputPathError> {
@@ -41,10 +52,10 @@ pub fn write_output(
     let ext_ok = path
         .extension()
         .and_then(|e| e.to_str())
-        .is_some_and(|e| e.eq_ignore_ascii_case(format.extension()));
+        .is_some_and(|e| e.eq_ignore_ascii_case(extension));
     if !ext_ok {
         return Err(OutputPathError::ExtensionMismatch {
-            expected: format.extension(),
+            expected: extension,
             path: shown(),
         });
     }

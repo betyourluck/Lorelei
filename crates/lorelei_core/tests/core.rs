@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use lorelei_core::output::{OutputPathError, write_output};
+use lorelei_core::output::{OutputPathError, write_file, write_output};
 use lorelei_core::{
     CoreError, MAX_SOURCE_BYTES, RenderFormat, RenderOptions, render, render_preview_png, validate,
 };
@@ -348,6 +348,43 @@ fn output_writes_atomically_and_overwrites_only_when_asked() {
         1,
         "一時ファイルが残っている"
     );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+// spec 25 D2: GUI の書き出しの .mmd は RenderFormat を通らず、拡張子を渡して同じ規則で書く
+#[test]
+fn write_file_checks_the_given_extension() {
+    let dir = scratch_dir();
+    let path = dir.join("図.mmd");
+    write_file(
+        &path,
+        "mmd",
+        "flowchart TD
+"
+        .as_bytes(),
+        false,
+    )
+    .unwrap();
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        b"flowchart TD
+"
+    );
+    // 大文字の拡張子も通る (write_output と同じ)
+    write_file(&dir.join("大文字.MMD"), "mmd", b"x", false).unwrap();
+    let err = write_file(&dir.join("図.svg"), "mmd", b"x", false).unwrap_err();
+    assert_eq!(
+        err,
+        OutputPathError::ExtensionMismatch {
+            expected: "mmd",
+            path: dir.join("図.svg").display().to_string(),
+        }
+    );
+    // 上書きの規則も同じ
+    assert!(matches!(
+        write_file(&path, "mmd", b"y", false).unwrap_err(),
+        OutputPathError::AlreadyExists(_)
+    ));
     std::fs::remove_dir_all(dir).unwrap();
 }
 

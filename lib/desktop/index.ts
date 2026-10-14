@@ -2,5 +2,6 @@
 export { useDesktopActions } from "./desktop-actions";
 export { DesktopShell } from "./desktop-shell";
 export { ExportButtons } from "./export-buttons";
+export { useMmdDownload } from "./mmd-download";
 export type { EditorKind } from "./open-requests";
 export { useDesktopOpen } from "./use-desktop-open";

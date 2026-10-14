@@ -3,6 +3,7 @@
 import { Button, ButtonGroup, useNotice } from "@yamada-ui/react";
 import type { FC } from "react";
 import { useEffect, useState } from "react";
+import { runSaveDialog, useSaveDialogBusy } from "./save-dialog";
 import type { ExportFormat } from "./tauri";
 import { exportDiagram, isTauri } from "./tauri";
 
@@ -13,6 +14,7 @@ interface ExportButtonsProps {
   fileStem: string;
 }
 
+// .mmd は同じダイアログの「ダウンロード」(useMmdDownload) が保存する (spec 25)
 const FORMATS: ExportFormat[] = ["svg", "png", "pdf"];
 
 /** SVG / PNG / PDF で保存するボタン。デスクトップ版 (Tauri) の時だけ出る (spec 01 D9) */
@@ -21,15 +23,22 @@ export const ExportButtons: FC<ExportButtonsProps> = ({ code, fileStem }) => {
   // 静的書き出しの HTML と食い違わないよう、マウント後に判定する
   const [desktop, setDesktop] = useState(false);
   const [busy, setBusy] = useState<ExportFormat | null>(null);
+  // 保存ダイアログは窓に 1 つだけ。「ダウンロード」から出したものでも押せなくする (spec 25 D5)
+  const dialogBusy = useSaveDialogBusy();
   useEffect(() => setDesktop(isTauri()), []);
   if (!desktop) return null;
 
   const save = async (format: ExportFormat) => {
     setBusy(format);
     try {
-      const path = await exportDiagram(code, format, fileStem);
-      if (path)
-        notice({ status: "success", title: "保存しました", description: path, isClosable: true });
+      const result = await runSaveDialog(() => exportDiagram(code, format, fileStem));
+      if (result.ran && result.value)
+        notice({
+          status: "success",
+          title: "保存しました",
+          description: result.value,
+          isClosable: true,
+        });
     } catch (e) {
       notice({
         status: "error",
@@ -49,7 +58,7 @@ export const ExportButtons: FC<ExportButtonsProps> = ({ code, fileStem }) => {
         <Button
           key={format}
           loading={busy === format}
-          disabled={busy !== null}
+          disabled={busy !== null || dialogBusy}
           onClick={() => void save(format)}
         >
           {format.toUpperCase()}

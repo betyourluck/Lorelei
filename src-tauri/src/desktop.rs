@@ -3,11 +3,28 @@
 
 use std::path::{Path, PathBuf};
 
-use lorelei_core::output::write_output;
+use lorelei_core::output::{write_file, write_output};
 use lorelei_core::{RenderFormat, RenderOptions, render};
 use tauri::{AppHandle, Manager};
 
-/// 手直しした図を SVG / PNG / PDF で保存する。保存ダイアログで取り消されたら `Ok(None)`。
+/// 書き出しの種類 (data_contract `GuiCommands.export_diagram`)。描く 3 形式と、描かずにそのまま書く .mmd (spec 25 D2)。
+/// RenderFormat は MCP の render の enum なので .mmd は足さない
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExportKind {
+    Render(RenderFormat),
+    Mmd,
+}
+
+impl ExportKind {
+    pub fn extension(self) -> &'static str {
+        match self {
+            Self::Render(format) => format.extension(),
+            Self::Mmd => "mmd",
+        }
+    }
+}
+
+/// 手直しした図を SVG / PNG / PDF / MMD で保存する。保存ダイアログで取り消されたら `Ok(None)`。
 #[tauri::command]
 pub async fn export_diagram(
     window: tauri::WebviewWindow,
@@ -15,8 +32,8 @@ pub async fn export_diagram(
     format: String,
     file_stem: String,
 ) -> Result<Option<String>, String> {
-    let format = parse_format(&format)?;
-    let ext = format.extension();
+    let kind = parse_kind(&format)?;
+    let ext = kind.extension();
     let picked = tauri::async_runtime::spawn_blocking(move || {
         rfd::FileDialog::new()
             .set_parent(&window)
@@ -28,10 +45,13 @@ pub async fn export_diagram(
     .await
     .map_err(|e| e.to_string())?;
     let Some(path) = picked else { return Ok(None) };
-    tauri::async_runtime::spawn_blocking(move || export_to(&path, &source, format))
-        .await
-        .map_err(|e| e.to_string())?
-        .map(|p| Some(p.display().to_string()))
+    tauri::async_runtime::spawn_blocking(move || match kind {
+        ExportKind::Render(format) => export_to(&path, &source, format),
+        ExportKind::Mmd => save_mmd(&path, &source),
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map(|p| Some(p.display().to_string()))
 }
 
 /// 描画して書き出す。上書きの確認は OS の保存ダイアログが済ませているので上書きを許す。
@@ -40,11 +60,19 @@ pub fn export_to(path: &Path, source: &str, format: RenderFormat) -> Result<Path
     write_output(path, format, &rendered.bytes, true).map_err(|e| e.to_string())
 }
 
-fn parse_format(format: &str) -> Result<RenderFormat, String> {
+/// コード生成のコードを .mmd としてそのまま書く (spec 25 D2)。描かず、検査もしない (描けないコードでも保存できる。Web 版の Blob と同じ)。
+/// 上書きの確認は OS の保存ダイアログが済ませているので上書きを許す
+pub fn save_mmd(path: &Path, source: &str) -> Result<PathBuf, String> {
+    write_file(path, ExportKind::Mmd.extension(), source.as_bytes(), true)
+        .map_err(|e| e.to_string())
+}
+
+pub fn parse_kind(format: &str) -> Result<ExportKind, String> {
     match format {
-        "svg" => Ok(RenderFormat::Svg),
-        "png" => Ok(RenderFormat::Png),
-        "pdf" => Ok(RenderFormat::Pdf),
+        "svg" => Ok(ExportKind::Render(RenderFormat::Svg)),
+        "png" => Ok(ExportKind::Render(RenderFormat::Png)),
+        "pdf" => Ok(ExportKind::Render(RenderFormat::Pdf)),
+        "mmd" => Ok(ExportKind::Mmd),
         other => Err(format!("未対応の形式です: {other}")),
     }
 }

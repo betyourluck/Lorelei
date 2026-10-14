@@ -13,7 +13,7 @@ import type { FC } from "react";
 import { MermaidCodeWithPreview } from "@/components/ui";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { ThemeMenu } from "@/features/flowchart/components/theme-menu";
-import { ExportButtons } from "@/lib/desktop";
+import { ExportButtons, useMmdDownload } from "@/lib/desktop";
 import type { SkippedColumn } from "../../utils/er-names";
 
 export interface ERDiagramMermaidModalProps {
@@ -37,6 +37,8 @@ export const ERDiagramMermaidModal: FC<ERDiagramMermaidModalProps> = ({
   theme,
   onThemeChange,
 }) => {
+  // Lorelei: デスクトップでは保存ダイアログを出して知らせる (Web 版は onDownload のまま, spec 25)
+  const { download } = useMmdDownload("er-diagram", onDownload);
   return (
     <Modal open={open} onClose={onClose} maxW="90vw" h="85vh">
       <ModalHeader>
@@ -52,7 +54,7 @@ export const ERDiagramMermaidModal: FC<ERDiagramMermaidModalProps> = ({
               startIcon={<DownloadIcon />}
               colorScheme="blue"
               size="sm"
-              onClick={onDownload}
+              onClick={() => download(code)}
               ml={{ base: 0, md: "auto" }}
             >
               ダウンロード

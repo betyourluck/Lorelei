@@ -17,7 +17,8 @@ export const invoke = async <T>(cmd: string, args?: Record<string, unknown>): Pr
 
 export const takePendingOpen = (): Promise<OpenRequest[]> => invoke("take_pending_open");
 
-export type ExportFormat = "svg" | "png" | "pdf";
+/** mmd は描かずにコードをそのまま書く (spec 25 D2) */
+export type ExportFormat = "svg" | "png" | "pdf" | "mmd";
 
 /** 保存ダイアログを出して書き出す。取り消されたら null、保存したら絶対パス */
 export const exportDiagram = (

@@ -15,7 +15,7 @@ import {
 import { useCallback, useState, useMemo } from "react";
 import { MermaidCodeWithPreview } from "@/components/ui";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
-import { ExportButtons } from "@/lib/desktop";
+import { ExportButtons, useMmdDownload } from "@/lib/desktop";
 import type { FlowData } from "../../hooks/flow-helpers";
 import { generateMermaidCode } from "../../hooks/mermaid";
 import type { GraphType } from "../../types/";
@@ -67,6 +67,8 @@ export const DownloadModal: FC<DownloadModalProps> = ({
     element.click();
     document.body.removeChild(element);
   }, [currentMermaidCode]);
+  // Lorelei: デスクトップでは保存ダイアログを出して知らせる (Web 版は downloadMermaidCode のまま, spec 25)
+  const { download } = useMmdDownload("flowchart", downloadMermaidCode);
 
   return (
     <Modal open={open} onClose={onClose} maxW="90vw" h="85vh">
@@ -83,7 +85,7 @@ export const DownloadModal: FC<DownloadModalProps> = ({
               startIcon={<DownloadIcon />}
               colorScheme="blue"
               size="sm"
-              onClick={downloadMermaidCode}
+              onClick={() => download(currentMermaidCode)}
               ml={{ base: 0, md: "auto" }}
             >
               ダウンロード
