@@ -62,14 +62,12 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
-- 2026-10-14: [spec 23](specs/23_edge-label-render.md) **rev2**（起票 → 査読 3 本 → P0 → 裁定。P1 待ち。spec 22 の次の候補「ドラッグ中の描き直しを軽くする」）。
-  裁定: D1〜D4 は推奨どおり（閉じたラベルを素の要素 + CSS Modules、メニューは押した時に差し込む M1、memo は採らない、パネルは触らない、速さは裏の Edge で交互の比べ）。
-  **アイコンは `lucide-react` を直接の依存に足して描く**（`@yamada-ui/lucide` が固定で入れている 0.475.0 と同じ版。形をコードに写さない）。
+- 2026-10-14: [spec 23](specs/23_edge-label-render.md) **P1 着地**（rev2。起票 → 査読 3 本 → P0 → 裁定 → P1。P2（配布ビルド）待ち。spec 22 の次の候補「ドラッグ中の描き直しを軽くする」）。
   下調べ: 自動スクロールを起こさない測り（failures #40）では、引っかかるのは経路の計算が走るフレームで、中身は**経路が変わった線（1 回に 18 本前後）のラベルの描き直し**（yamada-ui の部品、1 本 2〜2.5ms）。
-  P0（コードはコミットせず、試作は 1 つの組み立ての中で実行時に切り替え）: **閉じたラベルを素の要素 + CSS Modules + 素の SVG のアイコンにし、矢印のメニューは押した時だけ yamada-ui の `Menu` を出す形**で、
-  24 場面を今の main と交互に測って 95 パーセンタイルの中央値 104.2 → 21.4ms、長いフレームの和 1,684 → 78 個、24 / 24 場面で下がった。見た目は計算されたスタイル 21,600 項目と画素で今と同じ。
-  `@yamada-ui/lucide` のアイコンも yamada-ui の `Icon`（Emotion）を通るので重さの一部。memo（案 B）は効かない。
-  メニューは**閉じた状態で差し込み、次の描画で押した事件を本物の `MenuButton` へ渡す**と、jsdom と実物のブラウザで 7 つの手順が今と同じになり、既存の 39 件も変えずに通る（素直に開くとフォーカスと role が違う, failures #42）。
+  P0 で形を絞り、裁定は推奨どおり（memo は採らない、パネルは触らない）、**アイコンは `lucide-react` を直接の依存に足して描く**（`@yamada-ui/lucide` が固定で入れている 0.475.0。`@yamada-ui/lucide` は yamada-ui の `Icon`（Emotion）で包むので重さの一部だった）。
+  P1（フォーク元 `0d80888`）: **閉じたラベルを素の要素 + CSS Modules（`edge-label.module.css`、リポジトリで最初の自前の CSS）で描き、矢印のメニューは押した時だけ yamada-ui の `Menu` を差し込む**。
+  直す前と交互に測った 24 場面で、95 パーセンタイルの中央値 83.5 → 21.4ms、長いフレームの和 1,531 → 107 個、24 / 24 場面で下がった。見た目は計算されたスタイル 21,600 項目と画素で前と同じ（開いたメニューの影の縁だけ 1/255）。
+  メニューは**閉じた状態で差し込み、次の描画で押した事件を本物の `MenuButton` へ渡す**（Space は `code` も渡す）と、11 の手順で開き方・フォーカスの行き先が前と同じ（素直に開くとフォーカスと role が違う, failures #42）。
   **閉じた yamada-ui の `Menu` は項目の文字を DOM に持つが `role="menuitem"` は付かない**ので、「閉じた時に描かない」テストは文字で見る（role で見ると最初から緑, failures #22 の形）。
   **速さの測りは裏の Edge で回す**（Browser pane は途中で隠れて描画が止まった, failures #41。利用者の裁定。Playwright の `channel: "msedge"`・headless・使い捨てのプロファイル。測りごとに水準が揺れるので、比べは同じ測りの中の交互だけ）
 - 2026-10-13: **リポジトリの About を英語に、homepage をライブデモに、Topics を 13 個**（利用者を増やす方面。`gh repo edit -R betyourluck/Lorelei`）。
@@ -182,7 +180,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   受け入れ条件 1（配布ビルドのタイトルバー）と 3（VRT）は未確認のまま閉じた。図の一覧は `{app_data_dir}/documents/` を Rust だけが読み書きする
 - 開発コマンド: フロントの依存は `corepack pnpm@9 install --ignore-scripts`（pnpm が無い環境でも corepack で足りる。
   lefthook の hooks は入れていない。**scripts 付きの install は `prepare` で hooks を入れ、コミットのたびに prettier・eslint --fix がファイルごとかかる**（2026-10-14 に入って spec 23 rev1 のコミットを整形した。
-  外すのは `corepack pnpm@9 exec lefthook uninstall`）。GUI は `corepack pnpm@9 exec tauri dev` / `... tauri build --no-bundle`。
+  外すのは `corepack pnpm@9 exec lefthook uninstall`）。**別の版の pnpm（同じ日に pnpm 12 が入れた）の node_modules だと、pnpm 9 は入れ直しを尋ねて進まない**ので、
+  `--config.confirmModulesPurge=false` を足す（failures #43）。GUI は `corepack pnpm@9 exec tauri dev` / `... tauri build --no-bundle`。
   インストーラーは `v*.*` のタグの push で GitHub Actions が作り、下書きの Release に置く（`.github/workflows/build.yml`、spec 20。Release は人が Assets を見てから publish する）。
   Web 版の画面の確かめは `.claude/launch.json` の `web-dev`（`next dev -p 3015`。Browser pane の preview_start で立てる。`.claude/` は git の対象外）。
   配布版を起動する前に `tauri dev` と開発版の `lorelei.exe`・Next の開発サーバーを止める（single-instance。動いている exe は上書きできずビルドも失敗する）。

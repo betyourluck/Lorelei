@@ -512,3 +512,12 @@
   開き方・項目の数と role・フォーカスの行き先が今と同じになり、既存の 39 件も変えずに通った
 - **一般化**: ライブラリの部品を後から差し込む時は、開く・フォーカスを移すをこちらで真似ず、ライブラリの今の入口（ボタンの事件）へ渡し直す。
   jsdom で通っても、フォーカスと描画の順は実物のブラウザで確かめる
+
+## #43 `corepack pnpm@9 install` が node_modules の入れ直しを尋ね、答えられずに何もせず終わった（2026-10-14, spec 23 P1）
+
+- **症状**: `package.json` に依存を足して `corepack pnpm@9 install --ignore-scripts` を回すと、「The modules directory … will be removed and reinstalled from scratch. Proceed?」と出て、
+  `Done` の行も lockfile の更新も無いまま終わった。出力を `tail` で絞っていたので、通ったように見えかけた
+- **真因**: この作業場所の node_modules は同じ日の 11:47 に **pnpm 12.11.2**（store `v11`）で入れ直されていた（`node_modules/.modules.yaml` の `packageManager`。同じ時刻に lefthook の hooks も入った, CLAUDE.md の開発コマンド）。
+  pnpm 9 は形の違う node_modules を見ると消して入れ直すかを尋ね、答えの来ない呼び出しでは進まない
+- **処方**: `corepack pnpm@9 install --ignore-scripts --config.confirmModulesPurge=false` で入れ直した（2 分 48 秒。pnpm 9 の store `v3` から）。lockfile は pnpm 9 の形（`lockfileVersion: '9.0'`）のまま
+- **一般化**: install の出力は絞らずに最後の `Done` と lockfile の差を見る。ほかの道具（別の版の pnpm・scripts 付きの install）が node_modules を触ったかは、`.modules.yaml` の `packageManager` と git の hooks で分かる
