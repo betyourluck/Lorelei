@@ -2,8 +2,8 @@
 
 import type { EdgeProps, Edge } from "@xyflow/react";
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, useReactFlow, useStore } from "@xyflow/react";
-import { XIcon } from "@yamada-ui/lucide";
-import { Input, Box, IconButton, HStack } from "@yamada-ui/react";
+import { Input } from "@yamada-ui/react";
+import { X } from "lucide-react";
 import type { MouseEvent, KeyboardEvent } from "react";
 import { useState, useRef, useEffect } from "react";
 import { adjustEdgeLabelPosition, getCyclicEdgeStyle } from "../../hooks/edge-layout";
@@ -14,6 +14,7 @@ import { roundedPath } from "../../utils/edge-route";
 import { frameSelfLoopPath, type HandleSide } from "../../utils/frame-edit";
 import { SUBGRAPH_NODE_TYPE } from "../../utils/subgraph-tree";
 import { ArrowTypeSelector } from "./arrow-type-selector";
+import styles from "./edge-label.module.css";
 
 interface EditableEdgeProps extends EdgeProps {
   data?: {
@@ -102,13 +103,16 @@ export function EdgeContent({ id, labelX, labelY, data, zIndex }: EdgeContentPro
     }
   };
 
+  // 閉じたラベルは yamada-ui の部品を通さずに描く (線は図に何百本もあり、ドラッグで経路が変わるたびに描き直すので重い。spec 23)。
+  // 外枠は枠の面の上でも押せるよう、pointer-events と一番上の枠より上の高さを持つ (failures #25)
   return (
-    <Box
-      position="absolute"
-      transform={`translate(-50%, -50%) translate(${labelX}px,${labelY}px)`}
-      pointerEvents="all"
-      className="nodrag nopan"
-      zIndex={zIndex}
+    <div
+      className={`nodrag nopan ${styles.wrap}`}
+      style={{
+        transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+        pointerEvents: "all",
+        zIndex,
+      }}
     >
       {isEditing ? (
         <Input
@@ -128,47 +132,26 @@ export function EdgeContent({ id, labelX, labelY, data, zIndex }: EdgeContentPro
           textAlign="center"
         />
       ) : (
-        <HStack gap="1" align="center">
-          <Box
-            onClick={handleClick}
-            bg="white"
-            p="1"
-            px="2"
-            borderRadius="md"
-            fontSize="xs"
-            border="1px solid"
-            borderColor="gray.300"
-            cursor="pointer"
-            minW="20px"
-            textAlign="center"
-            display="flex"
-            alignItems="center"
-            gap="1"
-          >
-            <Box as="span" color="blue.600" fontWeight="bold">
-              {getArrowTypeSymbol(data?.arrowType || "arrow")}
-            </Box>
-            <Box as="span">{edgeLabel || "..."}</Box>
-          </Box>
+        <>
+          <div className={styles.label} onClick={handleClick}>
+            <span className={styles.symbol}>{getArrowTypeSymbol(data?.arrowType || "arrow")}</span>
+            <span>{edgeLabel || "..."}</span>
+          </div>
           <ArrowTypeSelector
             currentArrowType={data?.arrowType || "arrow"}
             onArrowTypeChange={handleArrowTypeChange}
           />
-          <IconButton
+          <button
+            type="button"
             aria-label="Delete edge"
-            icon={<XIcon />}
-            size="xs"
-            variant="ghost"
-            colorScheme="red"
+            className={styles.deleteButton}
             onClick={handleDelete}
-            bg="white"
-            border="1px solid"
-            borderColor="red.300"
-            _hover={{ bg: "red.50" }}
-          />
-        </HStack>
+          >
+            <X size="1em" className={styles.icon} aria-hidden role="img" />
+          </button>
+        </>
       )}
-    </Box>
+    </div>
   );
 }
 
