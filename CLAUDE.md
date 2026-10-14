@@ -177,7 +177,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 - 2026-09-25: [spec 02](specs/02_desktop-shell.md) **Done** — rev4（デスクトップの外枠 = 自作タイトルバー・ツールバー・図の一覧・「保存」）。P0〜P4 着地。
   受け入れ条件 1（配布ビルドのタイトルバー）と 3（VRT）は未確認のまま閉じた。図の一覧は `{app_data_dir}/documents/` を Rust だけが読み書きする
 - 開発コマンド: フロントの依存は `corepack pnpm@9 install --ignore-scripts`（pnpm が無い環境でも corepack で足りる。
-  lefthook の hooks は入れていない）。GUI は `corepack pnpm@9 exec tauri dev` / `... tauri build --no-bundle`。
+  lefthook の hooks は入れていない。**scripts 付きの install は `prepare` で hooks を入れ、コミットのたびに prettier・eslint --fix がファイルごとかかる**（2026-10-14 に入って spec 23 rev1 のコミットを整形した。
+  外すのは `corepack pnpm@9 exec lefthook uninstall`）。GUI は `corepack pnpm@9 exec tauri dev` / `... tauri build --no-bundle`。
   インストーラーは `v*.*` のタグの push で GitHub Actions が作り、下書きの Release に置く（`.github/workflows/build.yml`、spec 20。Release は人が Assets を見てから publish する）。
   Web 版の画面の確かめは `.claude/launch.json` の `web-dev`（`next dev -p 3015`。Browser pane の preview_start で立てる。`.claude/` は git の対象外）。
   配布版を起動する前に `tauri dev` と開発版の `lorelei.exe`・Next の開発サーバーを止める（single-instance。動いている exe は上書きできずビルドも失敗する）。
