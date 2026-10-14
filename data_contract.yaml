@@ -64,15 +64,20 @@ RenderResult:
     bytes: { type: int, nullable: true }
 
 OutputPathPolicy:
-  description: MCP 経由のファイル書き出しの規則
-  rules:
+  description: >-
+    ファイルの書き出しの規則 (crates/lorelei_core/src/output.rs の write_file(path, extension, bytes, overwrite) と、それを RenderFormat の拡張子で呼ぶ write_output)。
+    MCP の render と GUI の書き出し (GuiCommands.export_diagram) が使う。spec 24 までは「MCP 経由」だけの規則として書いていた (GUI の上書きの規則が書かれていなかった, spec 25 D2)
+  common:   # 両方
     - 絶対パスのみ
-    - 拡張子は format と一致 (.svg / .png / .pdf)。不一致は拒否
+    - 拡張子は書く種類と一致 (MCP の render は .svg / .png / .pdf、GUI の書き出しはそれに .mmd)。大文字小文字は問わない。不一致は拒否
     - 親ディレクトリは既存であること (勝手に作らない)
-    - 既存ファイルは overwrite=true の時だけ上書き
-    - 書き込みは output_path と同じディレクトリの一時ファイル `.{name}.tmp.{uuid}` → rename (別ボリュームだと rename が失敗するため)
+    - 書き込みは書き先と同じディレクトリの一時ファイル `.{name}.tmp.{uuid}` → rename (別ボリュームだと rename が失敗するため)
     - rename 失敗時は一時ファイルを消してエラー (途中で切れた壊れファイルを残さない)
+  mcp_only:
+    - 既存ファイルは overwrite=true の時だけ上書き
     - WSL のパス (/home/...) は Windows では絶対パスにならず拒否される。WSL 上のクライアントは非対応
+  gui_only:
+    - 保存先は OS の保存ダイアログ (rfd) で選ぶ。既存のファイルを選んだ時の上書きの確認は OS のダイアログが行い、確かめた後は上書きする (overwrite=true で呼ぶ)
 
 EditorPayload:
   description: >-
@@ -207,6 +212,28 @@ DesktopActions:
     theme: "MermaidTheme (任意、無ければ default)。今のエディタのテーマ (spec 24 P2)。外枠は保存 (toSource) にだけ使う。選ぶのはコード生成のダイアログで、ツールバーには出さない"
     addFrame: "() => void (任意)。フローチャートのパネルだけが登録し、登録した時だけツールバーに「枠を追加」を出す (spec 15 D5)"
   autosave: "外枠は向き・テーマの変化でも自動保存する (ノード・辺が変わらなくても。spec 07 D3・spec 24 P2)"
+
+DesktopMmdDownload:
+  description: >-
+    コード生成のダイアログの「ダウンロード」(.mmd) の口 (spec 25 D4)。lib/desktop/mmd-download.ts の useMmdDownload、lib/desktop/index.ts から export する。
+    フォーク元の 2 つのダイアログ (features/flowchart/components/mermaid/download-modal.tsx・features/er-diagram/components/panel/er-diagram-mermaid-modal.tsx) の「ダウンロード」の onClick が呼ぶ
+  signature: "useMmdDownload(fileStem: string, webDownload: () => void) → { download: (code: string) => void, busy: boolean }"
+  fields:
+    fileStem: "保存ダイアログの既定の名前 (拡張子なし)。flowchart / er-diagram (spec 25 D3。今の Blob のファイル名と同じ)"
+    webDownload: "Web の落とし方 = フォーク元の今の Blob + <a download> の処理 (download-modal.tsx の downloadMermaidCode / ER 図のダイアログの props の onDownload)。デスクトップでは呼ばない"
+    download: "押した時に isTauri() を見る。偽 (Web 版) なら webDownload() だけ。真 (デスクトップ) なら webDownload は呼ばず、DesktopSaveDialog が出している間は何もせず、そうでなければ exportDiagram(code, \"mmd\", fileStem)"
+    busy: "DesktopSaveDialog が出している間 true (どのボタンから出したものでも)。フォーク元のボタンには渡さない (見た目は変えない)"
+  notice: "フックが出す (ExportButtons と同じ文言): 保存したら success「保存しました」+ パス / 取り消し (null) は何も出さない / 失敗は error「保存できませんでした」+ 誤りの文 (duration null = 閉じるまで残る)"
+  web: "Web 版 (GitHub Pages) は今のまま。ブラウザがダウンロードを扱う"
+
+DesktopSaveDialog:
+  description: >-
+    保存ダイアログは窓に 1 つだけ (spec 25 D5)。lib/desktop/save-dialog.ts がモジュールの状態に「出している」を 1 つ持ち、useSyncExternalStore で購読させる。
+    書き出しのボタン (ExportButtons) と DesktopMmdDownload の両方が runSaveDialog を通して exportDiagram を呼ぶ
+  run: "runSaveDialog(task: () => Promise<T>) → Promise<{ ran: true, value: T } | { ran: false }>。出している間 (押してから、取り消すか保存し終えるか失敗するまで) は task を呼ばずに { ran: false }。task が投げたら状態を戻してから投げ直す"
+  subscribe: "useSaveDialogBusy() → boolean"
+  buttons: "ExportButtons の 3 つは、どれから出した保存ダイアログでも押せない (disabled)。押した形式の loading は今のまま。ダウンロードのボタンは見た目を変えず、押しても何もしない"
+  why: "保存ダイアログは窓を親にしたモーダル (rfd の set_parent) なので、出た後は OS が窓を止める。止めるのは、押してから出るまでの間 (spawn_blocking) と、別のボタンからの同時押し"
 
 MermaidPreview:
   description: コード生成のモーダルの右の列で、生成した Mermaid を mermaid.js で描く (spec 09 D3)。フォーク元の改善 (Web 版でも動く、Tauri に依らない)
@@ -409,7 +436,11 @@ GuiCommands:
   documents_event: "lorelei://documents-changed (本体は DocumentSummary)。update_diagram がファイルを書けた時に出す (spec 08 D3)。外枠はその 1 件だけを一覧で差し替える (setList(map)。一覧を丸ごと読み直さない — 読み直しは自動保存の 1 件差し替えと競合して ● が戻ることがある)"
   last_opened: "() → id | null。起動時に開く図 (DocumentState.last_opened)"
   set_last_opened: "(id) → ()"
-  export_diagram: "(source, format: svg|png|pdf, fileStem) → 保存したパス | null (取り消し)。保存ダイアログは rfd。上書きの確認は OS のダイアログが行う。RenderOptions は既定のまま: テーマと背景は source (コード生成のダイアログのコード) の先頭のテーマで決まる (spec 24 P2)"
+  export_diagram: >-
+    (source, format: svg|png|pdf|mmd, fileStem) → 保存したパス | null (取り消し)。フロントの型は lib/desktop/tauri.ts の ExportFormat = "svg" | "png" | "pdf" | "mmd" (spec 25)。
+    保存ダイアログは rfd (題「{拡張子の大文字} として保存」・既定の名前 {fileStem}.{拡張子}・種類の絞り込み)。上書きの確認は OS のダイアログが行う (OutputPathPolicy.gui_only)。
+    src-tauri/src/desktop.rs の parse_kind が ExportKind { Render(RenderFormat), Mmd } にし (知らない形式は「未対応の形式です」)、Render は export_to (描いて write_output。RenderOptions は既定のまま: テーマと背景は source の先頭のテーマで決まる, spec 24 P2)、
+    Mmd は save_mmd (描かず検査もせず、source をそのまま UTF-8 (BOM なし) で write_file。描けないコードでも保存できる, spec 25 D2)。RenderFormat (MCP の render の enum) に mmd は足さない
   show_about: "() → ()。About (rfd の MessageDialog) を出す。入口はタイトルバーの「?」(spec 02 D5。ネイティブのメニューは持たない)。フォーク元への謝辞とライセンス一覧を載せ、全文は bundle.resources で licenses/ に同梱"
   window: "自作タイトルバーのウィンドウ操作は @tauri-apps/api/window (minimize / toggleMaximize / close / data-tauri-drag-region)。権限は capabilities/default.json の core:window:*"
   mcp_status: "() → McpStatus。設定画面とタイトルバーの印が読む (spec 03 D4・D6)"
