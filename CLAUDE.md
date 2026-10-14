@@ -62,14 +62,15 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
-- 2026-10-14: [spec 23](specs/23_edge-label-render.md) **P1 着地**（rev2。起票 → 査読 3 本 → P0 → 裁定 → P1。P2（配布ビルド）待ち。spec 22 の次の候補「ドラッグ中の描き直しを軽くする」）。
+- 2026-10-14: [spec 23](specs/23_edge-label-render.md) **Done**（rev2。起票 → 査読 3 本 → P0 → 裁定 → P1 → P2（配布ビルドで利用者が「すべて問題ありません」）。spec 22 の次の候補「ドラッグ中の描き直しを軽くする」）。
   下調べ: 自動スクロールを起こさない測り（failures #40）では、引っかかるのは経路の計算が走るフレームで、中身は**経路が変わった線（1 回に 18 本前後）のラベルの描き直し**（yamada-ui の部品、1 本 2〜2.5ms）。
   P0 で形を絞り、裁定は推奨どおり（memo は採らない、パネルは触らない）、**アイコンは `lucide-react` を直接の依存に足して描く**（`@yamada-ui/lucide` が固定で入れている 0.475.0。`@yamada-ui/lucide` は yamada-ui の `Icon`（Emotion）で包むので重さの一部だった）。
   P1（フォーク元 `0d80888`）: **閉じたラベルを素の要素 + CSS Modules（`edge-label.module.css`、リポジトリで最初の自前の CSS）で描き、矢印のメニューは押した時だけ yamada-ui の `Menu` を差し込む**。
   直す前と交互に測った 24 場面で、95 パーセンタイルの中央値 83.5 → 21.4ms、長いフレームの和 1,531 → 107 個、24 / 24 場面で下がった。見た目は計算されたスタイル 21,600 項目と画素で前と同じ（開いたメニューの影の縁だけ 1/255）。
   メニューは**閉じた状態で差し込み、次の描画で押した事件を本物の `MenuButton` へ渡す**（Space は `code` も渡す）と、11 の手順で開き方・フォーカスの行き先が前と同じ（素直に開くとフォーカスと role が違う, failures #42）。
   **閉じた yamada-ui の `Menu` は項目の文字を DOM に持つが `role="menuitem"` は付かない**ので、「閉じた時に描かない」テストは文字で見る（role で見ると最初から緑, failures #22 の形）。
-  **速さの測りは裏の Edge で回す**（Browser pane は途中で隠れて描画が止まった, failures #41。利用者の裁定。Playwright の `channel: "msedge"`・headless・使い捨てのプロファイル。測りごとに水準が揺れるので、比べは同じ測りの中の交互だけ）
+  **速さの測りは裏の Edge で回す**（Browser pane は途中で隠れて描画が止まった, failures #41。利用者の裁定。Playwright の `channel: "msedge"`・headless・使い捨てのプロファイル。測りごとに水準が揺れるので、比べは同じ測りの中の交互だけ）。
+  次の候補（spec 23「P2 結果」）: 枠のドラッグで残る重さ（直した後も 95 パーセンタイル 63〜104ms）/ 経路の計算を減らす・主スレッドの外へ / ER 図の線のラベル。spec 21 からの ⑦ の前半・⑥・ボタンの実寸・両端を貫く逆向きの線、spec 16・17 の ②〜④ も残る
 - 2026-10-13: **リポジトリの About を英語に、homepage をライブデモに、Topics を 13 個**（利用者を増やす方面。`gh repo edit -R betyourluck/Lorelei`）。
   **この作業場所の `gh` は `-R` なしだとフォーク元（`upstream`）を読み書きする**（failures #37。同日 `gh repo set-default betyourluck/Lorelei` 済み）
 - 2026-10-14: [spec 22](specs/22_drag-reroute-scope.md) **Done**（rev3。spec 19・21 の候補「大きな図のドラッグを軽くする」。起票 → 査読 2 本 → P0 → 裁定 → P1 → 受け入れ条件 1 の改め → P2）。
