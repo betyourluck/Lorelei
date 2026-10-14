@@ -634,6 +634,88 @@ fn er_generator_names_round_trip_through_merman() {
 
 /// TS の生成器が書いた枠 (spec 15 D2) を merman で読み、fixture の nodes・subgraphs に戻る (TS の往復は mermaid.js で同じ期待値を検める)。
 /// fixture は __tests__/lorelei/flow-subgraphs-fixture.test.ts が書く (LORELEI_UPDATE_FIXTURES=1)
+// ---------- テーマ (spec 24) ----------
+
+#[test]
+fn theme_is_read_from_frontmatter_and_init() {
+    let body = "flowchart LR\n  A --> B\n";
+    let (data, dropped) = flow(&format!("---\nconfig:\n  theme: dark\n---\n{body}"));
+    assert_eq!(data.theme.as_deref(), Some("dark"));
+    assert!(dropped.is_empty(), "{dropped:?}");
+    let (data, _) = flow(&format!("%%{{init: {{\"theme\": \"forest\"}}}}%%\n{body}"));
+    assert_eq!(data.theme.as_deref(), Some("forest"));
+    let (data, _) = er("---\nconfig:\n  theme: neutral\n---\nerDiagram\n  A ||--o{ B : has\n");
+    assert_eq!(data.theme.as_deref(), Some("neutral"));
+    // default と、書いていない図はテーマを持たない (向きの TD と同じ)
+    let (data, dropped) = flow(&format!("---\nconfig:\n  theme: default\n---\n{body}"));
+    assert_eq!(data.theme, None);
+    assert!(dropped.is_empty(), "{dropped:?}");
+    assert_eq!(flow(body).0.theme, None);
+    // エディタの形に出すのはテーマがある時だけ
+    let json = serde_json::to_value(flow(body).0).unwrap();
+    assert!(json.get("theme").is_none(), "{json}");
+}
+
+#[test]
+fn settings_other_than_the_theme_are_reported_as_dropped() {
+    // D4: テーマ以外の設定は config:<名前>、選べないテーマは theme:<名前> (TS の themeFromConfig と同じ)
+    let (data, dropped) = flow(
+        "---\ntitle: T\nconfig:\n  theme: base\n  themeVariables:\n    primaryColor: \"#6A7FAB\"\n  flowchart:\n    rankSpacing: 80\n---\nflowchart LR\n  A --> B\n",
+    );
+    assert_eq!(data.theme, None);
+    assert_eq!(
+        dropped,
+        [d("config:flowchart", 1), d("config:themeVariables", 1), d("theme:base", 1)]
+    );
+    let (_, dropped) = flow("%%{wrap}%%\nflowchart LR\n  A --> B\n");
+    assert_eq!(dropped, [d("config:wrap", 1)]);
+}
+
+#[test]
+fn unreadable_theme_variable_colors_do_not_stop_the_import() {
+    // 取り込みの読みは今の守りのまま (themeVariables は取り込まないので、色の値で落とさない。D4-2)
+    let (data, dropped) = flow(
+        "%%{init: {\"theme\": \"dark\", \"themeVariables\": {\"primaryColor\": \"nope\"}}}%%\nflowchart LR\n  A --> B\n",
+    );
+    assert_eq!(data.theme.as_deref(), Some("dark"));
+    assert_eq!(dropped, [d("config:themeVariables", 1)]);
+}
+
+/// TS の取り込み (mermaid.js) と同じテーマ・消えるものになる (spec 24 P2)。fixture は __tests__/lorelei/themes-fixture.test.ts が
+/// 生成器の出力と AI が書きうる形を本物の mermaid.js に通して書く
+#[test]
+fn theme_import_matches_the_ts_import() {
+    let cases: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/themes.json")).expect("fixture");
+    for case in cases.as_array().expect("array") {
+        let name = case["name"].as_str().unwrap();
+        let source = case["source"].as_str().unwrap();
+        let (theme, dropped) = match case["kind"].as_str().unwrap() {
+            "flowchart" => {
+                let (data, dropped) = flow(source);
+                (data.theme, dropped)
+            }
+            _ => {
+                let (data, dropped) = er(source);
+                (data.theme, dropped)
+            }
+        };
+        assert_eq!(theme.as_deref(), case["theme"].as_str(), "{name}: {source}");
+        let expected: Vec<(String, usize)> = case["dropped"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| {
+                (
+                    d["construct"].as_str().unwrap().to_string(),
+                    d["count"].as_u64().unwrap() as usize,
+                )
+            })
+            .collect();
+        assert_eq!(dropped, expected, "{name}: {source}");
+    }
+}
+
 #[test]
 fn flow_generator_frames_round_trip_through_merman() {
     let cases: serde_json::Value =

@@ -154,6 +154,132 @@ fn out_of_range_scale_and_bad_background_are_rejected() {
     assert!(render(FLOW, RenderFormat::Pdf, &bad_color).is_err());
 }
 
+// ---------- テーマ (spec 24) ----------
+
+const FLOW_BODY: &str = "flowchart LR\n  A[開始] --> B{判定}\n";
+
+fn svg_of(src: &str, options: &RenderOptions) -> String {
+    String::from_utf8(render(src, RenderFormat::Svg, options).unwrap().bytes).unwrap()
+}
+
+fn root_of(svg: &str) -> &str {
+    &svg[..svg.find('>').unwrap()]
+}
+
+fn png_corner(src: &str, options: &RenderOptions) -> (u8, u8, u8, u8) {
+    let out = render(src, RenderFormat::Png, options).unwrap();
+    let pixmap = resvg::tiny_skia::Pixmap::decode_png(&out.bytes).unwrap();
+    let px = pixmap.pixel(0, 0).unwrap();
+    (px.red(), px.green(), px.blue(), px.alpha())
+}
+
+#[test]
+fn theme_variables_in_the_source_reach_the_export() {
+    // D4-2: 書き出しの守りから themeVariables を外す。プレビュー (mermaid.js) と同じく色が効く
+    let src = format!(
+        "---\nconfig:\n  theme: base\n  themeVariables:\n    primaryColor: \"#6A7FAB\"\n    lineColor: \"#ff0000\"\n---\n{FLOW_BODY}"
+    );
+    let svg = svg_of(&src, &RenderOptions::default()).to_ascii_lowercase();
+    assert!(svg.contains("#6a7fab"), "primaryColor が効いていない");
+    assert!(svg.contains("#ff0000"), "lineColor が効いていない");
+    // init でも効く (参考の Zenn の記事の形。default のテーマはノードの塗りを primaryColor から作らないので base にする)
+    let init = format!(
+        "%%{{init: {{\"theme\": \"base\", \"themeVariables\": {{\"primaryColor\": \"#123abc\"}}}}}}%%\n{FLOW_BODY}"
+    );
+    assert!(
+        svg_of(&init, &RenderOptions::default())
+            .to_ascii_lowercase()
+            .contains("#123abc")
+    );
+}
+
+#[test]
+fn theme_css_and_font_family_stay_guarded_in_the_export() {
+    // themeCSS・fontFamily は守りに残す (D4-2)
+    let src = format!(
+        "%%{{init: {{\"themeCSS\": \".node rect {{ fill: #abcdef; }}\", \"fontFamily\": \"Comic Sans MS\"}}}}%%\n{FLOW_BODY}"
+    );
+    let svg = svg_of(&src, &RenderOptions::default());
+    assert!(
+        !svg.to_ascii_lowercase().contains("#abcdef"),
+        "themeCSS が効いた"
+    );
+    assert!(!svg.contains("Comic Sans MS"), "fontFamily が効いた");
+}
+
+#[test]
+fn unreadable_theme_variable_colors_fail_validate_and_render_alike() {
+    // 色として読めない値は書き出しがエラーになる。validate も同じ設定で読むので、validate が通って render がエラーになる食い違いを作らない
+    let src = format!(
+        "%%{{init: {{\"themeVariables\": {{\"primaryColor\": \"nope\"}}}}}}%%\n{FLOW_BODY}"
+    );
+    let v = validate(&src).unwrap();
+    assert!(!v.ok, "{v:?}");
+    assert_eq!(v.family.as_deref(), Some("flowchart-v2"));
+    assert!(v.errors[0].message.contains("nope"), "{:?}", v.errors);
+    assert!(
+        v.errors[0].message.contains("themeVariables"),
+        "{:?}",
+        v.errors
+    );
+    let err = render(&src, RenderFormat::Svg, &RenderOptions::default()).unwrap_err();
+    assert!(matches!(err, CoreError::Parse(_)), "{err:?}");
+}
+
+#[test]
+fn dark_theme_exports_on_its_own_background() {
+    // D5: 効いているテーマ (図の中が勝つ) が dark なら #333。ほかは今と同じ白
+    let dark_fm = format!("---\nconfig:\n  theme: dark\n---\n{FLOW_BODY}");
+    let dark_init = format!("%%{{init: {{\"theme\": \"dark\"}}}}%%\n{FLOW_BODY}");
+    let dark_er = format!("---\nconfig:\n  theme: dark\n---\n{ER}");
+    let d = RenderOptions::default();
+    for src in [&dark_fm, &dark_init, &dark_er] {
+        assert_eq!(png_corner(src, &d), (51, 51, 51, 255), "{src}");
+        let svg = svg_of(src, &d);
+        assert!(
+            root_of(&svg).contains("background-color:rgba(51,51,51,1)"),
+            "{}",
+            root_of(&svg)
+        );
+    }
+    // options.theme が dark で、図にテーマが無い
+    let dark = RenderOptions {
+        theme: lorelei_core::Theme::Dark,
+        ..RenderOptions::default()
+    };
+    assert_eq!(png_corner(FLOW_BODY, &dark), (51, 51, 51, 255));
+    // 図の中のテーマが勝つ (options は dark、図は forest → 白)
+    let forest = format!("---\nconfig:\n  theme: forest\n---\n{FLOW_BODY}");
+    assert_eq!(png_corner(&forest, &dark), (255, 255, 255, 255));
+    // options.background を渡した時はそれが勝つ
+    let red = RenderOptions {
+        background: Some("#ff0000".into()),
+        ..RenderOptions::default()
+    };
+    assert_eq!(png_corner(&dark_fm, &red), (255, 0, 0, 255));
+    // neutral・forest・default は今と同じ白
+    for theme in ["neutral", "forest", "default"] {
+        let src = format!("---\nconfig:\n  theme: {theme}\n---\n{FLOW_BODY}");
+        assert_eq!(png_corner(&src, &d), (255, 255, 255, 255), "{theme}");
+    }
+    // プレビューの PNG (MCP render の preview) も同じ背景
+    let preview = render_preview_png(&dark_fm, &d, 400).unwrap();
+    let pixmap = resvg::tiny_skia::Pixmap::decode_png(&preview).unwrap();
+    let px = pixmap.pixel(0, 0).unwrap();
+    assert_eq!((px.red(), px.green(), px.blue()), (51, 51, 51));
+}
+
+#[test]
+fn diagrams_without_a_theme_export_the_same_bytes() {
+    // 受け入れ条件 6: テーマを選ばない図の書き出しは今と同じ (ルートの背景は Mermaid の既定の白のまま)
+    let svg = svg_of(FLOW, &RenderOptions::default());
+    assert!(
+        root_of(&svg).contains("background-color:white"),
+        "{}",
+        root_of(&svg)
+    );
+}
+
 #[test]
 fn preview_fits_within_the_long_side() {
     let bytes = render_preview_png(LONG_WITH_HTML_LABELS, &RenderOptions::default(), 400).unwrap();

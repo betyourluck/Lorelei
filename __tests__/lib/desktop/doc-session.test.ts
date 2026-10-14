@@ -243,6 +243,16 @@ describe("toSource の向き (spec 07 D3)", () => {
   });
 });
 
+describe("toSource のテーマ (spec 24 D1)", () => {
+  it("default 以外のテーマは図の先頭に frontmatter で書き、default は今までと同じ", () => {
+    const dark = "---\nconfig:\n  theme: dark\n---\n";
+    expect(toSource("flowchart", initialFlowNodes, [], "LR", "dark")).toBe(`${dark}flowchart LR\n    startNode[Start]\n`);
+    expect(toSource("erDiagram", initialERNodes, [], "TD", "dark")).toBe(`${dark}${toSource("erDiagram", initialERNodes, [])}`);
+    expect(toSource("flowchart", initialFlowNodes, [], "TD", "default")).toBe(toSource("flowchart", initialFlowNodes, []));
+    expect(toSource("erDiagram", initialERNodes, [], "TD", "default")).toBe(toSource("erDiagram", initialERNodes, []));
+  });
+});
+
 describe("Autosaver — 1 秒待って保存、切り替え・終了の前は flush (D7)", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());

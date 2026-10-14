@@ -177,9 +177,10 @@ fn preview_default() -> bool {
 pub struct RenderOptionsParam {
     /// PNG の倍率 (0.5〜8.0、既定 2.0)。
     pub scale: Option<f32>,
-    /// CSS の色か "transparent"。省略すると Mermaid の既定 (白)。
+    /// CSS の色か "transparent"。省略すると Mermaid の既定 (白)。ただし効いている配色が dark なら #333。
     pub background: Option<String>,
-    /// 配色。入力の %%{init}%% で theme を指定していればそちらが優先される。
+    /// 配色。図の先頭 (frontmatter の config.theme か %%{init}%%) で theme を指定していればそちらが優先される。
+    /// GUI で直す図なら、図の先頭に書く方がよい (GUI の図とコード生成に残る)。
     pub theme: Option<ThemeParam>,
 }
 
@@ -306,7 +307,9 @@ impl LoreleiServer {
         name = "validate",
         description = "Mermaid のテキストを検査する。文法エラーなら ok=false と理由 (分かれば行番号) を返す。\
                        editor 欄は GUI エディタで開けるか (flowchart / erDiagram のみ) と、開くと失われる要素 \
-                       (classDef・style・枠とその中を結ぶ線など) の件数。flowchart の subgraph は枠として残り、枠を指す線と枠の中の direction も残る。"
+                       (classDef・style・枠とその中を結ぶ線など) の件数。flowchart の subgraph は枠として残り、枠を指す線と枠の中の direction も残る。\
+                       図の先頭のテーマ (default・neutral・dark・forest) は残り、テーマ以外の設定 (themeVariables など) は config:<名前> として数える。\
+                       render と同じ設定で読むので、themeVariables に色として読めない値があれば ok=false になる。"
     )]
     async fn validate(
         &self,
@@ -326,6 +329,7 @@ impl LoreleiServer {
                        svg で output_path を省くと SVG 本文を返す。既存ファイルは overwrite=true の時だけ上書きする。\
                        描画結果の縮小 PNG を毎回画像で返す (preview、既定 true)。画像で見た目を確かめ、\
                        ラベルの重なりや読みにくい配置があれば Mermaid を直して描き直すこと。\
+                       図の先頭 (frontmatter / %%{init}%%) に書いた theme と themeVariables の色は効く (themeCSS と fontFamily は効かない)。\
                        flowchart / erDiagram / sequenceDiagram / classDiagram / stateDiagram ほか Mermaid の図に対応。"
     )]
     async fn render(
@@ -341,6 +345,7 @@ impl LoreleiServer {
                        対応は flowchart と erDiagram だけ (ノードの無い図は開けない)。開いている Lorelei の窓に出る。\
                        図は GUI の図の一覧に新しい 1 件として足され、開いている図は上書きしない (既存の図を書き換えるのは update_diagram)。\
                        title でその名前を付けられる。flowchart の subgraph は枠として開く (入れ子も。枠を指す線・枠の中の direction も)。\
+                       図の先頭のテーマ (default・neutral・dark・forest) は残り、GUI のコード生成と書き出しに効く。\
                        エディタで表現できない要素 (classDef・style・枠とその中を結ぶ線など) は dropped に件数が返る。\
                        返る document_id と updated_at は、そのまま read_diagram / update_diagram に渡せる。"
     )]
@@ -371,7 +376,8 @@ impl LoreleiServer {
     #[tool(
         name = "read_diagram",
         description = "人が Lorelei の GUI で直した今の図を Mermaid で読む。id を省くと今 GUI で開いている図。\
-                       source はエディタが出した Mermaid で、style・classDef などは落ちている (向き・FK・flowchart の subgraph と枠を指す線・枠の中の direction は残る)。\
+                       source はエディタが出した Mermaid で、style・classDef などは落ちている (向き・FK・flowchart の subgraph と枠を指す線・枠の中の direction・\
+                       図の先頭のテーマは残る。テーマは frontmatter の config.theme で書かれる)。\
                        ただし update_diagram の後、GUI でその図を開く (載せ替える) までは、届けた Mermaid そのものが返る。\
                        最後に届けた原文が要る時は include_original=true (original_source)。\
                        GUI での編集は約 1 秒後に保存されるので、直後の編集は含まれないことがある。\

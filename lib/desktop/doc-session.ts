@@ -2,6 +2,7 @@
 // 外枠の状態と切り離した純粋な部分で、vitest で固定する。
 
 import type { Edge, Node } from "@xyflow/react";
+import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { generateERDiagramMermaidCode } from "@/features/er-diagram/utils/generate-mermaid-code";
 import { generateMermaidCode, getSafeVariableName } from "@/features/flowchart/hooks/mermaid";
 import type { GraphType } from "@/features/flowchart/types/types";
@@ -165,11 +166,13 @@ export const toSource = (
   nodes: Node[],
   edges: Edge[],
   /** エディタの向き (spec 07 D3)。ER 図は TD なら向きの行を書かない */
-  direction: GraphType = "TD"
+  direction: GraphType = "TD",
+  /** エディタのテーマ (spec 24 D1)。default は何も書かない */
+  theme: MermaidTheme = "default"
 ): string =>
   editor === "flowchart"
-    ? generateMermaidCode({ nodes, edges }, direction)
-    : generateERDiagramMermaidCode(nodes as never, edges, direction);
+    ? generateMermaidCode({ nodes, edges }, direction, theme)
+    : generateERDiagramMermaidCode(nodes as never, edges, direction, theme);
 
 /**
  * 変化から `delay` ms 待って保存する。図を切り替える前・閉じる前は flush。

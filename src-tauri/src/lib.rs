@@ -609,6 +609,21 @@ mod tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 
+    // spec 24: GUI の書き出しは引数を足さず、コード生成のダイアログのコードの先頭のテーマで描く。dark は背景 #333 (D5)
+    #[test]
+    fn export_follows_the_theme_written_at_the_top_of_the_code() {
+        let dir = scratch();
+        let dark = "---\nconfig:\n  theme: dark\n---\nflowchart LR\n    A[開始]\n    B{判定}\n    A --> B\n";
+        let path = dir.join("暗い図.svg");
+        desktop::export_to(&path, dark, lorelei_core::RenderFormat::Svg).unwrap();
+        let svg = std::fs::read_to_string(&path).unwrap();
+        let root = &svg[..svg.find('>').unwrap()];
+        assert!(root.contains("background-color:rgba(51,51,51,1)"), "{root}");
+        // dark のノードの塗り (spec 24 の下調べ)
+        assert!(svg.contains("#1f2020"), "dark の配色になっていない");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
     // 届いた図は新しい 1 件になる (spec 02 D8・D10、P3 の設計の補足 1)
     #[test]
     fn incoming_source_becomes_a_new_document() {

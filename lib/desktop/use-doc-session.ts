@@ -4,6 +4,7 @@ import { useReactFlow, useStore } from "@xyflow/react";
 import { useNotice } from "@yamada-ui/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import type { GraphType } from "@/features/flowchart/types/types";
 import type { Layout } from "./doc-session";
 import {
@@ -89,7 +90,9 @@ const summaryOf = (d: Omit<DocumentSummary, "unsaved"> & { unsaved?: boolean }):
  */
 export function useDocSession(
   /** エディタの今の向き (spec 07 D3)。保存に使い、変わったら保存し直す */
-  direction: GraphType = "TD"
+  direction: GraphType = "TD",
+  /** エディタの今のテーマ (spec 24 D1)。向きと同じく保存に使い、変わったら保存し直す */
+  theme: MermaidTheme = "default"
 ): DocSession {
   const rf = useReactFlow();
   const nodes = useStore((s) => s.nodes);
@@ -377,11 +380,12 @@ export function useDocSession(
     const n = nodes;
     const e = edges;
     const d = direction;
+    const t = theme;
     autosaver.touch(doc.id, () => ({
-      source: toSource(doc.editor, n, e, d),
+      source: toSource(doc.editor, n, e, d, t),
       layout: collectLayout(doc.editor, n),
     }));
-  }, [nodes, edges, direction, rf, autosaver]);
+  }, [nodes, edges, direction, theme, rf, autosaver]);
 
   // 今の図と違う種類のページに居て、これから取り込む図も無い = 遅れて効いたページ移動で迷い込んだ。
   // 今の図を開き直してそのページへ戻る (spec 04 P0。保存は onNodesChanged の page で止まっている)

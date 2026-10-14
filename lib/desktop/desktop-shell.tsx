@@ -38,7 +38,7 @@ export const DesktopShell: FC<{ children: ReactNode }> = ({ children }) => {
 const Shell: FC<{ children: ReactNode }> = ({ children }) => {
   const [actions, setActions] = useState<RegisteredActions | null>(null);
   // エディタの向きで保存する (spec 07 D3)
-  const session = useDocSession(actions?.direction ?? "TD");
+  const session = useDocSession(actions?.direction ?? "TD", actions?.theme ?? "default");
   // 図の一覧の幅と開閉。起動をまたいで覚える (spec 05 D1〜D3)
   const pane = usePaneLayout();
 

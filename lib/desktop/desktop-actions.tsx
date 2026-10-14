@@ -3,6 +3,7 @@
 
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useRef } from "react";
+import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import type { GraphType } from "@/features/flowchart/types/types";
 
 /** フォーク元のパネルがツールバーへ渡す操作 (spec 02 D3)。インポートは外枠が持つので含めない (D10) */
@@ -15,6 +16,8 @@ export interface DesktopActions {
   direction?: GraphType;
   /** ツールバーから向きを変える */
   setDirection?: (direction: GraphType) => void;
+  /** 今の図のテーマ (spec 24 D1)。外枠は保存に使う (選ぶのはコード生成のダイアログ。ツールバーには出さない) */
+  theme?: MermaidTheme;
   /** 空の枠 (サブグラフ) を置く (spec 15 D5)。フローチャートだけ */
   addFrame?: () => void;
 }
@@ -28,6 +31,8 @@ export interface RegisteredActions {
   direction: GraphType;
   /** 向きを変える。エディタが向きを持たなければ null (ツールバーに切り替えを出さない) */
   setDirection: ((direction: GraphType) => void) | null;
+  /** 今の図のテーマ。エディタがテーマを持たなければ default */
+  theme: MermaidTheme;
   /** 枠を追加する。登録されなければ null (ツールバーに出さない) */
   addFrame: (() => void) | null;
 }
@@ -54,10 +59,11 @@ export function useDesktopActions(actions: DesktopActions): void {
   latest.current = actions;
   const label = actions.add.label;
   const direction = actions.direction ?? "TD";
+  const theme = actions.theme ?? "default";
   const hasDirection = Boolean(actions.setDirection);
   const hasAddFrame = Boolean(actions.addFrame);
 
-  // 向きが変わったら登録し直す (外枠はそれで保存し直す)
+  // 向き・テーマが変わったら登録し直す (外枠はそれで保存し直す)
   useEffect(() => {
     if (!register) return;
     register({
@@ -66,8 +72,9 @@ export function useDesktopActions(actions: DesktopActions): void {
       code: () => latest.current.code(),
       direction,
       setDirection: hasDirection ? (d) => latest.current.setDirection?.(d) : null,
+      theme,
       addFrame: hasAddFrame ? () => latest.current.addFrame?.() : null,
     });
     return () => register(null);
-  }, [register, label, direction, hasDirection, hasAddFrame]);
+  }, [register, label, direction, theme, hasDirection, hasAddFrame]);
 }

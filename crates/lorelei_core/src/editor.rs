@@ -9,6 +9,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::engine::Guard;
+use crate::render::Theme;
 use crate::{CoreError, validate};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -56,6 +58,9 @@ pub struct FlowData {
     /// サブグラフ (枠, spec 15 D1)。親が子より前に並ぶ。無ければ持たない
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub subgraphs: Vec<FlowSubgraph>,
+    /// 図の先頭に書いたテーマ (neutral / dark / forest, spec 24 D1)。default と、書いていない時は持たない
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub theme: Option<String>,
 }
 
 /// フォーク元 `ParsedMermaidSubgraph` (spec 15 D1)。nodes は直下のノードの ID だけで、入れ子は子の枠の parent で表す
@@ -120,6 +125,9 @@ pub struct ErData {
     /// 図の向き。FlowData と同じ規則
     #[serde(skip_serializing_if = "Option::is_none")]
     pub direction: Option<String>,
+    /// 図の先頭に書いたテーマ。FlowData と同じ規則
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub theme: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -162,15 +170,25 @@ pub struct ErEdgeData {
 }
 
 /// GUI エディタで開ける図なら変換する。開けない種類なら `Ok(None)`。
+/// 取り込みの守りで読む (図に書いた themeVariables の色が読めなくても落とさない, spec 24 D4-2)
 pub fn to_editor(source: &str) -> Result<Option<EditorPayload>, CoreError> {
-    let parsed = validate::parse(source)?;
-    convert(&parsed.meta.diagram_type, &parsed.model)
+    let parsed = validate::parse(source, Theme::Default, Guard::Import)?;
+    convert(
+        &parsed.meta.diagram_type,
+        &parsed.model,
+        parsed.meta.config.as_value(),
+    )
 }
 
-pub(crate) fn convert(family: &str, model: &Value) -> Result<Option<EditorPayload>, CoreError> {
+/// `config` は図の先頭の frontmatter・init に書いた設定 (merman の `ParseMetadata.config`。mermaid.parse が返す config と同じ形)
+pub(crate) fn convert(
+    family: &str,
+    model: &Value,
+    config: &Value,
+) -> Result<Option<EditorPayload>, CoreError> {
     Ok(match family {
-        "flowchart-v2" | "flowchart" => Some(flowchart(model)?),
-        "er" => Some(er(model)?),
+        "flowchart-v2" | "flowchart" => Some(flowchart(model, config)?),
+        "er" => Some(er(model, config)?),
         _ => None,
     })
 }
@@ -231,6 +249,37 @@ fn direction_of(model: &Value) -> Option<String> {
     }
 }
 
+/// エディタが持てるテーマ (spec 24 D3。TS の MERMAID_THEMES と同じ)
+const THEMES: &[&str] = &["default", "neutral", "dark", "forest"];
+
+/// mermaid.js が図の設定から黙って消す鍵 (mermaid の既定の `secure`)。mermaid.parse が返す config に入らないので、
+/// TS の取り込みと同じく消えるものに数えない (merman の `ParseMetadata.config` には残る)
+const MERMAID_SECURE_KEYS: &[&str] = &[
+    "secure",
+    "securityLevel",
+    "startOnLoad",
+    "maxTextSize",
+    "suppressErrorRendering",
+    "maxEdges",
+];
+
+/// 図の先頭の設定から、エディタが持つテーマを取り出す (spec 24 D1・D4。TS の themeFromConfig と同じ)。
+/// テーマ以外の設定は `config:<名前>`、選べないテーマは `theme:<名前>` として消えるものに数える。default は持たない
+fn theme_of(config: &Value, drops: &mut Drops) -> Option<String> {
+    let config = config.as_object()?;
+    for key in config.keys() {
+        if key != "theme" && !MERMAID_SECURE_KEYS.contains(&key.as_str()) {
+            drops.add(format!("config:{key}"), 1);
+        }
+    }
+    let theme = config.get("theme")?.as_str()?;
+    if !THEMES.contains(&theme) {
+        drops.add(format!("theme:{theme}"), 1);
+        return None;
+    }
+    (theme != "default").then(|| theme.to_string())
+}
+
 fn accessibility_drop(drops: &mut Drops, model: &Value) {
     let n = ["accTitle", "accDescr"]
         .iter()
@@ -241,9 +290,10 @@ fn accessibility_drop(drops: &mut Drops, model: &Value) {
 
 // ---------- flowchart ----------
 
-fn flowchart(model: &Value) -> Result<EditorPayload, CoreError> {
+fn flowchart(model: &Value, config: &Value) -> Result<EditorPayload, CoreError> {
     let mut drops = Drops::default();
     accessibility_drop(&mut drops, model);
+    let theme = theme_of(config, &mut drops);
     // 枠は写す (spec 15 D1)。枠の中の direction も枠に写す (spec 16 D1)
     drops.add(
         "classDef",
@@ -374,6 +424,7 @@ fn flowchart(model: &Value) -> Result<EditorPayload, CoreError> {
             edges,
             direction: direction_of(model),
             subgraphs,
+            theme,
         },
         dropped: drops.into_vec(),
     })
@@ -532,9 +583,10 @@ fn arrow_type(edge: &Value, drops: &mut Drops) -> &'static str {
 
 // ---------- erDiagram ----------
 
-fn er(model: &Value) -> Result<EditorPayload, CoreError> {
+fn er(model: &Value, config: &Value) -> Result<EditorPayload, CoreError> {
     let mut drops = Drops::default();
     accessibility_drop(&mut drops, model);
+    let theme = theme_of(config, &mut drops);
     drops.add(
         "classDef",
         model
@@ -651,6 +703,7 @@ fn er(model: &Value) -> Result<EditorPayload, CoreError> {
             nodes,
             edges,
             direction: direction_of(model),
+            theme,
         },
         dropped: drops.into_vec(),
     })

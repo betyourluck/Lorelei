@@ -1,0 +1,162 @@
+[
+  {
+    "name": "生成器 フローチャート default",
+    "kind": "flowchart",
+    "source": "flowchart LR\n    A[開始]\n    B{判定}\n    A --> B\n",
+    "theme": null,
+    "dropped": []
+  },
+  {
+    "name": "生成器 フローチャート neutral",
+    "kind": "flowchart",
+    "source": "---\nconfig:\n  theme: neutral\n---\nflowchart LR\n    A[開始]\n    B{判定}\n    A --> B\n",
+    "theme": "neutral",
+    "dropped": []
+  },
+  {
+    "name": "生成器 フローチャート dark",
+    "kind": "flowchart",
+    "source": "---\nconfig:\n  theme: dark\n---\nflowchart LR\n    A[開始]\n    B{判定}\n    A --> B\n",
+    "theme": "dark",
+    "dropped": []
+  },
+  {
+    "name": "生成器 フローチャート forest",
+    "kind": "flowchart",
+    "source": "---\nconfig:\n  theme: forest\n---\nflowchart LR\n    A[開始]\n    B{判定}\n    A --> B\n",
+    "theme": "forest",
+    "dropped": []
+  },
+  {
+    "name": "生成器 ER 図 default",
+    "kind": "erDiagram",
+    "source": "erDiagram\n  顧客 {\n    int id PK\n  }\n  注文 {\n    int id PK\n  }\n  顧客 ||--o{ 注文 : 行う",
+    "theme": null,
+    "dropped": []
+  },
+  {
+    "name": "生成器 ER 図 neutral",
+    "kind": "erDiagram",
+    "source": "---\nconfig:\n  theme: neutral\n---\nerDiagram\n  顧客 {\n    int id PK\n  }\n  注文 {\n    int id PK\n  }\n  顧客 ||--o{ 注文 : 行う",
+    "theme": "neutral",
+    "dropped": []
+  },
+  {
+    "name": "生成器 ER 図 dark",
+    "kind": "erDiagram",
+    "source": "---\nconfig:\n  theme: dark\n---\nerDiagram\n  顧客 {\n    int id PK\n  }\n  注文 {\n    int id PK\n  }\n  顧客 ||--o{ 注文 : 行う",
+    "theme": "dark",
+    "dropped": []
+  },
+  {
+    "name": "生成器 ER 図 forest",
+    "kind": "erDiagram",
+    "source": "---\nconfig:\n  theme: forest\n---\nerDiagram\n  顧客 {\n    int id PK\n  }\n  注文 {\n    int id PK\n  }\n  顧客 ||--o{ 注文 : 行う",
+    "theme": "forest",
+    "dropped": []
+  },
+  {
+    "name": "init のテーマ",
+    "kind": "flowchart",
+    "source": "%%{init: {\"theme\": \"forest\"}}%%\nflowchart LR\n  A --> B\n",
+    "theme": "forest",
+    "dropped": []
+  },
+  {
+    "name": "ER 図の init のテーマ",
+    "kind": "erDiagram",
+    "source": "%%{init: {\"theme\": \"dark\"}}%%\nerDiagram\n  A ||--o{ B : has\n",
+    "theme": "dark",
+    "dropped": []
+  },
+  {
+    "name": "frontmatter と init の両方 (init が勝つ)",
+    "kind": "flowchart",
+    "source": "---\nconfig:\n  theme: dark\n---\n%%{init: {\"theme\": \"forest\"}}%%\nflowchart LR\n  A --> B\n",
+    "theme": "forest",
+    "dropped": []
+  },
+  {
+    "name": "base と themeVariables とフローチャートの設定 (title は設定ではない)",
+    "kind": "flowchart",
+    "source": "---\ntitle: T\nconfig:\n  theme: base\n  themeVariables:\n    primaryColor: \"#6A7FAB\"\n  flowchart:\n    rankSpacing: 80\n---\nflowchart LR\n  A --> B\n",
+    "theme": null,
+    "dropped": [
+      {
+        "construct": "config:flowchart",
+        "count": 1
+      },
+      {
+        "construct": "config:themeVariables",
+        "count": 1
+      },
+      {
+        "construct": "theme:base",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "name": "選べないテーマ",
+    "kind": "flowchart",
+    "source": "---\nconfig:\n  theme: neo\n---\nflowchart LR\n  A --> B\n",
+    "theme": null,
+    "dropped": [
+      {
+        "construct": "theme:neo",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "name": "文字でないテーマは黙って無視",
+    "kind": "flowchart",
+    "source": "%%{init: {\"theme\": 3}}%%\nflowchart LR\n  A --> B\n",
+    "theme": null,
+    "dropped": []
+  },
+  {
+    "name": "wrap のディレクティブ",
+    "kind": "flowchart",
+    "source": "%%{wrap}%%\nflowchart LR\n  A --> B\n",
+    "theme": null,
+    "dropped": [
+      {
+        "construct": "config:wrap",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "name": "init の config は図の種類の設定になる",
+    "kind": "flowchart",
+    "source": "%%{init: {\"config\": {\"rankSpacing\": 10}}}%%\nflowchart LR\n  A --> B\n",
+    "theme": null,
+    "dropped": [
+      {
+        "construct": "config:flowchart",
+        "count": 1
+      }
+    ]
+  },
+  {
+    "name": "守られる鍵",
+    "kind": "flowchart",
+    "source": "%%{init: {\"securityLevel\": \"loose\", \"themeCSS\": \"x\", \"fontFamily\": \"y\"}}%%\nflowchart LR\n  A --> B\n",
+    "theme": null,
+    "dropped": [
+      {
+        "construct": "config:fontFamily",
+        "count": 1
+      },
+      {
+        "construct": "config:themeCSS",
+        "count": 1
+      },
+      {
+        "construct": "config:themeVariables",
+        "count": 1
+      }
+    ]
+  }
+]

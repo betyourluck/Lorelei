@@ -50,6 +50,7 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
     code: setOpen.on,
     direction,
     setDirection: onDirectionChange,
+    theme,
   });
 
   const handleDownload = () => {

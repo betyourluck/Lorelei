@@ -7,7 +7,8 @@ use merman::svg::SvgPipeline;
 use merman::{OperationControl, RenderOutput, RenderRequest, SvgRequest};
 use serde::{Deserialize, Serialize};
 
-use crate::{CoreError, engine, fonts, validate};
+use crate::engine::{self, Guard};
+use crate::{CoreError, fonts, validate};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -55,8 +56,9 @@ pub struct RenderOptions {
     /// PNG の倍率。SVG / PDF では無視する。
     pub scale: f32,
     /// CSS の色文字列、または `"transparent"`。None は Mermaid の既定 (白)。
+    /// ただし効いているテーマ (下の theme か、図の中のテーマ) が dark なら #333 (spec 24 D5)。
     pub background: Option<String>,
-    /// 入力の `%%{init}%%` で theme が指定されていればそちらが勝つ (Mermaid の優先順位どおり)。
+    /// 入力の frontmatter・`%%{init}%%` で theme が指定されていればそちらが勝つ (Mermaid の優先順位どおり)。
     pub theme: Theme,
 }
 
@@ -69,6 +71,10 @@ impl Default for RenderOptions {
         }
     }
 }
+
+/// dark のテーマの書き出しの背景 (spec 24 D5)。Mermaid の dark のテーマの `background` と同じ
+/// (白の上では dark の線 (lightgrey) と線のラベルがほとんど見えない, spec 24 P0 の 2)
+const DARK_BACKGROUND: &str = "#333";
 
 pub const SCALE_RANGE: std::ops::RangeInclusive<f32> = 0.5..=8.0;
 /// PNG の一辺の上限 (px)。これを超える倍率は拒否する。
@@ -134,8 +140,16 @@ pub fn render_preview_png(
 fn render_svg(source: &str, options: &RenderOptions) -> Result<(String, String), CoreError> {
     let background = parse_background(options.background.as_deref())?;
     validate::check_size(source)?;
-    // 文法エラーは validate と同じ形 (行番号つき) で返す
-    let family = validate::parse(source)?.meta.diagram_type;
+    // 文法エラーは validate と同じ形 (行番号つき) で返す。書き出しと同じ守りで読む
+    let meta = validate::parse(source, options.theme, Guard::Export)?.meta;
+    let family = meta.diagram_type;
+    // 背景の指定が無ければ、効いているテーマ (図の中のテーマが勝つ) に合わせる。dark は #333、ほかは Mermaid の既定の白のまま
+    let background = match background {
+        None if meta.effective_config.get_str("theme") == Some("dark") => {
+            parse_background(Some(DARK_BACKGROUND))?
+        }
+        other => other,
+    };
     let request = SvgRequest {
         pipeline: Some(SvgPipeline::resvg_safe()),
         ..SvgRequest::default()

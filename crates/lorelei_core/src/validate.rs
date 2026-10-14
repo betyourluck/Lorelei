@@ -3,9 +3,8 @@
 use merman::{Error, ParseOptions, ParsedDiagram};
 use serde::Serialize;
 
-use crate::{
-    CoreError, EditorCompat, MAX_SOURCE_BYTES, editor, engine, is_editable_in_gui, render::Theme,
-};
+use crate::engine::{self, Guard};
+use crate::{CoreError, EditorCompat, MAX_SOURCE_BYTES, editor, is_editable_in_gui, render::Theme};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ParseError {
@@ -24,11 +23,13 @@ pub struct ValidationResult {
     pub editor: EditorCompat,
 }
 
+/// 書き出しと同じ守りで読む (spec 24 D4-2)。validate が通って render がエラーになる食い違い
+/// (図に書いた themeVariables の色が読めない時) を作らない
 pub fn validate(source: &str) -> Result<ValidationResult, CoreError> {
-    match parse(source) {
+    match parse(source, Theme::Default, Guard::Export) {
         Ok(parsed) => {
             let family = parsed.meta.diagram_type;
-            let payload = editor::convert(&family, &parsed.model)?;
+            let payload = editor::convert(&family, &parsed.model, parsed.meta.config.as_value())?;
             Ok(ValidationResult {
                 ok: true,
                 editor: EditorCompat {
@@ -55,10 +56,11 @@ pub fn validate(source: &str) -> Result<ValidationResult, CoreError> {
     }
 }
 
-/// 図を意味モデルまでパースする。validate と、エディタへの変換 (D5') が使う。
-pub(crate) fn parse(source: &str) -> Result<ParsedDiagram, CoreError> {
+/// 図を意味モデルまでパースする。validate・render (書き出しの守り) と、エディタへの変換 (D5'。取り込みの守り) が使う。
+/// `theme` はサイトの設定のテーマ (図の中のテーマが勝つ)
+pub(crate) fn parse(source: &str, theme: Theme, guard: Guard) -> Result<ParsedDiagram, CoreError> {
     check_size(source)?;
-    let engine = engine::engine(Theme::Default);
+    let engine = engine::engine(theme, guard);
     match engine.parse_diagram_sync(source, ParseOptions::strict()) {
         Ok(Some(parsed)) => Ok(parsed),
         Ok(None) => Err(CoreError::Parse(ParseError {
@@ -85,6 +87,11 @@ fn to_parse_error(source: &str, err: &Error) -> ParseError {
             message: diagnostic.message().to_string(),
             line: diagnostic.span().map(|span| line_of(source, span.start)),
         },
+        // 書き出しの守りは themeVariables を通すので、図に書いた色が読めないと解析で止まる (spec 24 D4-2)
+        Error::ThemeColor(e) => ParseError {
+            message: format!("図の設定 (themeVariables) の色を読めません ({e})"),
+            line: None,
+        },
         Error::DetectType(_) => ParseError {
             message: "図の種類を判定できません (先頭に flowchart / erDiagram などの宣言が必要です)"
                 .to_string(),
@@ -98,8 +105,9 @@ fn to_parse_error(source: &str, err: &Error) -> ParseError {
 }
 
 /// 文法エラーでも図の種類は分かることが多い。validate の戻り値に載せる。
+/// 取り込みの守りで読む (themeVariables の色が読めない図でも種類は分かる)
 fn family_of_failure(source: &str) -> Option<String> {
-    engine::engine(Theme::Default)
+    engine::engine(Theme::Default, Guard::Import)
         .parse_metadata_sync(source)
         .ok()
         .map(|meta| meta.diagram_type)
