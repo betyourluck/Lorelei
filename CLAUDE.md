@@ -62,6 +62,10 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-14: [spec 23](specs/23_edge-label-render.md) **起票**（rev0。査読待ち。spec 22 の次の候補「ドラッグ中の描き直しを軽くする」）。
+  下調べ: 自動スクロールを起こさない測り（failures #40）では、**経路の計算を止めるとノード 100・線 150 の図でもドラッグは表示の速さのまま**（95 パーセンタイル 21.1ms）。
+  引っかかるのは経路の計算が走るフレームで、中身は**経路が変わった線（1 回に 18 本前後）のラベルの描き直し**（yamada-ui のラベルの箱・矢印のメニュー・×、1 本 2〜2.5ms）。
+  ラベルを素の要素で描く写しで 95 パーセンタイル 104 → 21ms、スクリプト 2.5 秒 → 0.08 秒。推奨は閉じたラベルを素の要素にし、矢印のメニューは押した時だけ出す案（見た目と操作は今と同じ）
 - 2026-10-13: **リポジトリの About を英語に、homepage をライブデモに、Topics を 13 個**（利用者を増やす方面。`gh repo edit -R betyourluck/Lorelei`）。
   **この作業場所の `gh` は `-R` なしだとフォーク元（`upstream`）を読み書きする**（failures #37。同日 `gh repo set-default betyourluck/Lorelei` 済み）
 - 2026-10-14: [spec 22](specs/22_drag-reroute-scope.md) **Done**（rev3。spec 19・21 の候補「大きな図のドラッグを軽くする」。起票 → 査読 2 本 → P0 → 裁定 → P1 → 受け入れ条件 1 の改め → P2）。
@@ -72,8 +76,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   直す前と交互に測り、手を離した時の全部の探し直しは 0 / 24 回 → 24 / 24 回、ドラッグ中の 1 回は 24 場面の中央値 23.5 → 13.8ms。
   受け入れ条件 1 は rev3 で「vitest の決まった歩幅で図ごとの全部の歩の中央値 16ms 以下（枠なし 12.6〜13.4ms・枠あり 14.8〜15.8ms、枠ありは際）＋ブラウザで直す前より軽い」に改めた
   （ブラウザの絶対の ms は日によって 2 倍近く揺れる。この日は 8 / 24 場面が 16ms を超えた）。P2（配布ビルドで利用者がドラッグ・手を離した時の線・枠の操作を確かめた、「問題なし」）。
-  **大きな図のドラッグの重さの大半は描き直し**（経路の計算を止めてもフレームの間隔は 83ms・小さな図でも 42ms）→ 次の spec の候補。
-  測りは `next dev` では使えず（フレームの間隔 125〜230ms）、本番と同じ組み立て（`build-web-demo.mjs` の書き出し）で測る。`--base-path /…` を Git Bash から渡す時は `MSYS_NO_PATHCONV=1`（failures #39）。
+  P0 の「重さの大半は描き直し（経路の計算を止めても 83ms）」は、窓の外のノードを動かして自動スクロールが走った測りの誤りだった（failures #40）→ spec 23。
+  測りは `next dev` では使えず（フレームの間隔 125〜230ms）、本番と同じ組み立て（`build-web-demo.mjs` の書き出し）で、対象を窓の真ん中・倍率 0.5 にして測る。`--base-path /…` を Git Bash から渡す時は `MSYS_NO_PATHCONV=1`（failures #39）。
   探索の道の選び方を変えたら `LORELEI_UPDATE_FIXTURES=1` で `__tests__/utils/edge-route-search.test.ts` の golden を書き直し、`search-reference.ts`（前の実装の写し）も同じに変える
 - 2026-10-09: **README に操作の GIF・CONTRIBUTING を Lorelei 向けに・Issues を有効に**（v0.1.2 の後）。GIF は `assets/readme/lorelei-demo.gif`（960×625、21 秒）:
   配布ビルドの窓を ffmpeg の gdigrab で録り（窓の見えている範囲は DwmGetWindowAttribute で測る）、MCP は HTTP の口を直接叩き、GUI は computer-use で操作、字幕は Pillow で作って ffmpeg で重ねた
