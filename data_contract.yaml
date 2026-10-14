@@ -173,11 +173,22 @@ EditorDirection:
   values: [TD, LR, RL, BT]
   default: TD
   generate:
-    flowchart: "generateMermaidCode(flowData, direction) → 1 行目 flowchart {direction}"
-    erDiagram: "generateERDiagramMermaidCode(nodes, edges, direction = TD) → TD なら direction の行を書かない (今の出力のまま)。LR / RL / BT なら erDiagram の次の行に direction {dir}"
+    flowchart: "generateMermaidCode(flowData, direction, theme?) → 1 行目 flowchart {direction} (テーマが default 以外なら、その前に MermaidTheme.frontmatter)"
+    erDiagram: "generateERDiagramMermaidCode(nodes, edges, direction = TD, theme?) → TD なら direction の行を書かない (今の出力のまま)。LR / RL / BT なら erDiagram の次の行に direction {dir}。テーマは flowchart と同じ"
   keys_order: "ER 図のキーは PK → UK → FK の順でカンマ区切り (例 PK, FK)。読む時は順を問わない"
   layout_on_import: "軸 = LR / RL なら横、TD / BT なら縦。逆向き = BT / RL なら階層の順を反対に。取り込みの時だけ並べる (向きを変えても並べ直さない)"
   handles: { TD: [target Top, source Bottom], BT: [target Bottom, source Top], LR: [target Left, source Right], RL: [target Right, source Left] }
+
+MermaidTheme:
+  description: 出力のテーマ (spec 24)。図の Mermaid の先頭に書いて持ち回る (D1)。編集画面 (キャンバス) の見た目には使わず、コード生成・プレビュー・書き出しにだけ効く。フォーク元の改善 (Web 版でも動く)
+  values: [default, neutral, dark, forest]   # D3。base・neo などは選べない (取り込みでは dropped theme:<名前>)
+  default: default
+  owner: "エディタの状態 (フローチャート・ER 図とも向きと同じ持ち方)。取り込みで受け取り、コード生成のダイアログの ThemeMenu (features/flowchart/components/theme-menu.tsx) で読み書きする"
+  module: "components/ui/mermaid-theme.ts (MERMAID_THEMES・isMermaidTheme・themeFrontmatter・themeBackground・themeFromConfig)"
+  frontmatter: "図の先頭に「---」「config:」「  theme: <テーマ>」「---」の 4 行を書く (D2)。default は何も書かない (今までの出力とバイト単位で同じ)"
+  import: "frontmatter か init がある図だけ、mermaid.parse が返す図の設定 (プレビューの render と同じ前処理) を MermaidSnapshot.config { theme?, keys } に写し、読んだ後は mermaidAPI.reset() で initialize の値へ戻す。theme が values に入っていれば ParsedMermaidData / ParsedMermaidERData の theme (default は持たない)。テーマ以外の設定は dropped config:<名前>、選べないテーマは dropped theme:<名前>"
+  background: "themeBackground: dark は #333 (Mermaid の dark の background)、ほかは white (D5)。コード生成のダイアログはプレビューの枠 (MermaidTwoPane の previewBg) をこれにする。書き出しの背景は P2"
+  desktop: "P1 (d94a161) の時点では、デスクトップの自動保存 (toSource)・Rust の取り込み (to_editor)・書き出しの背景・書き出しの守り (D4-2) はまだテーマを扱わない (spec 24 P2)"
 
 DesktopActions:
   description: エディタのパネルが外枠 (lib/desktop) に登録する操作 (spec 02 D3、useDesktopActions)。外枠はこれでツールバーを動かす
@@ -198,6 +209,7 @@ MermaidPreview:
   states: [loading, done, error]   # error は mermaid の例外の文をそのまま出す
   keep_last: "keepLast (spec 10 D6、インポートだけ): 描いている間・描けない時も最後に描けた図を残し、誤りは図の上に帯で重ねる"
   default_header: "defaultHeader (spec 11 D2): 図の種類が無いと mermaid が言った時だけ補って描く (フォーク元のインポートで flowchart TD)"
+  theme: "コードの先頭のテーマ (frontmatter・init) は mermaid.js の render が毎回当て直すので、テーマはコードだけで効く。プレビューの枠の背景は MermaidTheme.background (コード生成のダイアログだけ。インポートのダイアログは白のまま, spec 24)"
 
 MermaidImport:
   description: インポートの取り込み (spec 11)。Web 版はフォーク元のダイアログが mermaid.js の解析から、デスクトップはツールバーのダイアログが Rust (import_source → to_editor) で取り込む。どちらも本文は同じ (MermaidEditorWithPreview)
@@ -209,7 +221,8 @@ MermaidImport:
   warnings:
     summary: "取り込むと消えるもの: <describeDropped>。取り込みと同じ計算 (from-mermaid の dropped)。400ms 止まったら作り直す"
     lines: "features/*/utils/drop-warnings.ts の字句の目安 → CodeEditor の warnings (黄色)。デスクトップは 1 行目の図の種類で規則を選ぶ。フローチャートの subgraph / end の行には付けず (spec 15 で取り込む)、subgraph <ID> の ID を線の両端に持つ行と、枠の中の direction の行に付ける (D6)"
-    labels: "components/ui/mermaid-dropped.ts の describeDropped / DroppedItem。lib/desktop/open-requests.ts (MCP の通知) はこれを再エクスポートする"
+    labels: "components/ui/mermaid-dropped.ts の describeDropped / DroppedItem。lib/desktop/open-requests.ts (MCP の通知) はこれを再エクスポートする。config:<名前> は「設定 <名前>」、theme:<名前> は「テーマ <名前>（選べないテーマ）」(spec 24 D4)"
+  config: "図の先頭の frontmatter・init は MermaidTheme.import で読む (spec 24。前は黙って消えた)"
   generator: "ノードのラベルは ( ) [ ] { } | \" か #語; か direction + 空白 + 大文字の向き (TB / TD / BT / RL / LR) を含む時だけ \"…\" で囲み、中の \" は #quot;、#語; の # は #35;、その direction の後ろの空白 → #<符号位置>; (spec 15 D8。mermaid.js は囲みの中でも行のどこでもこの並びを向きの指定として取り、その行のノードと線が黙って消える。小文字の direction + 大文字の向きだけが当たる)。線のラベルも同じ並びを含む時は囲む。空のラベルは [\" \"]。< > はそのまま (mermaid はラベルを HTML として扱う)。フローチャートの枠 (spec 15 D2): subgraph <getSafeVariableName した ID>[\"<題>\"] … end で囲み、中身を 4 字ずつ下げる。題はいつも囲み (ID と同じでも)、囲み方はラベルと同じ、空の題は \" \"。線は全部、枠の外 (最後) に書く (ブロックの中の線は外のノードを枠へ引き込む)。枠を指す線は書かない。親子が輪になった枠は図の直下に書く。枠の無い図の出力は今までと一字一句同じ。ER 図 (spec 13 D1・D2): テーブル名・関係の両端・関係のラベルは quoteErName — ^[\\p{L}_][\\p{L}\\p{N}_-]*$ に合い、erdiagram / style / classdef / class / subgraph / end / direction / acctitle / accdescr / many / one / to で始まらず (大文字小文字を問わない前方一致)、u- / u. で始まらない時だけそのまま、ほかは \"…\" で囲む。囲んだ中は #語; の # → #35;、& → #38;、\" → #quot;、% → #37;、バックスラッシュ → #92;、direction + 空白 + 向き の空白 → #<符号位置>; の順。列は columnIssue が null の時だけ書く (名前・型とも mermaid.js の列の規則の形、PK / FK / UK で始まらない。型は ~ 2 つの総称型も可)。全部の列を書かない時は 名前 { } のまま"
   differs_from_export: "書き出し (SVG / PNG / PDF) は merman。描き手・書体・ラベルの描き方が違うので一致しない (LORELEI.md 既知の制約)"
   generator_fixture: "crates/lorelei_core/tests/fixtures/er_names.json = [{ name, source }]。source は TS の ER 図の生成器の出力 (テーブル name と B、B → name の関係のラベルも name。名前の格子 50 通り)。__tests__/lorelei/er-names-fixture.test.ts が今の生成器と一字一句同じことを確かめ (LORELEI_UPDATE_FIXTURES=1 で書き直す)、Rust の editor.rs の er_generator_names_round_trip_through_merman が to_editor に通して名前・ラベルが戻ることを確かめる (spec 13 P3)。
@@ -243,6 +256,7 @@ CodeEditor:
 RenderConfigOverrides:
   description: 入力の %%{init}%% より優先して Lorelei が固定する設定
   htmlLabels: false            # 最上位と flowchart.htmlLabels。true だと resvg-safe の代替テキストが折り返しを失う (P0-2)
+  secure: "crates/lorelei_core/src/engine.rs の SECURE_KEYS = merman の HARDENED_SECURE_KEYS (secure・securityLevel・startOnLoad・maxTextSize・suppressErrorRendering・maxEdges・fontFamily・altFontFamily・themeCSS・themeVariables) + htmlLabels。図の frontmatter・init はこれを上書きできない (theme は入っていないので図の中が勝つ)。spec 24 D4-2 で themeVariables を外す (P2。取り込みの読みは今の守りのまま)"
 
 FontBundle:
   description: PNG / PDF 変換で使うフォント。OS のフォントに依存しない
