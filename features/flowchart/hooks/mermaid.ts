@@ -1,4 +1,5 @@
 import type { Node } from "@xyflow/react";
+import { themeFrontmatter, type MermaidTheme } from "@/components/ui/mermaid-theme";
 import type {
   MermaidArrowType,
   MermaidShapeType,
@@ -16,6 +17,8 @@ export interface ParsedMermaidData {
   edges: ParsedMermaidEdge[];
   /** 図の向き。TD (と同じ意味の TB) の時は持たない (無ければ TD) */
   direction?: GraphType;
+  /** 図の先頭に書いたテーマ (spec 24)。default の時は持たない */
+  theme?: MermaidTheme;
   /** サブグラフ (枠, spec 15 D1)。親が子より前に並ぶ。無ければ持たない */
   subgraphs?: ParsedMermaidSubgraph[];
 }
@@ -297,10 +300,15 @@ export const getArrowTypeDisplayName = (arrowType: MermaidArrowType): string => 
  * FlowDataからMermaidコードを生成する
  * @param flowData ノードとエッジのデータ
  * @param direction フローチャートの方向 (TD, LR, RL, BT)
+ * @param theme テーマ (spec 24)。default 以外の時だけ図の先頭に frontmatter で書く
  * @returns Mermaidコード
  */
-export const generateMermaidCode = (flowData: FlowData, direction: GraphType = "TD"): string => {
-  let code = `flowchart ${direction}\n`;
+export const generateMermaidCode = (
+  flowData: FlowData,
+  direction: GraphType = "TD",
+  theme?: MermaidTheme
+): string => {
+  let code = `${themeFrontmatter(theme)}flowchart ${direction}\n`;
 
   // ノードの定義。枠 (spec 15 D2) は subgraph … end で囲み、中のノードと子の枠を 4 字ずつ下げて書く。
   // 枠の無い図は今までどおり (直下のノードを並べた順に 4 字下げ)

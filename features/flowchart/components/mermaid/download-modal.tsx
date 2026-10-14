@@ -14,12 +14,14 @@ import {
 } from "@yamada-ui/react";
 import { useCallback, useState, useMemo } from "react";
 import { MermaidCodeWithPreview } from "@/components/ui";
+import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { ExportButtons } from "@/lib/desktop";
 import type { FlowData } from "../../hooks/flow-helpers";
 import { generateMermaidCode } from "../../hooks/mermaid";
 import type { GraphType } from "../../types/";
 import { emptyFrameNames } from "../../utils/subgraph-tree";
 import { DirectionMenu } from "../direction-menu";
+import { ThemeMenu } from "../theme-menu";
 
 interface DownloadModalProps {
   open: boolean;
@@ -28,6 +30,9 @@ interface DownloadModalProps {
   /** エディタの向き (ただ 1 つの持ち主)。渡されなければモーダルの中で選ぶ */
   direction?: GraphType;
   onDirectionChange?: (direction: GraphType) => void;
+  /** 出力のテーマ (エディタが持つ, spec 24)。渡されなければモーダルの中で選ぶ */
+  theme?: MermaidTheme;
+  onThemeChange?: (theme: MermaidTheme) => void;
 }
 
 export const DownloadModal: FC<DownloadModalProps> = ({
@@ -36,15 +41,20 @@ export const DownloadModal: FC<DownloadModalProps> = ({
   flowData,
   direction,
   onDirectionChange,
+  theme,
+  onThemeChange,
 }) => {
   const [ownGraphType, setOwnGraphType] = useState<GraphType>("TD");
   const currentGraphType = direction ?? ownGraphType;
   const setCurrentGraphType = onDirectionChange ?? setOwnGraphType;
+  const [ownTheme, setOwnTheme] = useState<MermaidTheme>("default");
+  const currentTheme = theme ?? ownTheme;
+  const setCurrentTheme = onThemeChange ?? setOwnTheme;
 
   // 現在選択されている方向でMermaidコードを生成
   const currentMermaidCode = useMemo(() => {
-    return generateMermaidCode(flowData, currentGraphType);
-  }, [flowData, currentGraphType]);
+    return generateMermaidCode(flowData, currentGraphType, currentTheme);
+  }, [flowData, currentGraphType, currentTheme]);
   // 空の枠はプレビューと書き出しで四角いノードになる (spec 15 D7)
   const emptyFrames = useMemo(() => emptyFrameNames(flowData.nodes), [flowData.nodes]);
 
@@ -81,6 +91,7 @@ export const DownloadModal: FC<DownloadModalProps> = ({
             <ExportButtons code={currentMermaidCode} fileStem="flowchart" />
 
             <DirectionMenu value={currentGraphType} onChange={setCurrentGraphType} />
+            <ThemeMenu value={currentTheme} onChange={setCurrentTheme} />
           </HStack>
           {emptyFrames.length > 0 && (
             <Text fontSize="sm" fontWeight="normal" color="orange.700">
@@ -91,7 +102,7 @@ export const DownloadModal: FC<DownloadModalProps> = ({
       </ModalHeader>
       <ModalCloseButton />
       <ModalBody pb={6} flex={1} minH={0} overflow={{ base: "hidden", md: "auto" }}>
-        <MermaidCodeWithPreview code={currentMermaidCode} />
+        <MermaidCodeWithPreview code={currentMermaidCode} theme={currentTheme} />
       </ModalBody>
     </Modal>
   );

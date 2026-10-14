@@ -4,6 +4,7 @@ import { PlusIcon, DownloadIcon, UploadIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import { VStack, HStack, Text, Button, useBoolean } from "@yamada-ui/react";
 import { NavigationMenu } from "@/components/ui";
+import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { DirectionMenu } from "@/features/flowchart/components/direction-menu";
 import type { GraphType } from "@/features/flowchart/types/types";
 import { useDesktopActions } from "@/lib/desktop";
@@ -22,6 +23,9 @@ export type ERDiagramPanelProps = {
   /** 図の向き (エディタが持つ)。渡されると切り替えを出す */
   direction?: GraphType;
   onDirectionChange?: (direction: GraphType) => void;
+  /** 出力のテーマ (エディタが持つ, spec 24)。コード生成のダイアログで選ぶ */
+  theme?: MermaidTheme;
+  onThemeChange?: (theme: MermaidTheme) => void;
 };
 
 export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
@@ -32,6 +36,8 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
   generateCode,
   direction,
   onDirectionChange,
+  theme,
+  onThemeChange,
 }) => {
   const [open, setOpen] = useBoolean(false);
   const [openImport, setOpenImport] = useBoolean(false);
@@ -101,6 +107,8 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
         code={code}
         onDownload={handleDownload}
         skippedColumns={skippedColumns}
+        theme={theme}
+        onThemeChange={onThemeChange}
       />
       <ImportModal open={openImport} onClose={setOpenImport.off} onImport={onImportMermaid} />
     </Panel>

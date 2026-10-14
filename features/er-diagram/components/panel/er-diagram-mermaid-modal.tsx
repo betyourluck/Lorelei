@@ -11,6 +11,8 @@ import {
 } from "@yamada-ui/react";
 import type { FC } from "react";
 import { MermaidCodeWithPreview } from "@/components/ui";
+import type { MermaidTheme } from "@/components/ui/mermaid-theme";
+import { ThemeMenu } from "@/features/flowchart/components/theme-menu";
 import { ExportButtons } from "@/lib/desktop";
 import type { SkippedColumn } from "../../utils/er-names";
 
@@ -21,6 +23,9 @@ export interface ERDiagramMermaidModalProps {
   onDownload: () => void;
   /** Mermaid に書けないので書き出さなかった列 (spec 13 D2)。無ければ何も出さない */
   skippedColumns?: SkippedColumn[];
+  /** 出力のテーマ (エディタが持つ, spec 24)。コードは呼ぶ側がこのテーマで作る。onThemeChange が無ければメニューを出さない */
+  theme?: MermaidTheme;
+  onThemeChange?: (theme: MermaidTheme) => void;
 }
 
 export const ERDiagramMermaidModal: FC<ERDiagramMermaidModalProps> = ({
@@ -29,6 +34,8 @@ export const ERDiagramMermaidModal: FC<ERDiagramMermaidModalProps> = ({
   code,
   onDownload,
   skippedColumns = [],
+  theme,
+  onThemeChange,
 }) => {
   return (
     <Modal open={open} onClose={onClose} maxW="90vw" h="85vh">
@@ -51,6 +58,7 @@ export const ERDiagramMermaidModal: FC<ERDiagramMermaidModalProps> = ({
               ダウンロード
             </Button>
             <ExportButtons code={code} fileStem="er-diagram" />
+            {onThemeChange && <ThemeMenu value={theme ?? "default"} onChange={onThemeChange} />}
           </HStack>
           {skippedColumns.length > 0 && (
             <Text fontSize="sm" fontWeight="normal" color="orange.700">
@@ -63,7 +71,7 @@ export const ERDiagramMermaidModal: FC<ERDiagramMermaidModalProps> = ({
       </ModalHeader>
       <ModalCloseButton />
       <ModalBody pb={6} flex={1} minH={0} overflow={{ base: "hidden", md: "auto" }}>
-        <MermaidCodeWithPreview code={code} />
+        <MermaidCodeWithPreview code={code} theme={theme} />
       </ModalBody>
     </Modal>
   );

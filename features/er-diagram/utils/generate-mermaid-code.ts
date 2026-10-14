@@ -1,4 +1,5 @@
 import type { Node, Edge } from "@xyflow/react";
+import { themeFrontmatter, type MermaidTheme } from "@/components/ui/mermaid-theme";
 import type { ERTableNodeProps } from "@/features/er-diagram/components/node/er-table-node";
 import type { GraphType } from "@/features/flowchart/types/types";
 import { ER_CARDINALITY_SYMBOLS } from "../types";
@@ -11,7 +12,9 @@ export function generateERDiagramMermaidCode(
   nodes: Node<ERTableNodeProps>[],
   edges: Edge[],
   /** 図の向き。TD (既定) の時は direction の行を書かない */
-  direction: GraphType = "TD"
+  direction: GraphType = "TD",
+  /** テーマ (spec 24)。default 以外の時だけ図の先頭に frontmatter で書く */
+  theme?: MermaidTheme
 ): string {
   // ノード部
   const nodeDefs = nodes.map((node) => {
@@ -45,5 +48,5 @@ export function generateERDiagramMermaidCode(
     });
 
   const header = direction === "TD" ? ["erDiagram"] : ["erDiagram", `  direction ${direction}`];
-  return [...header, ...nodeDefs, ...edgeDefs.filter(Boolean)].join("\n");
+  return themeFrontmatter(theme) + [...header, ...nodeDefs, ...edgeDefs.filter(Boolean)].join("\n");
 }

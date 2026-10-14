@@ -4,6 +4,15 @@
  * 文字は mermaid の内部の符号と HTML の実体参照を戻した後のもの
  */
 
+/**
+ * 図の先頭の frontmatter・init (`%%{init: …}%%`) に書いた設定 (spec 24)。
+ * theme はテーマの名前 (書いていなければ持たない)。keys はテーマ以外に書いた設定の名前 (並べ替え済み)
+ */
+export interface DiagramConfigSnapshot {
+  theme?: string;
+  keys: string[];
+}
+
 export interface FlowVertexSnapshot {
   id: string;
   text: string;
@@ -39,6 +48,8 @@ export interface FlowSnapshot {
   tooltips: number;
   /** accTitle / accDescr の数 */
   accessibility: number;
+  /** 図の先頭の設定。frontmatter も init も無ければ持たない (spec 24) */
+  config?: DiagramConfigSnapshot;
 }
 
 export interface ErAttributeSnapshot {
@@ -84,6 +95,8 @@ export interface ErSnapshot {
   subgraphs: { id: string; nodes: string[] }[];
   classDefs: number;
   accessibility: number;
+  /** 図の先頭の設定。frontmatter も init も無ければ持たない (spec 24) */
+  config?: DiagramConfigSnapshot;
 }
 
 /** エディタで開けない種類の図 */

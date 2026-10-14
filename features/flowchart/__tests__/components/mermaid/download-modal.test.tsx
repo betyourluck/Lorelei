@@ -122,7 +122,7 @@ describe("DownloadModal", () => {
     render(<DownloadModal {...mockProps} open />);
 
     // 初期レンダリング時にTDで呼ばれる
-    expect(mockGenerateMermaidCode).toHaveBeenCalledWith(mockFlowData, "TD");
+    expect(mockGenerateMermaidCode).toHaveBeenCalledWith(mockFlowData, "TD", "default");
   });
 
   test("空のflowDataでもエラーが発生しない", () => {
@@ -189,7 +189,7 @@ describe("DownloadModal の向き", () => {
         onDirectionChange={onDirectionChange}
       />
     );
-    expect(mockGenerateMermaidCode).toHaveBeenCalledWith({ nodes: [], edges: [] }, "LR");
+    expect(mockGenerateMermaidCode).toHaveBeenCalledWith({ nodes: [], edges: [] }, "LR", "default");
     await user.click(screen.getByRole("button", { name: "図の向き: LR" }));
     await user.click(await screen.findByRole("menuitem", { name: "RL" }));
     expect(onDirectionChange).toHaveBeenCalledWith("RL");

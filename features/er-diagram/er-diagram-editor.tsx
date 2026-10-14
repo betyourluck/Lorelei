@@ -14,6 +14,7 @@ import { Box, useToken } from "@yamada-ui/react";
 import { useCallback, useState, useRef } from "react";
 import { FlowLayout } from "@/components/layout/";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
+import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { DirectionContext } from "@/features/flowchart/components/direction-context";
 import { normalizeDirection } from "@/features/flowchart/hooks/direction";
 import type { GraphType } from "@/features/flowchart/types/types";
@@ -92,6 +93,8 @@ export const ERDiagramEditor: FC = () => {
   const [nodeId, setNodeId] = useState(2);
   // 図の向き (spec 07 D1)。コード生成・パネル・接続点はこれを読み書きする
   const [direction, setDirection] = useState<GraphType>("TD");
+  // 出力のテーマ (spec 24)。コード生成・プレビュー・書き出しにだけ効き、編集画面の見た目は変えない
+  const [theme, setTheme] = useState<MermaidTheme>("default");
 
   // エッジラベル編集ハンドラ
   const handleEdgeLabelChange = useCallback(
@@ -153,6 +156,8 @@ export const ERDiagramEditor: FC = () => {
       // 取り込んだ図の向き (無ければ TD)。配置もこの向きに合わせる
       const importedDirection = normalizeDirection(data.direction);
       setDirection(importedDirection);
+      // 取り込んだ図の先頭のテーマ (無ければ default, spec 24)
+      setTheme(data.theme ?? "default");
       // ノードとエッジをクリアしてからインポートデータを設定
       const importedNodes = convertParsedDataToNodes(data.nodes, data.edges, {
         onNameChange: (nodeId: string, newName: string) => {
@@ -337,9 +342,11 @@ export const ERDiagramEditor: FC = () => {
             onImportMermaid={handleImportMermaid}
             nodes={nodes}
             edges={edges}
-            generateCode={(n, e) => generateERDiagramMermaidCode(n, e, direction)}
+            generateCode={(n, e) => generateERDiagramMermaidCode(n, e, direction, theme)}
             direction={direction}
             onDirectionChange={setDirection}
+            theme={theme}
+            onThemeChange={setTheme}
           />
         </FlowLayout>
       </ReactFlow>

@@ -4,6 +4,7 @@
  */
 import { DropCounter, type DroppedItem } from "@/components/ui/mermaid-dropped";
 import type { ErSnapshot } from "@/components/ui/mermaid-snapshot";
+import { themeFromConfig } from "@/components/ui/mermaid-theme";
 import { directionOf } from "@/features/flowchart/utils/from-mermaid";
 import type { ERColumn } from "../components/node/er-table-content";
 import type { ParsedMermaidERData } from "./import-mermaid-to-er";
@@ -67,5 +68,8 @@ export function erFromMermaid(snapshot: ErSnapshot): { data: ParsedMermaidERData
   });
 
   const direction = directionOf(snapshot.direction);
-  return { data: direction ? { nodes, edges, direction } : { nodes, edges }, dropped: drops.toList() };
+  const theme = themeFromConfig(snapshot.config, drops);
+  const data: ParsedMermaidERData = direction ? { nodes, edges, direction } : { nodes, edges };
+  if (theme) data.theme = theme;
+  return { data, dropped: drops.toList() };
 }

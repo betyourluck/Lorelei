@@ -6,7 +6,7 @@ import {
   toParseIssue,
   type ParseIssue,
 } from "./mermaid-parse-issue";
-import type { ErSnapshot, FlowSnapshot, MermaidSnapshot } from "./mermaid-snapshot";
+import type { DiagramConfigSnapshot, ErSnapshot, FlowSnapshot, MermaidSnapshot } from "./mermaid-snapshot";
 
 /**
  * mermaid.js に触るのはこのモジュールだけ (spec 09 D3)。
@@ -177,6 +177,29 @@ export interface MermaidReadOptions {
 
 type ReadResult = { ok: true; snapshot: MermaidSnapshot } | { ok: false; issue: ParseIssue };
 
+/** frontmatter (先頭の ---) か init (%%{…}%%) があるか。無い図は設定を読まない (読み取りを 2 回にしない) */
+const HAS_CONFIG = /^\s*---|%%\s*\{/;
+
+/**
+ * 図の先頭の設定 (spec 24)。mermaid.parse は frontmatter と init を、プレビューの描画 (render) と同じ前処理で合わせて返す。
+ * parse は全体の設定に図の設定を当てたまま終わるので、読んだら initialize の値へ戻す
+ */
+const readConfig = async (mermaid: Mermaid, code: string): Promise<DiagramConfigSnapshot | undefined> => {
+  if (!HAS_CONFIG.test(code)) return undefined;
+  let parsed;
+  try {
+    parsed = await mermaid.parse(code, { suppressErrors: true });
+  } finally {
+    mermaid.mermaidAPI.reset();
+  }
+  if (!parsed) return undefined;
+  const config = (parsed.config ?? {}) as Record<string, unknown>;
+  const keys = Object.keys(config)
+    .filter((k) => k !== "theme")
+    .sort();
+  return typeof config.theme === "string" ? { theme: config.theme, keys } : { keys };
+};
+
 const readOnce = async (code: string): Promise<ReadResult> => {
   const mermaid = await loadMermaid();
   const { text, lineOffset } = prepareForParse(code);
@@ -186,12 +209,18 @@ const readOnce = async (code: string): Promise<ReadResult> => {
   } catch (e) {
     return { ok: false, issue: toParseIssue(e, lineOffset) };
   }
-  // 写しは解析の直後に同期で取る (db は図ごとに新しく作られる)
+  // 写しは解析の直後に同期で取る (db は図ごとに新しく作られる)。図の先頭の設定はその後に読む (spec 24)
   const type = String(diagram.type);
   if (type === "flowchart-v2" || type === "flowchart" || type === "flowchart-elk") {
-    return { ok: true, snapshot: flowSnapshot(diagram.db) };
+    const snapshot = flowSnapshot(diagram.db);
+    const config = await readConfig(mermaid, code);
+    return { ok: true, snapshot: config ? { ...snapshot, config } : snapshot };
   }
-  if (type === "er") return { ok: true, snapshot: erSnapshot(diagram.db) };
+  if (type === "er") {
+    const snapshot = erSnapshot(diagram.db);
+    const config = await readConfig(mermaid, code);
+    return { ok: true, snapshot: config ? { ...snapshot, config } : snapshot };
+  }
   return { ok: true, snapshot: { kind: "other", type } };
 };
 

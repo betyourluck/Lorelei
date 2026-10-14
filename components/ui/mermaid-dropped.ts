@@ -39,7 +39,11 @@ export const describeDropped = (dropped: DroppedItem[]): string =>
             ? `矢印 ${detail}`
             : kind === "direction"
               ? `向き ${detail}`
-              : (LABELS[kind] ?? construct);
+              : kind === "config"
+                ? `設定 ${detail}`
+                : kind === "theme"
+                  ? `テーマ ${detail}（選べないテーマ）`
+                  : (LABELS[kind] ?? construct);
       return `${label} ×${count}`;
     })
     .join("、");

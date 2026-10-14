@@ -1,4 +1,5 @@
 import type { Node, Edge } from "@xyflow/react";
+import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { placeByDirection } from "@/features/flowchart/hooks/direction";
 import type { GraphType } from "@/features/flowchart/types/types";
 import type { ERColumn } from "../components/node/er-table-content";
@@ -22,6 +23,8 @@ export interface ParsedMermaidERData {
   edges: Edge[];
   /** 図の向き。TD (と同じ意味の TB) の時は持たない (無ければ TD) */
   direction?: GraphType;
+  /** 図の先頭に書いたテーマ (spec 24)。default の時は持たない */
+  theme?: MermaidTheme;
 }
 
 /**

@@ -6,19 +6,22 @@ import type { ReactNode } from "react";
 import { CopyButton } from "./copy-button";
 import { LazyCodeEditor } from "./lazy-code-editor";
 import { MermaidPreview } from "./mermaid-preview";
+import { themeBackground, type MermaidTheme } from "./mermaid-theme";
 
 interface MermaidTwoPaneProps {
   /** 左の列（コード） */
   code: ReactNode;
   /** 右の列（プレビュー） */
   preview: ReactNode;
+  /** プレビューの背景（spec 24 D5。書き出しと同じ背景にする）。無ければ白 */
+  previewBg?: string;
 }
 
 /**
  * 左にコード、右にプレビューの 2 列の枠（spec 09 D2、spec 10 D6 でインポートと共有）。
  * 広い幅では各列が独立してスクロールする。狭い幅（md 以下）では上下に積む
  */
-export const MermaidTwoPane: FC<MermaidTwoPaneProps> = ({ code, preview }) => {
+export const MermaidTwoPane: FC<MermaidTwoPaneProps> = ({ code, preview, previewBg = "white" }) => {
   return (
     <Grid
       w="full"
@@ -44,8 +47,8 @@ export const MermaidTwoPane: FC<MermaidTwoPaneProps> = ({ code, preview }) => {
         aria-label="プレビュー"
         minH={{ base: 0, md: "sm" }}
         overflow="auto"
-        bg="white"
-        color="black"
+        bg={previewBg}
+        color={previewBg === "white" ? "black" : "white"}
         borderRadius="md"
         border="1px solid"
         borderColor="border"
@@ -58,12 +61,15 @@ export const MermaidTwoPane: FC<MermaidTwoPaneProps> = ({ code, preview }) => {
 
 interface MermaidCodeWithPreviewProps {
   code: string;
+  /** 出力のテーマ（spec 24）。プレビューの背景を書き出しと同じにする（テーマの配色はコードの frontmatter で効く） */
+  theme?: MermaidTheme;
 }
 
 /** コード生成のダイアログの本文: 左に読むだけのエディタ、右に mermaid.js で描いた図 */
-export const MermaidCodeWithPreview: FC<MermaidCodeWithPreviewProps> = ({ code }) => {
+export const MermaidCodeWithPreview: FC<MermaidCodeWithPreviewProps> = ({ code, theme }) => {
   return (
     <MermaidTwoPane
+      previewBg={themeBackground(theme)}
       code={
         <>
           {/* 右上は検索パネル（Ctrl+F）の閉じるボタンと重なるので、コピーは右下に置く */}

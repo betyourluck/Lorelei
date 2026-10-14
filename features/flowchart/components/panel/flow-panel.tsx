@@ -6,6 +6,7 @@ import { PlusIcon, CodeIcon, UploadIcon, SquareDashedIcon } from "@yamada-ui/luc
 import type { FC } from "@yamada-ui/react";
 import { VStack, HStack, Text, Button, useDisclosure } from "@yamada-ui/react";
 import { NavigationMenu } from "@/components/ui";
+import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { useDesktopActions } from "@/lib/desktop";
 import type { ParsedMermaidData } from "../../hooks/mermaid";
 import type { GraphType } from "../../types/types";
@@ -23,6 +24,9 @@ interface FlowPanelProps {
   /** 図の向き (エディタが持つ)。渡されると切り替えを出し、コード生成もこの向きで書く */
   direction?: GraphType;
   onDirectionChange?: (direction: GraphType) => void;
+  /** 出力のテーマ (エディタが持つ, spec 24)。コード生成のダイアログで選ぶ */
+  theme?: MermaidTheme;
+  onThemeChange?: (theme: MermaidTheme) => void;
 }
 
 type PanelContentProps = FlowPanelProps;
@@ -43,6 +47,8 @@ export const PanelContent: FC<PanelContentProps> = ({
   edges,
   direction,
   onDirectionChange,
+  theme,
+  onThemeChange,
 }) => {
   const { open: openImport, onOpen: onOpenImport, onClose: onCloseImport } = useDisclosure();
   const { open: openDownload, onOpen: onOpenDownload, onClose: onCloseDownload } = useDisclosure();
@@ -97,6 +103,8 @@ export const PanelContent: FC<PanelContentProps> = ({
         flowData={{ nodes, edges }}
         direction={direction}
         onDirectionChange={onDirectionChange}
+        theme={theme}
+        onThemeChange={onThemeChange}
       />
     </VStack>
   );

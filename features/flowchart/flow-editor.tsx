@@ -20,6 +20,7 @@ import { Box, useToken } from "@yamada-ui/react";
 import { useCallback, useState, useRef, useEffect, useMemo } from "react";
 import { FlowLayout } from "@/components/layout/";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
+import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { useDesktopOpen } from "@/lib/desktop";
 import {
   DirectionContext,
@@ -112,6 +113,8 @@ export function FlowEditor() {
   const [nodeId, setNodeId] = useState(2);
   // 図の向き (spec 07 D1)。コード生成・パネル・接続点はこれを読み書きする
   const [direction, setDirection] = useState<GraphType>("TD");
+  // 出力のテーマ (spec 24)。コード生成・プレビュー・書き出しにだけ効き、編集画面の見た目は変えない
+  const [theme, setTheme] = useState<MermaidTheme>("default");
   // DownloadModalの状態管理はFlowPanelに移動
   const connectingNodeId = useRef<string | null>(null);
   // メニューや枠の × で名指しして消している途中のノード (onBeforeDelete が読んで消す)
@@ -556,6 +559,8 @@ export function FlowEditor() {
       // 取り込んだ図の向き (無ければ TD)。配置もこの向きに合わせる
       const importedDirection = normalizeDirection(data.direction);
       setDirection(importedDirection);
+      // 取り込んだ図の先頭のテーマ (無ければ default, spec 24)
+      setTheme(data.theme ?? "default");
       // ノードの階層構造を分析してレイアウトを決定
       const layoutNodes = (
         nodes: ParsedMermaidData["nodes"],
@@ -764,6 +769,8 @@ export function FlowEditor() {
             edges={edges}
             direction={direction}
             onDirectionChange={setDirection}
+            theme={theme}
+            onThemeChange={setTheme}
           />
         </FlowLayout>
       </ReactFlow>

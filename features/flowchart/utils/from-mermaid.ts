@@ -4,6 +4,7 @@
  */
 import { DropCounter, type DroppedItem } from "@/components/ui/mermaid-dropped";
 import type { FlowEdgeSnapshot, FlowSnapshot } from "@/components/ui/mermaid-snapshot";
+import { themeFromConfig } from "@/components/ui/mermaid-theme";
 import type {
   ParsedMermaidData,
   ParsedMermaidEdge,
@@ -139,6 +140,8 @@ export function flowFromMermaid(snapshot: FlowSnapshot): { data: ParsedMermaidDa
   const data: ParsedMermaidData = { nodes, edges };
   if (direction) data.direction = direction;
   if (subgraphs.length > 0) data.subgraphs = subgraphs;
+  const theme = themeFromConfig(snapshot.config, drops);
+  if (theme) data.theme = theme;
   return { data, dropped: drops.toList() };
 }
 
