@@ -2,7 +2,7 @@
 
 **ID**: 24
 **Date**: 2026-10-14
-**Status**: Draft（rev0。**P0 着地**（「P0 結果」）。D1〜D7 と D4-2 の裁定、GitHub・Zenn の確かめ待ち）
+**Status**: Draft（rev1。起票 → P0 着地（「P0 結果」）→ D1〜D7・D4-2 を裁定（「裁定」）。P1 待ち）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。spec 15〜23 と同じく、**フォーク元の改善と台帳・デスクトップはコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする
 （フォーク元のコミットは `lib/desktop/`・`src-tauri/`・`crates/` と台帳を含まない。PR を出すか・いつ出すかは利用者が決める, CLAUDE.md）
 
@@ -19,6 +19,21 @@
 - **コード生成のプレビュー**: ダイアログの右の mermaid.js の描画（書き出しの前に見る絵）
 
 **編集画面（xyflow のキャンバス）の見た目は変えない**（利用者の言）。保存ファイル・コード生成・書き出しの経路にテーマを通す。
+
+## 裁定（2026-10-14、利用者。P0 の後）
+
+**推奨どおり。D4-2 は外す**。
+
+- **D1: 案 A** — テーマは図の Mermaid の先頭に書いて持ち回る（図ごと。`Document` に欄を足さない）
+- **D2: 案 A** — frontmatter の `config.theme`。default の時は何も書かない。取り込みは frontmatter・init の両方を読む。
+  GitHub・Zenn が frontmatter を読むかは確かめていない（P0 結果の「利用者に頼む確かめ」は未着手）。読まないと分かったら、書き方を見直す
+- **D3: 案 A** — default・neutral・dark・forest の 4 つ
+- **D4: 案 A** — GUI が扱うのはテーマの名前だけ。取り込みでテーマ以外の設定（`themeVariables`・`flowchart.*` など）が消える時は、消えるものの要約に出す
+- **D4-2: 書き出しの守りから `themeVariables` を外す** — Mermaid のテキストに書いた `themeVariables`（AI が書いたものなど）が、書き出し（MCP の `render`・GUI の書き出し）にも効く。
+  `themeCSS`・`fontFamily`・`altFontFamily` は守りに残す（`themeVariables.fontFamily` は外しても効かない, P0 結果の 5）。色として読めない値は、書き出しがエラーになる
+- **D5: 案 A** — 書き出しの背景はテーマに合わせる（dark は #333、ほかは今と同じ白）。コード生成のプレビューの枠も同じ背景。`options.background` を渡した時はそれが勝つ
+- **D6: 案 A** — コード生成のダイアログで選ぶ
+- **D7: 推奨どおり** — `render` の `options.theme` は今のまま（図の中のテーマが勝つ）、`ThemeParam` は 4 つ、説明に一言
 
 ## 現況（2026-10-14、コードを読んで確かめた）
 
@@ -70,7 +85,7 @@
 
 ### D1. テーマをどこに持つか
 
-- **案 A（推奨）: 図の Mermaid のテキストに書く（図ごと）** — 生成器がテーマを先頭に書き、取り込み（Web・デスクトップ・MCP）はテーマを読んでエディタの状態に持つ。
+- **案 A（推奨 → 採る, 裁定）: 図の Mermaid のテキストに書く（図ごと）** — 生成器がテーマを先頭に書き、取り込み（Web・デスクトップ・MCP）はテーマを読んでエディタの状態に持つ。
   保存される `source`・コード生成・`.mmd`・`read_diagram` にそのまま入り、外（GitHub・Zenn・mermaid.live）に貼ってもテーマが効く。
   `Document` に欄を足さない（`source` が真実）。Web 版でも同じ形（フォーク元に返せる）
 - 案 B: `Document` に `theme` の欄を足し、書き出しの時だけ使う — Mermaid のテキストにテーマが入らないので、`.mmd` やコピーを外に貼るとテーマが落ちる。Web 版には保存が無いので効かない
@@ -81,35 +96,38 @@
 
 ### D2. テーマの書き方
 
-- **案 A（推奨）: frontmatter の `config.theme`** — Mermaid の今の文書が推す書き方（init は古い書き方として残っている）。merman も mermaid.js 11.17.2 も読む（下調べ）
+- **案 A（推奨 → 採る, 裁定）: frontmatter の `config.theme`** — Mermaid の今の文書が推す書き方（init は古い書き方として残っている）。merman も mermaid.js 11.17.2 も読む（下調べ）
 - 案 B: `%%{init: {"theme": "…"}}%%` — 参考の記事（Zenn）の書き方。古い Mermaid でも読める
 - どちらでも、**default の時は何も書かない**（今の図の出力をバイト単位で変えない。受け入れ条件 6）。取り込みは両方の書き方を読む
 - 外の描き手（GitHub・Zenn・mermaid.live）がどちらを読むかは P0 で確かめる（Zenn の Mermaid の版が古く frontmatter を読まないなら、案 B か、利用者が選べる形を考える）
 
 ### D3. 選べるテーマ
 
-- **案 A（推奨）: default・neutral・dark・forest の 4 つ** — 今の `RenderOptions.theme`・MCP の `ThemeParam` と同じ。名前だけで配色が決まる
+- **案 A（推奨 → 採る, 裁定）: default・neutral・dark・forest の 4 つ** — 今の `RenderOptions.theme`・MCP の `ThemeParam` と同じ。名前だけで配色が決まる
 - 案 B: 4 つ + base — base は `themeVariables` で色を足すための土台で、名前だけだと薄いベージュの図になる（下調べ）。D4 で `themeVariables` を扱う時に足す
 - merman は neo・redux などの新しいテーマも持つが、mermaid.js 11.17.2 で同じ絵になるかは分からないので入れない
 
 ### D4. `themeVariables`・`themeCSS` と、ほかの設定（`flowchart.rankSpacing` など）
 
-- **案 A（推奨）: この spec ではテーマの名前だけを扱う** — 取り込みでテーマ以外の設定は今どおり落とすが、**取り込むと消えるものの要約に「テーマ以外の設定」として出す**（今は黙って消える）。
-  書き出しで `themeVariables` が効かない食い違い（下調べ）は、LORELEI.md の既知の制約に書き、次の spec の候補にする
-- 案 B: `themeVariables` も持ち回り、書き出しにも効かせる（`SECURE_KEYS` から `themeVariables` を外す） — merman の既定の守りを緩める。
+- **案 A（推奨 → 採る, 裁定）: この spec では GUI はテーマの名前だけを扱う** — 取り込みでテーマ以外の設定は今どおり落とすが、**取り込むと消えるものの要約に「テーマ以外の設定」として出す**（今は黙って消える）
+- **D4-2（P0 の後に足した決めごと → 外す, 裁定）: 書き出しの守り（`SECURE_KEYS`）から `themeVariables` を外す** — 書き出しにも効き、プレビュー（mermaid.js）との食い違い（下調べ）が消える。
+  `themeCSS`・`fontFamily`・`altFontFamily` は守りに残す。色として読めない値は merman が描画ごとエラーにする（P0 結果の 5。CSS は差し込めない）。
+  **取り込み（`to_editor`）の読みは今の守りのまま**にする（取り込みはどうせ `themeVariables` を落とすので、色の値で取り込みそのものが落ちないように。P2 で確かめる）。
+  `validate` は書き出しと同じ設定で読む（`validate` が通って `render` がエラーになる食い違いを作らない。P2 で決めて確かめる）
+- 案 B: `themeVariables` も GUI の状態に持ち回る — エディタが色を持つことになる。この spec の外（D4-2 で書き出しには効くので、AI が書いた色は `render` に効く）。
   `themeVariables.fontFamily` は同梱フォントの都合で効かせられない（spec 01 P0）。値が CSS に入るので、守りを外してよいかを merman のソースで確かめてから（P0 では材料だけ集める）
 - 案 C: GUI で色を選ぶ — この spec の外
 
 ### D5. 書き出しの背景
 
-- **案 A（推奨）: テーマの背景に合わせる** — 書き出しの背景を、テーマの `background`（dark なら #333）にする。default・forest・neutral は白のまま（今と同じ）
+- **案 A（推奨 → 採る, 裁定）: テーマの背景に合わせる** — 書き出しの背景を、テーマの `background`（dark なら #333）にする。default・forest・neutral は白のまま（今と同じ）
 - 案 B: 今のまま白 — dark が見づらい
 - 案 C: 透過 — 貼る先の背景しだいで、dark の線と文字が見えたり見えなかったりする
 - コード生成のプレビューの枠（今は白に固定）も同じ背景にする。MCP の `render` で `options.background` を渡した時は、それが勝つ（今と同じ）
 
 ### D6. GUI のどこで選ぶか
 
-- **案 A（推奨）: コード生成のダイアログ**（向きのメニューと書き出しのボタンの並び） — 出力に効く設定だと、その場で分かる。プレビューがすぐ変わる。
+- **案 A（推奨 → 採る, 裁定）: コード生成のダイアログ**（向きのメニューと書き出しのボタンの並び） — 出力に効く設定だと、その場で分かる。プレビューがすぐ変わる。
   Web 版とデスクトップが同じダイアログを使う（デスクトップのツールバーの「コード生成」もフォーク元のダイアログを開く。failures #17 の「どの操作がどの部品を開くか」は P1 で確かめる）
 - 案 B: デスクトップのツールバー — 編集中に選べるが、Web 版には無い。キャンバスの見た目が変わらないので、選んだ効き目が見えない
 - 案 C: 設定画面 — アプリ全体（D1 の案 C）向き
@@ -121,17 +139,26 @@
 
 ## Phase
 
-- **P0（リサーチ）**: 結果を「P0 結果」に表で書く。**コミットするコードは変えない**
+- **P0（リサーチ。着地, 「P0 結果」）**: 結果を「P0 結果」に表で書く。**コミットするコードは変えない**
   1. D3 の 4 つのテーマで、フローチャート・ER 図（枠・ラベル・向きを含む小さな図）を、merman（MCP `render` の SVG と PNG）と mermaid.js 11.17.2（コード生成のプレビューと同じ版）で描いて並べる。配色が揃うか
   2. dark の書き出しを、白・#333・透過の背景で並べる（D5）
   3. frontmatter と init を、GitHub（Markdown の mermaid の囲み）・Zenn・mermaid.live がそれぞれ読むか（**外へ公開する確かめは利用者に頼む**。Lorelei の側は merman と mermaid.js で読めることを確かめる）
   4. 取り込みの往復: テーマを書いた Mermaid を Web の取り込み・デスクトップの取り込み・MCP の `open_in_editor` で開き、何が残り何が消えるか（今のコードで。テーマ以外の設定も）
   5. D4 の案 B の材料: merman が `themeVariables` を守りに入れた理由（ソースと上流の履歴）、外した時に書き出しの絵が mermaid.js と揃うか
   - 結果で D1〜D7 を確定させ、rev1 → 裁定 → rev2
-- **P1（フォーク元）**: 生成器がテーマを書く（default は書かない）・Web の取り込みがテーマを読む（消えるものの要約に、テーマ以外の設定を出す）・コード生成のダイアログのテーマのメニュー・プレビューの背景。
-  Web 版の画面で確かめる。生成器の出力を変えたら fixture（`er_names.json`・`flow_subgraphs.json`）を書き直し、Rust のテストも回す（CLAUDE.md の開発コマンド）
-- **P2（デスクトップ・Rust）**: `to_editor` が merman の `meta.config` からテーマを読む（`EditorPayload` にテーマ）・デスクトップの書き出し（`export_diagram`）がテーマと背景を渡す・MCP の説明と `ThemeParam`・
-  data_contract（`EditorPayload`・`RenderOptions`・`GuiCommands.export_diagram`）・LORELEI.md。`tauri dev` で MCP の往復を確かめる
+- **P1（フォーク元）**:
+  - 生成器（フローチャート・ER 図）がテーマを frontmatter で書く（default は書かない。今の出力をバイト単位で変えない）
+  - Web の取り込みがテーマ（frontmatter・init の両方）を読み、エディタの状態に持つ（フローチャートは向きと同じ持ち方にする）。テーマ以外の設定は消えるものの要約に出す
+  - コード生成のダイアログ（フローチャート・ER 図）に、向きのメニューと並べてテーマのメニュー。プレビューの枠の背景をテーマに合わせる（dark は #333）
+  - 足すテスト（Red → Green）: 生成器の frontmatter・default の時は何も書かない・取り込みの往復（frontmatter と init）・消えるものの要約・ダイアログのメニュー
+  - Web 版の画面で確かめる（プレビューの配色と背景）。生成器の出力を変えたら fixture（`er_names.json`・`flow_subgraphs.json`）を書き直し、Rust のテストも回す（CLAUDE.md の開発コマンド）
+- **P2（デスクトップ・Rust）**:
+  - `to_editor` が merman の `meta.config` からテーマを読む（`EditorPayload` にテーマ）。テーマ以外の設定は `dropped` に出す。デスクトップの取り込み・MCP の `open_in_editor`・`update_diagram` の往復でテーマが残る
+  - 書き出しの守りから `themeVariables` を外す（D4-2）。取り込みの読みは今の守りのまま。`validate` は書き出しと同じ設定
+  - 背景（D5）: `RenderOptions.background` が無く、効いているテーマ（図の中が勝つ）が dark なら #333
+  - デスクトップの書き出し（`export_diagram`）は、ダイアログのコードをそのまま描く（テーマはコードの frontmatter に入っているので、引数は足さない見込み。P2 で確かめる）
+  - MCP の説明と `ThemeParam`・data_contract（`EditorPayload`・`RenderOptions`・`RenderConfigOverrides`・`MermaidImport`・`GuiCommands.export_diagram`）・LORELEI.md（既知の制約と MCP の説明）
+  - `tauri dev` で MCP の往復と書き出しを確かめる
 - **P3（配布ビルド）**: 利用者がテーマを選んで書き出し、SVG・PNG・PDF と `.mmd` を外で開いて確かめる
 
 ## 受け入れ条件
@@ -143,15 +170,18 @@
 5. 編集画面（キャンバス）の見た目は変わらない
 6. テーマを選ばない（default の）図の出力は、今とバイト単位で同じ（Mermaid のテキストにも、書き出しの絵にも何も足さない）
 7. Web 版（GitHub Pages）でも 1（`.mmd` とコピー）・3・4 が成り立つ（デスクトップ専用の変更を含まない）
+8. （D4-2）Mermaid のテキストに書いた `themeVariables` の色が、書き出し（MCP の `render`）に効く。色として読めない値はエラーとして返る。取り込みは色の値で落ちない
+9. （D5）dark の書き出しの背景は #333（SVG・PNG・PDF・MCP の `render` のプレビュー）。`options.background` を渡した時はそれが勝つ
 
 ## スコープ外
 
 - 編集画面（キャンバス）にテーマを被せること（利用者の言）
-- `themeVariables`・`themeCSS` を GUI で選ぶこと、書き出しに効かせること（D4 で案 B を採らない限り）
+- `themeVariables` を GUI で選ぶ・エディタの状態に持ち回ること（書き出しには D4-2 で効く）。`themeCSS` を効かせること
 - テーマ以外の Mermaid の設定（`flowchart.rankSpacing`・`look`・`layout` など）を持ち回ること
 - フォント（同梱の Noto Sans JP のまま。テーマの `fontFamily` は効かせない, spec 01）
 - neo・redux などの新しいテーマ（D3）
 - アプリの UI の暗い配色（ダークモード）
+- 書き出しの線のラベルの背景が薄く、線が文字に透けること（`htmlLabels: false` の描き方、テーマに関係ない, P0 結果の 1）・ER 図の線のラベルの文字が箱からはみ出すこと
 
 ## P0 結果（2026-10-14）
 
@@ -226,7 +256,7 @@ flowchart LR
 ```
 ````
 
-### 推奨（P0 の後。裁定待ち）
+### 推奨（P0 の後 → 2026-10-14 の裁定で全部採った。D4-2 は外す。「裁定」）
 
 - **D1: 案 A**（図の Mermaid の先頭に書く）。今の 3 つの入口がテーマを黙って落とす穴（上の 4）も、これで塞がる
 - **D2: 案 A**（frontmatter。Mermaid の推す書き方）。ただし Zenn・GitHub が frontmatter を読まないと分かったら、init にするか、書き方を選べる形を考える（上の「利用者に頼む確かめ」の結果で決める）
