@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { describe, test, expect, vi } from "vitest";
 import { FlowLayout } from "@/components/layout/flow-layout";
 
@@ -8,7 +9,10 @@ import { FlowLayout } from "@/components/layout/flow-layout";
  */
 vi.mock("@xyflow/react", () => ({
   Background: () => <div data-testid="react-flow-background" />,
-  Controls: () => <div data-testid="react-flow-controls" />,
+  Controls: ({ children }: { children?: ReactNode }) => (
+    <div data-testid="react-flow-controls">{children}</div>
+  ),
+  ControlButton: (props: ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props} />,
   MiniMap: () => <div data-testid="react-flow-minimap" />,
 }));
 
