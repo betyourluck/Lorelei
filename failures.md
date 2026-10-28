@@ -543,3 +543,17 @@
 - **処方**: 開発版を写す時は、開発版を起動してから `request_access` に exe の名前 `"lorelei.exe"` を渡す（`target\debug\lorelei.exe` に下りる）。窓が写ってから操作する。
   `open_application` は開発版を名前で開けない（許可の外と出る）ので、窓は `tauri dev` が出したものを使う
 - **一般化**: 同じ名前のアプリが「入れた版」と「作った版」の 2 つある時、道具が名前で選ぶのはたいてい入れた版。どちらに付いたかを許可の結果のパスで確かめる
+
+## #46 テストの `afterEach` の `vi.restoreAllMocks()` が setup.ts の `ResizeObserver` の模擬まで消し、2 件目から xyflow が落ちた（2026-10-29, spec 26 P2）
+
+- **症状**: 本物の `ReactFlow` を描くテストで、1 件目は通り、2 件目から `TypeError: resizeObserver.observe is not a function`（と `disconnect`）が出た
+- **真因**: `__tests__/setup.ts` は `global.ResizeObserver = vi.fn().mockImplementation(…)` で模擬している。テストの `afterEach` の `vi.restoreAllMocks()` がこの `vi.fn` の実装まで外し、次のテストの `new ResizeObserver()` が中身の無いものを返した
+- **処方**: `vi.restoreAllMocks()` を使わず、そのテストで作った spy だけを `mockRestore()` で戻す（`try … finally`）。localStorage は `afterEach` で `clear()`
+- **一般化**: 大域の後始末（`restoreAllMocks`・`resetAllMocks`）は、setup が `vi.fn` で置いた大域の模擬も巻き込む。後始末は自分で作ったものに絞る
+
+## #47 Browser pane で ref を使って押すと、ページとスクリーンショットの寸法の換算がずれ、ボタンでない所を押した（2026-10-29, spec 26 P2）
+
+- **症状**: `find` の `ref` で左下の Controls のボタンを `left_click` すると「(28, 384) を押した」と返り、何も変わらなかった。ボタンの中心は CSS の座標で (28, 740) で、(28, 384) は `react-flow__pane` だった
+- **真因**: ページの窓は 1024×768 で、スクリーンショットの座標の枠は 800×600 だった。ref から求めた座標が枠の換算を通っていない（道具の振る舞い。詳しい仕組みは見ていない）
+- **処方**: 押す前に `getBoundingClientRect()` と `innerWidth`・`innerHeight` を読み、枠へ換算した座標で押す（1024→800 なら 0.78 倍）。押した後は DOM の状態（`aria-pressed` など）で効いたかを確かめる
+- **一般化**: 「押した」という道具の返事は効いた証拠ではない。押した後の状態を読む（failures #41 と同じく、Browser pane の画面と DOM の見え方は食い違いうる）

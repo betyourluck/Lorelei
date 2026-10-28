@@ -2,7 +2,7 @@
 
 **ID**: 26
 **Date**: 2026-10-29
-**Status**: rev1（起票 → D1〜D6 を裁定（「裁定」、推奨どおり）→ P1 着地（「P1 結果」、`0c0903e`）→ P2 待ち）
+**Status**: rev1（起票 → D1〜D6 を裁定（「裁定」、推奨どおり）→ P1 着地（「P1 結果」、`0c0903e`）→ P2 着地（「P2 結果」、フォーク元 `affecfe`）→ P3（配布ビルドで利用者）待ち）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。2 つは互いに依らないので Phase を分ける。
 P1（MCP の JSON）は `lib/desktop/` だけ（デスクトップ専用）。P2（ミニマップ）はフォーク元の `components/layout/` の改善で、**台帳・デスクトップとコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする（PR を出すかは利用者が決める, CLAUDE.md）
 
@@ -122,6 +122,23 @@ P1（MCP の JSON）は `lib/desktop/` だけ（デスクトップ専用）。P2
   - **Claude Code が承認の後に実際につなぐ所は見ていない**: 使い捨てのフォルダに `enableAllProjectMcpServers` を置いても `claude mcp get` は承認待ちのままで、`claude -p` は CLI のログインが切れていて（`OAuth session expired`）使えなかった。P3 で利用者に頼む
   - 観察: rmcp の SSE は最初に中身の無い `data:` の行を送る（確かめの台本で、中身のある `data:` を拾うように直した。Lorelei の不具合ではない）
 - **README には書いていない**: README・README.ja は公開版（v0.1.3）を使う人への案内なので、JSON のタブは次の版を出す時に足す。LORELEI.md には書いた
+
+## P2 結果（2026-10-29、フォーク元 `affecfe`）
+
+- **入れたもの**（フォーク元の改善。`lib/desktop/` と台帳を含まないコミット = 上流へ返せる）:
+  `components/layout/use-minimap-visible.ts` の `useMinimapVisible()`（キー `mermaid-editor.minimap.v1`、値 `shown` / `hidden`、読めない・知らない値は出す、書けなくても切り替えは効く）と、
+  `FlowLayout` の `Controls` の中の `ControlButton`（`lucide-react` の `Map`、`aria-label`「ミニマップ」・`aria-pressed`・`title`「ミニマップを隠す／出す」）。隠している間は `<MiniMap />` を描かない。
+  data_contract は `EditorMinimap`
+  - **覚えた値はマウントの後に読む**: エディタは `"use client"` でも静的書き出しでサーバー側で描かれるので、最初の描画は既定（出す）にして HTML と食い違わないようにした。隠した状態で開くと、最初の 1 回だけミニマップが出てから消えうる
+  - xyflow は Controls の中の svg を `fill: currentColor` で塗る（`@xyflow/react/dist/style.css`）ので、線で描く lucide のアイコンはそのままだと塗りつぶされる。アイコンに `fill: none` を付けた
+- **テスト**: `__tests__/components/layout/minimap-toggle.test.tsx` に 6 件（本物の xyflow の中に置く。既定で出す / 押すと隠れ、もう一度で出る / 隠したことを覚え、作り直したエディタでも隠れたまま始まる / 出したことも覚える / 知らない値は出す / 読めない・書けない localStorage でも止まらない）。
+  先にフックだけを書いて 6 件とも落ちるのを見てから `FlowLayout` を変えた。**要の分岐を 1 つずつ壊すと 6 つとも落ちた**（知らない値を隠す・覚えない・マウントの後に読まない・読みの try を外す・常に描く・`aria-pressed` を逆）。
+  既存の `flow-layout.test.tsx` は xyflow を模擬していて `ControlButton` が無く `Controls` が子を描かないので、模擬に足した。vitest の全部（99 ファイル 1173 件）が緑で終了コード 0、`tsc` 0 件、eslint 0、足したファイルは prettier 済み
+  - テストの罠: `afterEach` で `vi.restoreAllMocks()` を呼ぶと、`__tests__/setup.ts` の `ResizeObserver` の模擬（`vi.fn().mockImplementation`）まで消え、2 件目から xyflow が `resizeObserver.observe is not a function` で落ちた。その場の spy だけを `mockRestore` する形にした（failures #46）
+- **実物**（Web 版、`web-dev`、Browser pane）: ボタンは左下の Controls の一番下に出て、押すとミニマップが消え `hidden` を覚えた。ER 図のページへ移ると隠れたまま始まり、そこで押すと出て `shown`、読み込み直しても出たまま。アイコンの計算された `fill` は `none`、コンソールのエラーは 0。
+  デスクトップの外枠の CSS（`HIDE_FORK_PANELS`）を同じページに当てても、ボタンとミニマップは隠れない（Controls は `bottom left` のパネル。隠すのは `top left`・`top right` だけ）。
+  Browser pane で ref を使って押すと、ページ（1024×768）とスクリーンショットの枠（800×600）の換算がずれて、ボタンでない所を押した。座標で押し直した（failures #47）
+- **デスクトップの実物は P3 で見る**（配布ビルド）
 
 ## スコープ外
 

@@ -288,6 +288,19 @@ CodeEditor:
   escape: "CodeMirror が使った Esc (補完・検索を閉じる) は包みで伝播を止める (Yamada のダイアログは defaultPrevented を見ずに閉じるため)"
   phrases: "components/ui/editor-phrases.ts の EDITOR_PHRASES_JA。search・lint・autocomplete・view・commands・language が phrase() で引く文言の和訳。テストが 6 つの dist からキーを抜いて照合する"
 
+EditorMinimap:
+  description: キャンバスの右下のミニマップの出し入れ (spec 26 D4〜D6)。フォーク元の改善 (Web 版でも動く。キーに Lorelei の名を入れない)
+  files:
+    layout: "components/layout/flow-layout.tsx の FlowLayout。2 つのエディタ (flow-editor・er-diagram-editor) が共通に使う"
+    hook: "components/layout/use-minimap-visible.ts の useMinimapVisible() → [shown, toggle]"
+  control: >-
+    左下の xyflow の Controls に ControlButton を 1 つ (lucide-react の Map。Controls の svg は fill: currentColor なので、線で描くアイコンは塗りを消す)。
+    aria-label「ミニマップ」・aria-pressed = 出しているか・title「ミニマップを隠す」/「ミニマップを出す」
+  storage: "localStorage、キー mermaid-editor.minimap.v1、値 shown | hidden。2 つのエディタで共通。デスクトップの dev と配布版は起点が違うので別々に覚える (DesktopLayout と同じ)"
+  default: shown   # 今と同じ見た目で始まる
+  read: "マウントの後に読む (静的書き出しでサーバー側でも描かれるので、最初の描画は既定値 = HTML と食い違わない)"
+  on_read_error: "読めない・知らない値 → shown。localStorage に触れると投げる環境でも止めない。書けなくても切り替えは効く"
+
 RenderConfigOverrides:
   description: 入力の %%{init}%% より優先して Lorelei が固定する設定
   htmlLabels: false            # 最上位と flowchart.htmlLabels。true だと resvg-safe の代替テキストが折り返しを失う (P0-2)
