@@ -28,6 +28,25 @@ export const regenerateMcpToken = (): Promise<McpStatus> => invoke("regenerate_m
 export const registerCommand = (s: McpStatus): string =>
   `claude mcp add --transport http lorelei http://127.0.0.1:${s.port}/mcp --header "Authorization: Bearer ${s.token ?? ""}"`;
 
+/**
+ * 設定ファイルに貼る JSON (spec 26 D1)。Claude Code の .mcp.json と Fuseforks の設定画面と同じ形。
+ * .mcp.json は Git に入れて共有する前提のファイルなので、画面に注意書きを出す (D2)
+ */
+export const clientConfigJson = (s: McpStatus): string =>
+  JSON.stringify(
+    {
+      mcpServers: {
+        lorelei: {
+          type: "http",
+          url: `http://127.0.0.1:${s.port}/mcp`,
+          headers: { Authorization: `Bearer ${s.token ?? ""}` },
+        },
+      },
+    },
+    null,
+    2
+  );
+
 /** タイトルバーの印と設定画面に出す、状態の短い言葉 */
 export const stateLabel = (s: McpStatus): string => {
   switch (s.state) {

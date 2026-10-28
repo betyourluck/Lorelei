@@ -77,6 +77,53 @@ describe("MCP の設定画面 (spec 03 D4・D6)", { timeout: 15000 }, () => {
     expect(dlg.getByText(/プロジェクトのフォルダで実行/)).toBeInTheDocument();
   });
 
+  it("クライアント側の設定はコマンドと JSON のタブ。最初はコマンド (spec 26 D3)", async () => {
+    const { user } = shell();
+    const dlg = await openSettings(user);
+    expect(dlg.getByText("クライアント側の設定")).toBeInTheDocument();
+    expect(dlg.getByRole("tab", { name: "コマンド（Claude Code）" })).toHaveAttribute("aria-selected", "true");
+    expect(dlg.getByRole("tab", { name: "JSON" })).toHaveAttribute("aria-selected", "false");
+    expect(dlg.getByRole("button", { name: "登録コマンドをコピー" })).toBeVisible();
+  });
+
+  it("JSON のタブは伏せたトークンの JSON と注意書きを出し、コピーは .mcp.json の形で本物のトークンとポートを入れる (spec 26 D1・D2)", async () => {
+    const { user } = shell();
+    const dlg = await openSettings(user);
+    await user.click(dlg.getByRole("tab", { name: "JSON" }));
+    const panel = within(dlg.getByRole("tabpanel", { name: "JSON" }));
+    expect(panel.getByText(/"Authorization": "Bearer <トークン>"/)).toBeInTheDocument();
+    expect(panel.getByText(/Git/)).toBeInTheDocument();
+    expect(screen.queryByText(/0123456789abcdef0123456789abcdef/)).toBeNull();
+
+    await user.click(panel.getByRole("button", { name: "JSON をコピー" }));
+    const copied = await navigator.clipboard.readText();
+    expect(copied).toBe(
+      [
+        "{",
+        '  "mcpServers": {',
+        '    "lorelei": {',
+        '      "type": "http",',
+        '      "url": "http://127.0.0.1:39642/mcp",',
+        '      "headers": {',
+        '        "Authorization": "Bearer 0123456789abcdef0123456789abcdef"',
+        "      }",
+        "    }",
+        "  }",
+        "}",
+      ].join("\n")
+    );
+    expect(await screen.findByText("JSON をコピーしました")).toBeInTheDocument();
+  });
+
+  it("トークンが無い時はコマンドも JSON もコピーできない", async () => {
+    backend.mcp.token = null;
+    const { user } = shell();
+    const dlg = await openSettings(user);
+    expect(dlg.getByRole("button", { name: "登録コマンドをコピー" })).toBeDisabled();
+    await user.click(dlg.getByRole("tab", { name: "JSON" }));
+    expect(dlg.getByRole("button", { name: "JSON をコピー" })).toBeDisabled();
+  });
+
   it("有効を切ると待ち受けを止める", async () => {
     const { user } = shell();
     const dlg = await openSettings(user);

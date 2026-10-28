@@ -13,6 +13,9 @@ import {
   ModalCloseButton,
   ModalHeader,
   ModalOverlay,
+  Tab,
+  TabPanel,
+  Tabs,
   Text,
   VStack,
   useNotice,
@@ -20,7 +23,14 @@ import {
 import type { FC } from "react";
 import { useEffect, useState } from "react";
 import type { McpStatus } from "./mcp";
-import { regenerateMcpToken, registerCommand, setMcpEnabled, setMcpPort, stateLabel } from "./mcp";
+import {
+  clientConfigJson,
+  regenerateMcpToken,
+  registerCommand,
+  setMcpEnabled,
+  setMcpPort,
+  stateLabel,
+} from "./mcp";
 
 interface Props {
   open: boolean;
@@ -166,31 +176,72 @@ export const SettingsDialog: FC<Props> = ({ open, onClose, status, onStatus }) =
               )}
             </Box>
 
-            <Box>
-              <Text fontSize="sm" fontWeight="semibold">
-                クライアント側の設定（Claude Code）
-              </Text>
-              <HStack gap="sm" align="start">
-                <Code fontSize="xs" whiteSpace="pre-wrap" wordBreak="break-all" flex="1">
-                  {registerCommand({ ...status, token: status.token ? "<トークン>" : null })}
-                </Code>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  disabled={!status.token}
-                  onClick={() => void copy(registerCommand(status), "登録コマンド")}
-                >
-                  登録コマンドをコピー
-                </Button>
-              </HStack>
-              <Text fontSize="xs" color="gray.500">
-                Lorelei を使うプロジェクトのフォルダで実行してください（登録はフォルダごとです。どこからでも使うなら
-                --scope user を足します）。トークンを作り直したら、登録し直してください。
-              </Text>
-            </Box>
+            <ClientSetup status={status} onCopy={(text, what) => void copy(text, what)} />
           </VStack>
         )}
       </ModalBody>
     </Modal>
   );
 };
+
+/**
+ * クライアント側の設定 (spec 03 D4・spec 26 D1〜D3)。コマンドと JSON の 2 つのタブ。最初はコマンド、どちらを開いたかは覚えない。
+ * 画面にはトークンを伏せた文を出し、コピーは本物のトークンを入れる
+ */
+const ClientSetup: FC<{ status: McpStatus; onCopy: (text: string, what: string) => void }> = ({
+  status,
+  onCopy,
+}) => {
+  const masked = { ...status, token: status.token ? "<トークン>" : null };
+  return (
+    <Box>
+      <Text fontSize="sm" fontWeight="semibold">
+        クライアント側の設定
+      </Text>
+      <Tabs size="sm">
+        <Tab>コマンド（Claude Code）</Tab>
+        <Tab>JSON</Tab>
+        <TabPanel px="0">
+          <CopyableSetup
+            text={registerCommand(masked)}
+            copyLabel="登録コマンドをコピー"
+            disabled={!status.token}
+            onCopy={() => onCopy(registerCommand(status), "登録コマンド")}
+            note="Lorelei を使うプロジェクトのフォルダで実行してください（登録はフォルダごとです。どこからでも使うなら --scope user を足します）。トークンを作り直したら、登録し直してください。"
+          />
+        </TabPanel>
+        <TabPanel px="0">
+          <CopyableSetup
+            text={clientConfigJson(masked)}
+            copyLabel="JSON をコピー"
+            disabled={!status.token}
+            onCopy={() => onCopy(clientConfigJson(status), "JSON ")}
+            note="Claude Code の .mcp.json など、mcpServers を読むクライアントの設定ファイルに貼ってください。.mcp.json は Git に入れて共有する前提のファイルなので、貼るとトークンもリポジトリに入ります。入れたくない時はコマンドで登録してください。トークンを作り直したら、貼り直してください。"
+          />
+        </TabPanel>
+      </Tabs>
+    </Box>
+  );
+};
+
+const CopyableSetup: FC<{
+  text: string;
+  copyLabel: string;
+  disabled: boolean;
+  onCopy: () => void;
+  note: string;
+}> = ({ text, copyLabel, disabled, onCopy, note }) => (
+  <>
+    <HStack gap="sm" align="start">
+      <Code fontSize="xs" whiteSpace="pre-wrap" wordBreak="break-all" flex="1">
+        {text}
+      </Code>
+      <Button size="xs" variant="outline" disabled={disabled} onClick={onCopy}>
+        {copyLabel}
+      </Button>
+    </HStack>
+    <Text fontSize="xs" color="gray.500">
+      {note}
+    </Text>
+  </>
+);
