@@ -468,6 +468,18 @@ McpStatus:
     state: { enum: [listening, stopped, failed, blocked] }   # blocked = mcp_server.json が読めない
     detail: { type: string, nullable: true }  # failed / blocked の理由 (ポートが使われている等)
 
+McpClientSetup:
+  description: >-
+    設定画面の「クライアント側の設定」で写す 2 つの文 (spec 03 D4・spec 26 D1〜D3)。lib/desktop/mcp.ts が McpStatus から作る。
+    画面にはトークンを「<トークン>」に伏せた文を出し、コピーは本物のトークンを入れる。トークンが無い時はどちらもコピーできない
+  command: >-
+    registerCommand。claude mcp add --transport http lorelei http://127.0.0.1:{port}/mcp --header "Authorization: Bearer {token}"。
+    Claude Code の local スコープ (~/.claude.json のそのフォルダの欄。リポジトリに入らない)
+  json: >-
+    clientConfigJson。{"mcpServers": {"lorelei": {"type": "http", "url": "http://127.0.0.1:{port}/mcp", "headers": {"Authorization": "Bearer {token}"}}}} を 2 字下げで。
+    Fuseforks の設定画面と Claude Code の .mcp.json と同じ形。.mcp.json は Git に入れて共有する前提のファイルなので、画面に注意書きを出す (spec 26 D2)
+  tabs: "コマンド (Claude Code) / JSON。最初はコマンド。どちらを開いたかは覚えない (spec 26 D3)"
+
 Document:
   description: 図の一覧の 1 件 = 1 枚の図 (spec 02 D6)。デスクトップ版だけのもの
   path: "{app_data_dir}/documents/{id}.json"   # 1 件 1 ファイル。一覧は documents/ 直下の *.json だけを読む (再帰しない)

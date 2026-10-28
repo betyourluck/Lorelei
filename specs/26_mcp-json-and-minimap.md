@@ -2,7 +2,7 @@
 
 **ID**: 26
 **Date**: 2026-10-29
-**Status**: Draft（rev0。起票。査読・裁定待ち）
+**Status**: rev1（起票 → D1〜D6 を裁定（「裁定」、推奨どおり）→ P1 着手）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。2 つは互いに依らないので Phase を分ける。
 P1（MCP の JSON）は `lib/desktop/` だけ（デスクトップ専用）。P2（ミニマップ）はフォーク元の `components/layout/` の改善で、**台帳・デスクトップとコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする（PR を出すかは利用者が決める, CLAUDE.md）
 
@@ -14,6 +14,17 @@ P1（MCP の JSON）は `lib/desktop/` だけ（デスクトップ専用）。P2
 2. 「右下のミニマップを表示と非表示を切り替えられるようにしたい」
 
 （同じ日の 3 つ目「UI のダークテーマ」は色を直に書いた所が多く下調べが要るので [spec 27](27_dark-theme.md) に分けた）
+
+## 裁定（2026-10-29、利用者。rev0 の後）
+
+**推奨どおり**（「推奨どおりで P1」）。査読は挟まない。
+
+- **D1: 案 A** — Fuseforks・Claude Code の `.mcp.json` と同じ形を 1 つ（`mcpServers.lorelei` の `type: "http"`・`url`・`headers.Authorization`、2 字下げ）
+- **D2: 案 A** — 本物のトークンを埋める（画面では伏せる）。`.mcp.json` は Git に入れる前提のファイルだという注意書きを添える
+- **D3** — 見出しは「クライアント側の設定」、タブは「コマンド（Claude Code）」「JSON」、最初はコマンド、どちらを開いたかは覚えない
+- **D4: 案 A** — 左下の Controls に `ControlButton`
+- **D5** — localStorage に 2 つのエディタで共通に覚える。既定は出す。キーに Lorelei の名を入れない
+- **D6** — `lucide-react` の `Map`
 
 ## 現況（2026-10-29、コードと文書を読んで確かめた）
 
