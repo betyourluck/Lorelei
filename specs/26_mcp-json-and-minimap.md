@@ -2,7 +2,7 @@
 
 **ID**: 26
 **Date**: 2026-10-29
-**Status**: rev1（起票 → D1〜D6 を裁定（「裁定」、推奨どおり）→ P1 着手）
+**Status**: rev1（起票 → D1〜D6 を裁定（「裁定」、推奨どおり）→ P1 着地（「P1 結果」、`0c0903e`）→ P2 待ち）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。2 つは互いに依らないので Phase を分ける。
 P1（MCP の JSON）は `lib/desktop/` だけ（デスクトップ専用）。P2（ミニマップ）はフォーク元の `components/layout/` の改善で、**台帳・デスクトップとコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする（PR を出すかは利用者が決める, CLAUDE.md）
 
@@ -106,6 +106,22 @@ P1（MCP の JSON）は `lib/desktop/` だけ（デスクトップ専用）。P2
 - **P1: MCP の JSON**（`lib/desktop/mcp.ts` に JSON を作る関数、`settings-dialog.tsx` のタブ。デスクトップ専用のコミット）→ `tauri dev` で設定画面を開いて確かめ、受け入れ条件 3 の実機の往復
 - **P2: ミニマップの切り替え**（`components/layout/flow-layout.tsx` と記憶のフック。フォーク元の改善のコミット）→ Web 版の画面（`web-dev`）で確かめる
 - **P3: 配布ビルドで利用者が確かめる**（両方）
+
+## P1 結果（2026-10-29、`0c0903e`）
+
+- **入れたもの**: `lib/desktop/mcp.ts` の `clientConfigJson(status)`（D1 の形、`JSON.stringify` の 2 字下げ）、`settings-dialog.tsx` の `ClientSetup`（見出し「クライアント側の設定」、yamada-ui の `Tabs` で「コマンド（Claude Code）」「JSON」）と、
+  2 つのタブで同じ形の `CopyableSetup`（伏せた文・コピーのボタン・説明文）。コマンドのタブの文・コピー・説明文は前と同じ。data_contract は `McpClientSetup`（`f8d1077`）
+- **テスト**（`__tests__/lib/desktop/mcp-settings.test.tsx` に 3 件。先に書いて 3 件とも落ちるのを見てから実装）: 最初はコマンドのタブ / JSON のタブは伏せた JSON と注意書きを出し、コピーは本物のトークンとポートを入れた D1 の文字列そのもの・知らせ「JSON をコピーしました」/ トークンが無い時は 2 つとも押せない。
+  **要の分岐を 1 つずつ壊すと、5 つとも落ちた**（コピーに伏せた文を入れる・JSON のコピーをトークンに依らず押せる・`type` を落とす・注意書きを落とす・最初を JSON にする）。
+  デスクトップのテスト 13 ファイル 105 件が緑、`tsc --noEmit` 0 件、eslint 0。prettier の差は HEAD から未整形の行だけ（failures #23。足した行には無い）
+- **実物**（`tauri dev`、computer-use で開発版の窓を操作。許可の付け方は failures #45）:
+  設定画面にタブが出て最初はコマンド、JSON のタブは伏せた JSON と注意書きを出す（画面を見た）。「JSON をコピー」で写したものは、下の `.mcp.json` と**バイト単位で同じ**（207 字。トークンは表に出さずに比べた）
+- **受け入れ条件 3（`.mcp.json` だけで Claude Code から呼べる）は半分まで**:
+  - 空のフォルダに同じ JSON を `.mcp.json` として置くと、`claude mcp get lorelei` は `Scope: Project config (shared via .mcp.json)`・`Type: http`・URL・`Authorization` のヘッダーと読んだ（`Status: ⏸ Pending approval` — project スコープは最初に承認が要る）
+  - その `.mcp.json` の `url`・`headers` だけを使い、Streamable HTTP で `initialize` → `tools/call list_diagrams` が通った（サーバーは `Lorelei`）。違う鍵では 401
+  - **Claude Code が承認の後に実際につなぐ所は見ていない**: 使い捨てのフォルダに `enableAllProjectMcpServers` を置いても `claude mcp get` は承認待ちのままで、`claude -p` は CLI のログインが切れていて（`OAuth session expired`）使えなかった。P3 で利用者に頼む
+  - 観察: rmcp の SSE は最初に中身の無い `data:` の行を送る（確かめの台本で、中身のある `data:` を拾うように直した。Lorelei の不具合ではない）
+- **README には書いていない**: README・README.ja は公開版（v0.1.3）を使う人への案内なので、JSON のタブは次の版を出す時に足す。LORELEI.md には書いた
 
 ## スコープ外
 

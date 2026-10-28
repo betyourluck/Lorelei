@@ -49,6 +49,11 @@ MCP サーバーは **Lorelei の窓の中**で動きます（`127.0.0.1:39642/m
    どのフォルダからでも使うなら `--scope user` を足します
 4. Claude Code を起動し直すか、`/mcp` でつなぎ直す
 
+コマンドの代わりに、設定の「JSON」のタブから `.mcp.json` の形（`mcpServers` の `type: "http"`・`url`・`headers`）を写して、
+プロジェクトの `.mcp.json` など `mcpServers` を読むクライアントの設定ファイルに貼ることもできます（spec 26）。
+`.mcp.json` は Git に入れて共有する前提のファイルなので、**貼るとトークンもリポジトリに入ります**（入れたくない時はコマンドで登録する）。
+Claude Code は project スコープのサーバーを最初に使う時に承認を求めます。
+
 トークンを作り直したら、登録し直してください。Lorelei を後から起動した時は、Claude Code が自動でつなぎ直します
 （つながらない時は `/mcp` から）。設定は `%APPDATA%\jp.outcasts.lorelei\mcp_server.json` にあります。
 
