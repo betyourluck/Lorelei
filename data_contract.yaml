@@ -308,8 +308,12 @@ UiColorMode:
   default: light   # 今と同じ見た目で始まる
   storage: "yamada-ui の既定の色モードの記憶 (localStorage、キー ui-color-mode)。body に ui-dark / ui-light、html に data-mode と color-scheme"
   control:
-    desktop: "タイトルバーの切り替え (「?」の左。P2、lib/desktop)"
+    desktop: >-
+      タイトルバーの「?」の左のボタン (lib/desktop/color-mode-menu.tsx の ColorModeMenu)。アイコンは選んでいる色 (ライト = 太陽・ダーク = 月・OS に合わせる = 画面)、
+      aria-label「画面の色: <選んでいる色>」。押すとメニュー「ライト」「ダーク」「OS に合わせる」(選んでいる項目は色の名 selected の地)。
+      選ぶと yamada-ui の changeColorMode (localStorage の ui-color-mode に覚える)
     web: "出さない (Web 版は light のまま, D3 案 A)"
+  window_show: "デスクトップの窓は隠したまま起動し、外枠が描けたら出す (spec 05 D5)。出す時には body の色モードの class が付いている (D7)"
   canvas: "2 つの <ReactFlow> に yamada-ui の解決した色モード (light | dark) を colorMode で渡す (D5)"
   unchanged: "CodeMirror のエディタ (今も暗い)・Mermaid のプレビューの中 (図のテーマの色)・書き出しとコード生成の出力 (D6)"
 
