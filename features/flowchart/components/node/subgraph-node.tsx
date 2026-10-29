@@ -6,6 +6,7 @@ import type { FC } from "@yamada-ui/react";
 import { Box, IconButton, Input, Text } from "@yamada-ui/react";
 import type { KeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import { selectionRing } from "@/components/layout/selection-ring";
 import { handlePositions } from "../../hooks/direction";
 import { useUpdateNodeInternals } from "../../hooks/use-update-node-internals";
 import type { SubgraphDirection } from "../../types/types";
@@ -117,6 +118,7 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
       borderRadius="md"
       position="relative"
       data-testid="subgraph-node"
+      {...selectionRing(selected)}
     >
       {/* 右・下・右下だけで大きさを変える。枠の本体は押す操作を受けない (FRAME_NODE_STYLE) ので、つまみは受けるように戻す */}
       {selected && (

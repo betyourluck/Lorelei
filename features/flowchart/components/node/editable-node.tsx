@@ -5,6 +5,7 @@ import type { FC } from "@yamada-ui/react";
 import { Box } from "@yamada-ui/react";
 import type { MouseEvent, ChangeEvent, KeyboardEvent } from "react";
 import { useState, useRef, useEffect } from "react";
+import { selectionRing } from "@/components/layout/selection-ring";
 import { handlePositions } from "../../hooks/direction";
 import { useUpdateNodeInternals } from "../../hooks/use-update-node-internals";
 import type { MermaidShapeType } from "../../types/types";
@@ -24,6 +25,8 @@ interface EditableNodeProps {
     onDelete?: (nodeId: string) => void;
   };
   id: string;
+  /** xyflow が渡す。選んでいる時は輪を出す (spec 28) */
+  selected?: boolean;
 }
 
 export const EditableNode: FC<EditableNodeProps> = (props) => {
@@ -41,7 +44,7 @@ export const EditableNode: FC<EditableNodeProps> = (props) => {
   );
 };
 
-export const NodeContent: FC<EditableNodeProps> = ({ data, id }) => {
+export const NodeContent: FC<EditableNodeProps> = ({ data, id, selected }) => {
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [isEditingVariableName, setIsEditingVariableName] = useState(false);
   const [label, setLabel] = useState(data.label);
@@ -189,6 +192,7 @@ export const NodeContent: FC<EditableNodeProps> = ({ data, id }) => {
       onDoubleClick={handleLabelDoubleClick}
       _hover={{ boxShadow: "md" }}
       position="relative"
+      {...selectionRing(selected)}
     >
       {/* 変数名を左上に表示 */}
       <VariableNameEditor

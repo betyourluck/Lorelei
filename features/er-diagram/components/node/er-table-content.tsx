@@ -22,6 +22,7 @@ import {
   Text,
 } from "@yamada-ui/react";
 import { useState, useEffect } from "react";
+import { selectionRing } from "@/components/layout/selection-ring";
 import { describeFieldProblem, fieldProblem } from "../../utils/er-names";
 import { TableMenu } from "./table-menu";
 
@@ -41,6 +42,8 @@ export type ERTableContentProps = {
   onColumnsChange: (columns: ERColumn[]) => void;
   /** テーブルを消す (見出しの「⋮⋮」メニュー)。確認は呼び手 (エディタの onBeforeDelete) が出す。無ければメニューを出さない */
   onDelete?: () => void;
+  /** xyflow が渡す (ERTableNode 経由)。選んでいる時は輪を出す (spec 28) */
+  selected?: boolean;
 };
 
 export const ERTableContent: FC<ERTableContentProps> = ({
@@ -49,6 +52,7 @@ export const ERTableContent: FC<ERTableContentProps> = ({
   onNameChange,
   onColumnsChange,
   onDelete,
+  selected,
 }) => {
   const handleChange = (rowIdx: number, key: keyof ERColumn, value: string | boolean) => {
     onColumnsChange(columns.map((col, i) => (i === rowIdx ? { ...col, [key]: value } : col)));
@@ -189,6 +193,7 @@ export const ERTableContent: FC<ERTableContentProps> = ({
       cursor="pointer"
       _hover={{ boxShadow: "md" }}
       position="relative"
+      {...selectionRing(selected)}
     >
       <TableContainer w="full">
         <NativeTable variant="simple" size="sm">

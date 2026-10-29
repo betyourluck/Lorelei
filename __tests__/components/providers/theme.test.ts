@@ -29,11 +29,23 @@ const LIGHT_BEFORE: Record<string, string> = {
   edgeStroke: "#b1b1b7",
 };
 
+/** 置き換えではなく新しく足した名 (前の値は無い) */
+const NEW_TOKENS: Record<string, [string, string]> = {
+  selectionRing: ["blue.500", "blue.400"], // 選んだノードの輪 (spec 28 D3)
+};
+
 describe("画面の色の名 (spec 27 D4)", () => {
-  it("23 の名がそろい、ライトの値は置き換える前の値そのもの", () => {
-    expect(Object.keys(COLOR_TOKENS).sort()).toEqual(Object.keys(LIGHT_BEFORE).sort());
+  it("置き換えた 23 の名のライトの値は、置き換える前の値そのもの (ほかは新しい名だけ)", () => {
+    expect(Object.keys(COLOR_TOKENS).sort()).toEqual(
+      [...Object.keys(LIGHT_BEFORE), ...Object.keys(NEW_TOKENS)].sort()
+    );
     for (const [name, light] of Object.entries(LIGHT_BEFORE))
       expect([name, COLOR_TOKENS[name][0]]).toEqual([name, light]);
+  });
+
+  it("新しく足した名の値", () => {
+    for (const [name, pair] of Object.entries(NEW_TOKENS))
+      expect([name, COLOR_TOKENS[name]]).toEqual([name, pair]);
   });
 
   it("dark の値はどれもライトと違う", () => {

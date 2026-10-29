@@ -17,7 +17,7 @@ export type ERTableNodeProps = {
 };
 
 // React Flowノード用: props.dataにERTableNodePropsが入る
-export function ERTableNode(props: { id: string; data: ERTableNodeProps }) {
+export function ERTableNode(props: { id: string; data: ERTableNodeProps; selected?: boolean }) {
   // 接続点は図の向きに合わせる (LR なら入口 左・出口 右)。変わったら xyflow に位置を測り直させる
   const direction = useDirection();
   const { target, source } = handlePositions(direction);
@@ -25,7 +25,7 @@ export function ERTableNode(props: { id: string; data: ERTableNodeProps }) {
   useEffect(() => updateNodeInternals(props.id), [direction, props.id, updateNodeInternals]);
   return (
     <>
-      <ERTableContent {...props.data} />
+      <ERTableContent {...props.data} selected={props.selected} />
       <Handle type="target" position={target} />
       <Handle type="source" position={source} />
     </>

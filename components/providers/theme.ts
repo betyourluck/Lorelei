@@ -38,6 +38,8 @@ export const COLOR_TOKENS: Record<string, [string, string]> = {
   frameSurface: ["rgba(255, 255, 222, 0.45)", "rgba(253, 226, 144, 0.06)"],
   /** xyflow の線 (--xy-edge-stroke)。ライトは xyflow の既定の値 */
   edgeStroke: ["#b1b1b7", "gray.500"],
+  /** 選んだノード・テーブル・枠の輪 (spec 28)。新しく足した名で、置き換える前の値は無い */
+  selectionRing: ["blue.500", "blue.400"],
 };
 
 export const theme = extendTheme({ semantics: { colors: COLOR_TOKENS } })();
