@@ -63,6 +63,11 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-29: **v0.1.4 を publish した**（Latest。タグ `v0.1.4` = `ef035a4` は利用者が push。spec 26〜28: 設定画面の MCP の JSON のタブ・ミニマップの出し入れ・画面のダークテーマ・選んだノードの印）。
+  Build（spec 20）の 1 回目は **macOS だけ** spec 26 のテスト（`mcp-settings.test.tsx`、設定のダイアログを開いた直後の `toBeVisible()`）がダイアログの不透明度 0 を見て落ちた（failures #51）。
+  タグは動かさず、落ちた段だけ走らせ直して通した（`gh run rerun --failed`）。テストの直しは `30233db`（タグには入っていない）。Assets は v0.1.3 と同じ 7 つ。
+  リリースノートは英語と日本語（v0.1.3 と同じ形）を利用者の指示で `gh release edit --draft=false --latest` で入れ、本文のリンクは publish の後に全部開くことを確かめた。
+  **README・README.ja には spec 26〜28 の案内をまだ書いていない**（LORELEI.md には画面の色と JSON のタブを書いた）
 - 2026-10-29: [spec 28](specs/28_selected-node-mark.md) **Done**（フォーク元 `76a58fc`。利用者の言「Shift キーを押したまま node クリックで複数選択できるようにして欲しい」→ 下調べで、Ctrl+クリックの複数選択とまとめての移動は今もあり、
   **選んだノードに印が出ないので気付きにくい**と分かった → 裁定「Shift ではなく Ctrl のままでよい。選択されたとわかりやすく」）。選んだノード・テーブル・枠の外側に青い輪（色の名 `selectionRing`、`components/layout/selection-ring.ts`）。
   選んでいない時の見た目は前と同じ（spec 27 の台本）。jsdom は `outline` の一括指定を分けない（failures #50）。P2（配布ビルドで利用者が「問題なし」）
