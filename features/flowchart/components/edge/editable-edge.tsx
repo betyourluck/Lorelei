@@ -125,9 +125,9 @@ export function EdgeContent({ id, labelX, labelY, data, zIndex }: EdgeContentPro
           onCompositionEnd={handleCompositionEnd}
           size="sm"
           w="120px"
-          bg="white"
+          bg="surface"
           border="1px solid"
-          borderColor="gray.300"
+          borderColor="lineStrong"
           fontSize="12px"
           textAlign="center"
         />

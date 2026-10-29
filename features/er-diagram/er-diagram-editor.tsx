@@ -13,6 +13,7 @@ import type { FC } from "@yamada-ui/react";
 import { Box, useToken } from "@yamada-ui/react";
 import { useCallback, useState, useRef } from "react";
 import { FlowLayout } from "@/components/layout/";
+import { useCanvasColors } from "@/components/layout/use-canvas-colors";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { DirectionContext } from "@/features/flowchart/components/direction-context";
@@ -75,6 +76,7 @@ export const initialERNodes: Node<ERTableNodeProps>[] = [
 export const ERDiagramEditor: FC = () => {
   const connectingNodeId = useRef<string | null>(null);
   const { screenToFlowPosition, deleteElements } = useReactFlow();
+  const canvasColors = useCanvasColors();
   // 削除は見出しのボタンも Backspace も deleteElements → onBeforeDelete の確認を通す (つながるリレーションも一緒に消える)
   const confirmDelete = useConfirmDelete<Node<ERTableNodeProps>>("table", (n) => n.data.name ?? "");
   // ノード幅はテーマtokenから取得
@@ -335,6 +337,7 @@ export const ERDiagramEditor: FC = () => {
         edgeTypes={edgeTypes}
         onBeforeDelete={confirmDelete.onBeforeDelete}
         fitView
+        {...canvasColors}
       >
         <FlowLayout>
           <ERDiagramPanel

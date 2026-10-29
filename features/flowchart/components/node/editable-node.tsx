@@ -174,8 +174,9 @@ export const NodeContent: FC<EditableNodeProps> = ({ data, id }) => {
 
   return (
     <Box
-      bg="white"
-      border="2px solid #1a365d"
+      bg="surface"
+      border="2px solid"
+      borderColor="nodeBorder"
       borderRadius="md"
       p={2}
       w="xs"

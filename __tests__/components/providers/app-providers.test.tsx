@@ -7,10 +7,22 @@ import { AppProviders } from "@/components/providers/app-providers";
  * @description プロバイダー包装、テーマ適用、ReactFlow統合を検証
  */
 describe("AppProviders", () => {
-  // UIProviderをモック
-  vi.mock("@yamada-ui/react", () => ({
-    UIProvider: ({ children }: { children: React.ReactNode }) => (
-      <div data-testid="ui-provider">{children}</div>
+  // UIProviderをモック (テーマを作る extendTheme などは本物のまま。渡されたテーマの色の名を data 属性に写す)
+  vi.mock("@yamada-ui/react", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@yamada-ui/react")>()),
+    UIProvider: ({
+      children,
+      theme,
+    }: {
+      children: React.ReactNode;
+      theme?: { semantics?: { colors?: Record<string, unknown> } };
+    }) => (
+      <div
+        data-testid="ui-provider"
+        data-surface={JSON.stringify(theme?.semantics?.colors?.surface)}
+      >
+        {children}
+      </div>
     ),
   }));
 
@@ -41,6 +53,19 @@ describe("AppProviders", () => {
       );
 
       expect(screen.getByTestId("ui-provider")).toBeInTheDocument();
+    });
+
+    test("UIProvider に画面の色の名を足したテーマを渡す (spec 27 D4)", () => {
+      render(
+        <AppProviders>
+          <div data-testid="test-child">テスト内容</div>
+        </AppProviders>
+      );
+
+      expect(screen.getByTestId("ui-provider")).toHaveAttribute(
+        "data-surface",
+        '["white","gray.900"]'
+      );
     });
 
     test("ReactFlowProviderが適用される", () => {

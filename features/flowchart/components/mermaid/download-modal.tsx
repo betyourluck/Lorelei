@@ -96,7 +96,7 @@ export const DownloadModal: FC<DownloadModalProps> = ({
             <ThemeMenu value={currentTheme} onChange={setCurrentTheme} />
           </HStack>
           {emptyFrames.length > 0 && (
-            <Text fontSize="sm" fontWeight="normal" color="orange.700">
+            <Text fontSize="sm" fontWeight="normal" color="warningTextStrong">
               {`空の枠（${emptyFrames.join("、")}）は、プレビューと書き出しでは四角いノードとして描かれます（中にノードを入れると枠になります）`}
             </Text>
           )}

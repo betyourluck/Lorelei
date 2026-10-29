@@ -174,8 +174,9 @@ export const ERTableContent: FC<ERTableContentProps> = ({
 
   return (
     <VStack
-      bg="white"
-      border="2px solid #1a365d"
+      bg="surface"
+      border="2px solid"
+      borderColor="nodeBorder"
       borderRadius="md"
       p={2}
       w="full"

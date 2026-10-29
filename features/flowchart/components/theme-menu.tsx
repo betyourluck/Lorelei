@@ -31,7 +31,7 @@ export const ThemeMenu: FC<ThemeMenuProps> = ({ value, onChange }) => {
         {MERMAID_THEMES.map((theme) => (
           <MenuItem
             key={theme}
-            bgColor={theme === value ? "primary.50" : "transparent"}
+            bgColor={theme === value ? "selected" : "transparent"}
             onClick={() => onChange(theme)}
           >
             {theme}

@@ -99,7 +99,7 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
       h="22px"
       w={editing === "id" ? "24" : "full"}
       fontSize="sm"
-      bg="white"
+      bg="surface"
       onChange={(e) => setDraft(e.target.value)}
       onKeyDown={onKeyDown}
       onCompositionStart={() => (composing.current = true)}
@@ -112,7 +112,7 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
     <Box
       w="full"
       h="full"
-      bg="rgba(255, 255, 222, 0.45)"
+      bg="frameSurface"
       border={selected ? "2px solid #8a8a1f" : "1px solid #aaaa33"}
       borderRadius="md"
       position="relative"
@@ -163,7 +163,7 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
         ) : (
           <Text
             fontSize="xs"
-            color="gray.500"
+            color="textCaption"
             flexShrink={0}
             title="ダブルクリックで ID を変える"
             onDoubleClick={() => start("id")}
@@ -214,7 +214,7 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
           w="fit-content"
           maxW="calc(100% - 16px)"
           fontSize="2xs"
-          color="gray.500"
+          color="textCaption"
           // 見出しの下の余白 (24px) に 1 行で収める (2 行だと狭い枠で中のノードに重なる, spec 16 P2)。
           // 全文は title。title を出すため文字の幅の分だけ押す操作を受ける (枠の本体は受けない, failures #25)
           lineClamp={1}
@@ -239,7 +239,7 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
           textAlign="center"
           px={3}
           fontSize="xs"
-          color="gray.500"
+          color="textCaption"
           pointerEvents="none"
         >
           空の枠は、書き出すと四角いノードとして描かれます

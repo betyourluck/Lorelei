@@ -63,8 +63,8 @@ export const VariableNameEditor: FC<VariableNameEditorProps> = ({
           h="16px"
           p={0}
           fontSize="10px"
-          bg="white"
-          color="black"
+          bg="surface"
+          color="text"
           border="none"
           _focus={{ boxShadow: "none", outline: "none" }}
         />

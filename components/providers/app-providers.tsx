@@ -1,7 +1,12 @@
+"use client";
+
+// テーマ (extendTheme で作る。yamada-ui の client module) はクライアント側で作る。
+// server component のまま theme.ts を読むと、Next が「Cannot access semantics.colors on the server」で落とす (spec 27 P1)
 import { ReactFlowProvider } from "@xyflow/react";
 import type { FC } from "@yamada-ui/react";
 import { UIProvider } from "@yamada-ui/react";
 import type { ReactNode } from "react";
+import { theme } from "./theme";
 import "@xyflow/react/dist/style.css";
 
 interface AppProvidersProps {
@@ -10,7 +15,7 @@ interface AppProvidersProps {
 
 export const AppProviders: FC<AppProvidersProps> = ({ children }) => {
   return (
-    <UIProvider>
+    <UIProvider theme={theme}>
       <ReactFlowProvider>{children}</ReactFlowProvider>
     </UIProvider>
   );

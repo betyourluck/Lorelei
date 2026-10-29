@@ -63,7 +63,7 @@ export const ERDiagramMermaidModal: FC<ERDiagramMermaidModalProps> = ({
             {onThemeChange && <ThemeMenu value={theme ?? "default"} onChange={onThemeChange} />}
           </HStack>
           {skippedColumns.length > 0 && (
-            <Text fontSize="sm" fontWeight="normal" color="orange.700">
+            <Text fontSize="sm" fontWeight="normal" color="warningTextStrong">
               {`書き出していない列: ${skippedColumns
                 .map((s) => `${s.table}.${s.column}（${s.reason}）`)
                 .join("、")}`}

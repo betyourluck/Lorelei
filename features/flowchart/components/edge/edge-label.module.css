@@ -1,7 +1,8 @@
 /*
  * 線のラベル (EdgeContent・ArrowTypeSelector) の閉じた形 (spec 23)。
  * 線は図に何百本もあり、ドラッグで経路が変わるたびにラベルを描き直すので、yamada-ui の部品 (Emotion) を通さずに描く。
- * 値は yamada-ui の部品で描いていた頃の計算されたスタイルを写した (white は #fbfbfb、gray.300 は rgb(158, 163, 174) など。spec 23「P0 結果」)
+ * 値は yamada-ui の部品で描いていた頃の計算されたスタイルを写した (spec 23「P0 結果」)。色は画面の色の名 (components/providers/theme.ts) の
+ * CSS 変数で読み、ライト・dark の両方に追従する (spec 27 D4。ライトの値は写した値そのもの: surface は #fbfbfb、lineStrong は gray.300 など)
  */
 .wrap {
   position: absolute;
@@ -16,9 +17,9 @@
   gap: 4px;
   min-width: 20px;
   padding: 4px 8px;
-  border: 1px solid rgb(158, 163, 174);
+  border: 1px solid var(--ui-colors-lineStrong);
   border-radius: 6px;
-  background: #fbfbfb;
+  background: var(--ui-colors-surface);
   font-size: 12px;
   line-height: 18px;
   text-align: center;
@@ -26,7 +27,7 @@
 }
 
 .symbol {
-  color: rgb(24, 107, 242);
+  color: var(--ui-colors-accentText);
   font-weight: 700;
 }
 
@@ -41,10 +42,10 @@
   min-width: 24px;
   height: 24px;
   padding: 0;
-  border: 1px solid rgb(158, 163, 174);
+  border: 1px solid var(--ui-colors-lineStrong);
   border-radius: 2px;
-  background: #fbfbfb;
-  color: rgba(0, 0, 0, 0.8);
+  background: var(--ui-colors-surface);
+  color: var(--ui-colors-textAlpha);
   font-size: 12px;
   font-weight: 600;
   line-height: 24px;
@@ -66,7 +67,7 @@
 }
 
 .iconButton:hover {
-  background: #dedfe3;
+  background: var(--ui-colors-surfaceSubtle);
 }
 
 .iconButton:focus-visible {
@@ -74,12 +75,12 @@
 }
 
 .deleteButton {
-  border-color: rgb(242, 140, 130);
-  color: rgb(222, 40, 23);
+  border-color: var(--ui-colors-dangerLine);
+  color: var(--ui-colors-dangerText);
 }
 
 .deleteButton:hover {
-  background: #fdeae8;
+  background: var(--ui-colors-dangerSurface);
 }
 
 .deleteButton:focus-visible {

@@ -65,7 +65,7 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
 
   return (
     <Panel position="top-left">
-      <VStack gap={4} p={4} bg="white" borderRadius="md" boxShadow="md">
+      <VStack gap={4} p={4} bg="surface" borderRadius="md" boxShadow="md">
         <HStack
           w="full"
           display={{ base: "flex", sm: "inline-flex" }}
@@ -78,7 +78,7 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
           <NavigationMenu />
         </HStack>
         <VStack gap={2} align="start">
-          <Text fontSize="sm" color="gray.600">
+          <Text fontSize="sm" color="textHint">
             💡 ヒント: テーブルをダブルクリックで編集、ドラッグして空の場所で新テーブル作成
           </Text>
           <HStack gap={2} display={{ base: "flex", md: "inline-flex" }} flexWrap="wrap">

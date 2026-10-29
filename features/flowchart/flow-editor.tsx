@@ -19,6 +19,7 @@ import {
 import { Box, useToken } from "@yamada-ui/react";
 import { useCallback, useState, useRef, useEffect, useMemo } from "react";
 import { FlowLayout } from "@/components/layout/";
+import { useCanvasColors } from "@/components/layout/use-canvas-colors";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { useDesktopOpen } from "@/lib/desktop";
@@ -120,6 +121,7 @@ export function FlowEditor() {
   // メニューや枠の × で名指しして消している途中のノード (onBeforeDelete が読んで消す)
   const namedDeleteRef = useRef<string | null>(null);
   const { screenToFlowPosition, deleteElements, getNodes, getEdges, getViewport } = useReactFlow();
+  const canvasColors = useCanvasColors();
   const storeApi = useStoreApi();
   // 枠をまたぐ線の経路 (spec 17)。線は自分の経路を EdgeRouteContext から読む
   const edgeRoutes = useEdgeRouting();
@@ -759,6 +761,7 @@ export function FlowEditor() {
         onNodeDragStop={onNodeDragStop}
         isValidConnection={isValidConnection}
         fitView
+        {...canvasColors}
       >
         <FlowLayout>
           <FlowPanel

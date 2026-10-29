@@ -42,7 +42,7 @@ export const DirectionMenu: FC<DirectionMenuProps> = ({ value, onChange }) => {
           <MenuItem
             key={a.type}
             icon={<a.arrow />}
-            bgColor={a.type === value ? "primary.50" : "transparent"}
+            bgColor={a.type === value ? "selected" : "transparent"}
             onClick={() => onChange(a.type)}
           >
             {a.type}

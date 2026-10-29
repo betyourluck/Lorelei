@@ -59,9 +59,9 @@ export function ErEditableEdge({
           }}
           size="sm"
           w="120px"
-          bg="white"
+          bg="surface"
           border="1px solid"
-          borderColor="gray.300"
+          borderColor="lineStrong"
           fontSize="12px"
           textAlign="center"
         />
@@ -69,13 +69,13 @@ export function ErEditableEdge({
         <HStack>
           <Box
             onClick={() => setIsEditing(true)}
-            bg="white"
+            bg="surface"
             p="1"
             px="2"
             borderRadius="md"
             fontSize="xs"
             border="1px solid"
-            borderColor="gray.300"
+            borderColor="lineStrong"
             cursor="pointer"
             minW="20px"
             textAlign="center"

@@ -20,7 +20,7 @@ export const ShapeSelector = ({ currentShape, onShapeChange }: ShapeSelectorProp
           <MenuItem
             key={shape.type}
             onClick={() => onShapeChange?.(shape.type)}
-            bg={currentShape === shape.type ? "primary.50" : undefined}
+            bg={currentShape === shape.type ? "selected" : undefined}
           >
             <Box display="flex" alignItems="center" justifyContent="space-between" w="full">
               <Text>{shape.label}</Text>

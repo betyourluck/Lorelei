@@ -89,19 +89,19 @@ export const ArrowTypeSelector: FC<ArrowTypeSelectorProps> = ({
         icon={<ChevronDownIcon />}
         size="xs"
         variant="outline"
-        bg="white"
+        bg="surface"
         border="1px solid"
-        borderColor="gray.300"
-        _hover={{ bg: "gray.50" }}
+        borderColor="lineStrong"
+        _hover={{ bg: "surfaceSubtle" }}
       />
       <Portal>
-        <MenuList bg="white" boxShadow="lg" border="1px solid" borderColor="gray.200">
+        <MenuList bg="surface" boxShadow="lg" border="1px solid" borderColor="line">
           {ARROW_TYPES.map((arrowType) => (
             <MenuItem
               key={arrowType}
               onClick={() => onArrowTypeChange(arrowType)}
-              bg={currentArrowType === arrowType ? "blue.50" : "white"}
-              color={currentArrowType === arrowType ? "blue.600" : "gray.700"}
+              bg={currentArrowType === arrowType ? "selected" : "surface"}
+              color={currentArrowType === arrowType ? "accentText" : "textSubtle"}
               fontSize="sm"
             >
               {getArrowTypeDisplayName(arrowType)}

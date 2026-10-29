@@ -111,14 +111,14 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
           readDropped={readFlowchartDropped}
           defaultHeader={FLOWCHART_DEFAULT_HEADER}
           description={
-            <Text fontSize="sm" color="gray.600">
+            <Text fontSize="sm" color="textHint">
               Mermaidのフローチャートコードを貼り付けてインポートできます
             </Text>
           }
           footer={
             <>
               {error && <ErrorAlert message={error} />}
-              <Text fontSize="xs" color="gray.500">
+              <Text fontSize="xs" color="textCaption">
                 {HELP_TEXT}
               </Text>
             </>

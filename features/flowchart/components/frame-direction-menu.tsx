@@ -35,7 +35,7 @@ export const FrameDirectionMenu: FC<FrameDirectionMenuProps> = ({ value, onChang
           colorScheme="gray"
           fontSize="xs"
           fontWeight="normal"
-          color="gray.600"
+          color="textHint"
           flexShrink={0}
           startIcon={Current ? <Current /> : undefined}
           rightIcon={<ChevronDownIcon />}
@@ -52,7 +52,7 @@ export const FrameDirectionMenu: FC<FrameDirectionMenuProps> = ({ value, onChang
                 <MenuItem
                   key={choice ?? "none"}
                   icon={Arrow ? <Arrow /> : undefined}
-                  bgColor={choice === value ? "primary.50" : "transparent"}
+                  bgColor={choice === value ? "selected" : "transparent"}
                   onClick={() => onChange(choice)}
                 >
                   {choice ?? "指定なし"}
