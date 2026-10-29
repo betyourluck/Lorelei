@@ -63,13 +63,13 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
-- 2026-10-29: [spec 26](specs/26_mcp-json-and-minimap.md)・[spec 27](specs/27_dark-theme.md) **起票**（利用者の 3 点「設定画面の MCP のクライアント側の設定に JSON の登録文も」「右下のミニマップの表示を切り替えたい」「UI のダークテーマ」）。
-  spec 26 は rev1（裁定は推奨どおり）・**P1 着地**（`0c0903e`）: 設定画面の「クライアント側の設定」を「コマンド（Claude Code）」「JSON」のタブにし、JSON は Fuseforks と Claude Code の `.mcp.json` と同じ形（`mcpServers` の `type: "http"`・`url`・`headers`）。
-  **`.mcp.json` は Git に入れて共有する前提のファイル**なので注意書きを出す。`tauri dev` で写した JSON を `.mcp.json` に置くと `claude mcp get` が読み、その url・headers で `list_diagrams` が通った（Claude Code が承認の後につなぐ所は CLI のログイン切れで未確認、P3 で）。
-  computer-use で開発版を写すには `request_access` に `"lorelei.exe"`（failures #45）。README は次の版で足す。
-  **P2 着地**（フォーク元 `affecfe`）: 左下の Controls に `ControlButton`（地図のアイコン）を足し、ミニマップの出し入れを localStorage の `mermaid-editor.minimap.v1` に 2 つのエディタで共通に覚える（Web 版にも出る・上流へ返せる）。
+- 2026-10-29: [spec 26](specs/26_mcp-json-and-minimap.md) **Done**・[spec 27](specs/27_dark-theme.md) **起票**（利用者の 3 点「設定画面の MCP のクライアント側の設定に JSON の登録文も」「右下のミニマップの表示を切り替えたい」「UI のダークテーマ」）。
+  spec 26 は rev1（裁定は推奨どおり）→ P1 → P2 → P3（配布ビルドで利用者が「問題なし」）。**P1**（`0c0903e`）: 設定画面の「クライアント側の設定」を「コマンド（Claude Code）」「JSON」のタブにし、JSON は Fuseforks と Claude Code の `.mcp.json` と同じ形（`mcpServers` の `type: "http"`・`url`・`headers`）。
+  **`.mcp.json` は Git に入れて共有する前提のファイル**なので注意書きを出す。`tauri dev` で写した JSON を `.mcp.json` に置くと `claude mcp get` が読み、その url・headers で `list_diagrams` が通った（Claude Code が承認の後につなぐ所は P3 で利用者が確かめた）。
+  computer-use で開発版を写すには `request_access` に `"lorelei.exe"`（failures #45）。**README・README.ja の案内は次の版を出す時に足す**。
+  **P2**（フォーク元 `affecfe`）: 左下の Controls に `ControlButton`（地図のアイコン）を足し、ミニマップの出し入れを localStorage の `mermaid-editor.minimap.v1` に 2 つのエディタで共通に覚える（Web 版にも出る・上流へ返せる）。
   覚えた値はマウントの後に読む（静的書き出しでサーバー側でも描かれるため）。xyflow は Controls の svg を `fill: currentColor` で塗るので、線のアイコンは `fill: none`。
-  テストで `vi.restoreAllMocks()` を使うと setup の `ResizeObserver` の模擬まで消える（failures #46）。Browser pane の ref の押し位置がずれた（#47）。次は P3（配布ビルドで利用者が両方を確かめる）。
+  テストで `vi.restoreAllMocks()` を使うと setup の `ResizeObserver` の模擬まで消える（failures #46）。Browser pane の ref の押し位置がずれた（#47）。
   spec 27 は rev0（査読・P0・裁定待ち）: yamada-ui は色モード（localStorage の `ui-color-mode`、`body` の `ui-dark`）を持つが、**色を直に書いた所が 29 ファイル 69 か所**・16 進 6・線のラベルの CSS 14 あり、P0 で表を作ってから値を決める。xyflow は `colorMode` を渡していない
 - 2026-10-14: **v0.1.3 を publish した**（Latest。タグ `v0.1.3` = `23f44ea` は利用者が push。spec 22〜25: 大きな図のドラッグ・線のラベルの描き直し・出力のテーマ・`themeVariables` の色・`.mmd` の保存ダイアログ）。
   Build（spec 20）は 31 分で通り、Assets は v0.1.2 と同じ 7 つ。リリースノートは英語と日本語（v0.1.2 と同じ形）を利用者の指示で `gh release edit --draft=false --latest` で入れた。本文のリンクは publish の後に全部開くことを確かめた
