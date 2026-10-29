@@ -341,7 +341,7 @@ UiColorTokens:
     dangerLine: [red.300, red.700]
     dangerSurface: [red.50, red.900]
     nodeBorder: ["#1a365d", blue.200]
-    frameSurface: ["rgba(255, 255, 222, 0.45)", "rgba(253, 226, 144, 0.1)"]
+    frameSurface: ["rgba(255, 255, 222, 0.45)", "rgba(253, 226, 144, 0.06)"]   # 0.1 では枠の ID (textCaption) が 4.16 (P1)
     edgeStroke: ["#b1b1b7", gray.500]          # xyflow の線 (--xy-edge-stroke)。ライトは xyflow の既定の値
 
 RenderConfigOverrides:

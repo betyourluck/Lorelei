@@ -2,7 +2,7 @@
 
 **ID**: 27
 **Date**: 2026-10-29
-**Status**: rev1（起票 → P0 着地（「P0 結果」）→ 裁定（「裁定」、推奨どおり）→ P1）
+**Status**: rev1（起票 → P0 着地（「P0 結果」）→ 裁定（「裁定」、推奨どおり）→ P1 着地（「P1 結果」、フォーク元 `5c20d15`）→ P2 待ち）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。spec 15〜24 と同じく、**フォーク元の改善と台帳・デスクトップはコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする
 （フォーク元のコミットは `lib/desktop/`・`src-tauri/`・`crates/` と台帳を含まない。PR を出すかは利用者が決める, CLAUDE.md）
 
@@ -175,6 +175,34 @@ rev0 の「29 ファイル 69 か所」は `bgColor` と `border="2px solid #…
   → 「dark の文字のコントラスト比は 4.5 以上、またはライトの同じ文字の比以上（CodeMirror と Mermaid のプレビューの中を除く）。測りは P0 の台本」
 - **受け入れ条件 4 を改める**（推奨）: → 「ライトの計算されたスタイルが `9048616` の記録と一致する（揺れの床の 0.1px を除く）。画素はキャンバスの場面で差 0」
 - 測りの台本（偽の Tauri を含む）を P1 で `scripts/` に入れる（推奨。デスクトップの外枠を `tauri dev` なしで描けるので、P2 の確かめにも使える）
+
+## P1 結果（2026-10-29、フォーク元 `5c20d15`・台本 `19b9cec` `326f3f6`）
+
+- **入れたもの**（フォーク元の改善。`lib/desktop/` と台帳を含まないコミット = 上流へ返せる）:
+  - `components/providers/theme.ts` の `COLOR_TOKENS`（23 の名、`[ライト, dark]`）と `theme`（`extendTheme({ semantics: { colors } })()`）。`AppProviders` が `UIProvider` に渡す
+  - フォーク元の部品の直に書いた色 48 か所を色の名に（P0 の表の A〜H のうちフォーク元の分。I は今のまま）。ノードの縁は `border="2px solid #1a365d"` を `border="2px solid"` + `borderColor="nodeBorder"` に分けた
+  - 線のラベルの CSS Modules は `var(--ui-colors-surface)` などで読む（yamada-ui は semantic token を `--ui-colors-<名>` に出し、名の camelCase はそのまま。dark では `.ui-dark` などの下で値が替わる）
+  - `components/layout/use-canvas-colors.ts` の `useCanvasColors()`: yamada-ui の解決した色モードを 2 つの `<ReactFlow>` の `colorMode` に渡し、`--xy-edge-stroke` を `var(--ui-colors-edgeStroke)` にする
+  - **dark の値は data_contract の始まりの案のまま**、枠の面だけ重ねの濃さを 0.1 → 0.06 にした（0.1 では枠の ID「S1」（`textCaption` = `gray.400`）が 4.16 で受け入れ条件 2 を満たさず、0.06 で 4.63）
+- **`AppProviders` を client component（`"use client"`）にした**: server component のまま `extendTheme` を呼ぶと、vitest は緑のまま `next dev` のページが描けず、`next build` も「Cannot access semantics.colors on the server」で落ちた（failures #48）
+- **テスト**（先に書いて落ちるのを見てから実装）: `__tests__/components/providers/` に 3 ファイル 11 件と `app-providers.test.tsx` に 1 件（spec 26 の時の 1173 件から 1185 件へ）
+  - `theme.test.ts`: 23 の名がそろい、ライトの値は置き換える前の値そのもの・dark はどれもライトと違う・yamada-ui の既定の名（`primary`・`muted`）が残る
+  - `canvas-color-mode.test.tsx`: 2 つのエディタで、色モード light / dark が xyflow の class になる・線の色を `var(--ui-colors-edgeStroke)` で読む
+  - `no-direct-colors.test.ts`: `app` `components` `features` に直に書いた色が残っていない（D6 のファイルと P0 の表の I を許しの一覧で除く。許しの一覧の所がコードに残っていることも見る）。直す前は 48 か所を挙げて落ちた
+  - **要の分岐を 1 つずつ壊すと 7 つとも落ちた**（ライトの値を変える・dark をライトと同じに・色モードを渡さない・線の色を渡さない・部品に直の色を戻す・CSS に直の色を戻す・テーマを渡さない）
+  - vitest の全部（102 ファイル 1185 件）が緑で終了コード 0（ほかに何も回さない時。開発サーバーや整形の確かめを同時に回した 2 回は、重いテスト 2〜4 件が 15〜20 秒の時間切れで落ち、単独では通った — failures #3 の形）。`tsc` 0 件、eslint 0。整形は HEAD で整形済みのファイルと新しいファイルにかけた（failures #23）
+- **実物**（Web 版、`web-dev` を裏の Edge で。`scripts/ui-style-snapshot.mjs`・`ui-style-compare.mjs`）:
+  - **ライト（受け入れ条件 4）**: 直す前（`19b9cec` の作業場所でフォーク元の変更を外して取った記録）と比べ、Web 版 12 場面 180,399 項目・デスクトップ 5 場面 64,966 項目の計算されたスタイルが**全部同じ**。
+    画素はキャンバスの場面が差 0、ダイアログの場面は 0〜2,335（同じコードどうしの揺れ 2〜4,543 の中）
+  - CSS 変数: ライトは `surface` `#fbfbfb`・`lineStrong` `#9ea3ae`・`textAlpha` `rgba(0, 0, 0, 0.80)`・`edgeStroke` `#b1b1b7` など前の値、dark は `#1c1e21`・`#565c67`・`rgba(255, 255, 255, 0.80)`・`#6b7280`。`.react-flow` の class は `light` / `dark` が色モードに従う
+  - **dark の文字（受け入れ条件 2）**: Web 版 12 場面で、4.5 にもライトの比にも届かない文字が **0**（ノードのラベル・線のラベル・パネル・メニューの選んでいる項目・ER 図の列の入力欄・ダイアログ）
+  - **dark の面（受け入れ条件 1 のフォーク元の分）**: ノード・枠・線・線のラベル・パネル・メニュー・ER 図のテーブル・ミニマップ・Controls に白い面が残らない（撮った画面を見た）。Mermaid のプレビューの中は白（D6）
+  - デスクトップ 5 場面の dark で満たさないのは**外枠（`lib/desktop`）の文字だけ**: タイトルバー・ツールバー・図の一覧（`gray.50` や `white` の面に白い文字、1.02〜1.29）、設定画面とインポートの説明（`gray.600` 2.74・`gray.500` 3.81）→ P2
+  - 静的書き出し（`TAURI_ENV_PLATFORM` 付きの `next build`）は通り、`docs/` は書き換わらない
+  - 台本の要素の名を兄弟の番号で作っていたので、Next が差し込む script の数が変わると番号がずれた（failures #49。`326f3f6` で script・style などを数えない形に）
+- 撮った画面と記録は scratchpad の `spec27-p1/`（`after-web-dark/` など）
+- **P2 で残るもの**: `lib/desktop` の色（タイトルバー・ツールバー・図の一覧・つまみ・設定画面・インポートのダイアログ・外枠の案内の文字。P0 の表の `lib/desktop` の所。`surfaceSubtle*`・`selectedStrong`・`accent`・`warningText`・`dangerText` はここで使う）、
+  タイトルバーの切り替え（D2）、見張りのテストを `lib/desktop` にも広げる、D7（窓を出す時に色が付いているか）と「OS に合わせる」の追従
 
 ## 受け入れ条件（rev1。2・4 を P0 の後に改めた）
 

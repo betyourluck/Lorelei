@@ -29,7 +29,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 - **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは spec 01 の 4 ファイル・8 行 + spec 02 の 5 ファイル・12 行（`app/layout.tsx` の外枠、エディタ 2 つの高さ、パネル 2 つの `useDesktopActions`。重なりを除いて計 7 ファイル）+ spec 04 P0 でエディタ 2 つの初期図を export（`initialFlowNodes` / `initialERNodes`。初期図の突き合わせ用。ファイルは既存の 7 つに含まれる）+ spec 07 P2 でパネル 2 つの `useDesktopActions` に向き（`direction` / `setDirection`）を足した（同じ 2 ファイル）+ spec 15 P3 でフローチャートのパネルの `useDesktopActions` に `addFrame` を足した（同じファイル）
   + spec 24 P2 でパネル 2 つの `useDesktopActions` に `theme` を足した（同じ 2 ファイル）+ spec 25 P1 でコード生成のダイアログ 2 つ（`download-modal.tsx`・`er-diagram-mermaid-modal.tsx`。spec 01 から `ExportButtons` を差し込んである）の「ダウンロード」を `useMmdDownload` に通した（各 2 行 + import）
 - **フロント（`app/` `features/` `components/`）**: フォーク元のコード。直してよい（下の掟の「フォーク元は必要なら直してよい」）。
-  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」「P4 結果」、spec 15（フローチャートのサブグラフ）の「P1 結果」「P3 結果」、spec 16（枠を指す線・枠の中の向き）の「P1 結果」〜「P3 結果」「P5 結果」、spec 23（線のラベル）の「P1 結果」、spec 24（テーマ）の「P1 結果」、spec 26（ミニマップの出し入れ）の「P2 結果」に一覧がある。PR を出すかは利用者が決める。
+  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」「P4 結果」、spec 15（フローチャートのサブグラフ）の「P1 結果」「P3 結果」、spec 16（枠を指す線・枠の中の向き）の「P1 結果」〜「P3 結果」「P5 結果」、spec 23（線のラベル）の「P1 結果」、spec 24（テーマ）の「P1 結果」、spec 26（ミニマップの出し入れ）の「P2 結果」、spec 27（画面のダークテーマの色の名）の「P1 結果」に一覧がある。PR を出すかは利用者が決める。
   **フォーク元へ出した PR**: [illionillion/mermaid-editor#74](https://github.com/illionillion/mermaid-editor/pull/74)（spec 13 の生成器の直しだけを移植。Lorelei のコミットはデスクトップの差し込みの上で作ったので cherry-pick では載らない — spec 13「フォーク元への PR」）。
   **デスクトップではフォーク元のパネル（インポートを含む）を隠し、ツールバーから `lib/desktop/` のダイアログを開く** — フォーク元の部品を直したら、デスクトップのどの操作がどの部品を開くかを確かめる（failures #17）
 
@@ -63,16 +63,18 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
-- 2026-10-29: [spec 26](specs/26_mcp-json-and-minimap.md) **Done**・[spec 27](specs/27_dark-theme.md) **起票**（利用者の 3 点「設定画面の MCP のクライアント側の設定に JSON の登録文も」「右下のミニマップの表示を切り替えたい」「UI のダークテーマ」）。
+- 2026-10-29: [spec 26](specs/26_mcp-json-and-minimap.md) **Done**・[spec 27](specs/27_dark-theme.md) **P1 着地**（利用者の 3 点「設定画面の MCP のクライアント側の設定に JSON の登録文も」「右下のミニマップの表示を切り替えたい」「UI のダークテーマ」）。
   spec 26 は rev1（裁定は推奨どおり）→ P1 → P2 → P3（配布ビルドで利用者が「問題なし」）。**P1**（`0c0903e`）: 設定画面の「クライアント側の設定」を「コマンド（Claude Code）」「JSON」のタブにし、JSON は Fuseforks と Claude Code の `.mcp.json` と同じ形（`mcpServers` の `type: "http"`・`url`・`headers`）。
   **`.mcp.json` は Git に入れて共有する前提のファイル**なので注意書きを出す。`tauri dev` で写した JSON を `.mcp.json` に置くと `claude mcp get` が読み、その url・headers で `list_diagrams` が通った（Claude Code が承認の後につなぐ所は P3 で利用者が確かめた）。
   computer-use で開発版を写すには `request_access` に `"lorelei.exe"`（failures #45）。**README・README.ja の案内は次の版を出す時に足す**。
   **P2**（フォーク元 `affecfe`）: 左下の Controls に `ControlButton`（地図のアイコン）を足し、ミニマップの出し入れを localStorage の `mermaid-editor.minimap.v1` に 2 つのエディタで共通に覚える（Web 版にも出る・上流へ返せる）。
   覚えた値はマウントの後に読む（静的書き出しでサーバー側でも描かれるため）。xyflow は Controls の svg を `fill: currentColor` で塗るので、線のアイコンは `fill: none`。
   テストで `vi.restoreAllMocks()` を使うと setup の `ResizeObserver` の模擬まで消える（failures #46）。Browser pane の ref の押し位置がずれた（#47）。
-  spec 27 は rev0・**P0 着地**（裁定待ち）: yamada-ui は色モード（localStorage の `ui-color-mode`、`body` の `ui-dark`）を持ち、部品は dark で読めるが、**色を直に書いた所が 94**（9 つの役目。ライトの値ごとに 1 つの名で 23）。
-  コードを変えずに試した dark では、ノード・線のラベル・パネル・ツールバー・図の一覧が白い面のまま、その上の文字が `body` の白を継いで読めない。`primary.50` は dark でも淡い青。xyflow の dark の線 `#3e3e3e` は地に 1.72。
-  **デスクトップの外枠は偽の `__TAURI_INTERNALS__` を差し込むと Web の Edge で描ける**（P0 の台本 `light-snapshot.mjs`。ライトの計算されたスタイルの揺れの床は 0.1px、ダイアログの画素は同じコードで揺れる）
+  spec 27 は rev1（裁定は推奨どおり。Web 版に切り替えは出さない）・**P1 着地**（フォーク元 `5c20d15`）: `components/providers/theme.ts` に `[ライト, dark]` を持つ色の名 23（ライトの値は置き換える前の値そのもの）を足し、
+  フォーク元の直に書いた色 48 か所と線のラベルの CSS（`var(--ui-colors-…)`）を置き換え、2 つの `<ReactFlow>` に色モードと線の色を渡した（`useCanvasColors`）。
+  Web 版で、ライトは計算されたスタイル 24 万 5 千項目が前と同じ、dark は 12 場面で文字のコントラストを満たす。**`AppProviders` は client component**（server のまま `extendTheme` を呼ぶと vitest は緑で画面とビルドが落ちる, failures #48）。
+  見た目の記録と比べは `scripts/ui-style-snapshot.mjs`（偽の `__TAURI_INTERNALS__` でデスクトップの外枠も描く、`--dark`）・`ui-style-compare.mjs`（`style` / `contrast`）。要素の名で script を数えるとずれた（#49）。
+  次は P2（`lib/desktop` の色・タイトルバーの切り替え・D7）
 - 2026-10-14: **v0.1.3 を publish した**（Latest。タグ `v0.1.3` = `23f44ea` は利用者が push。spec 22〜25: 大きな図のドラッグ・線のラベルの描き直し・出力のテーマ・`themeVariables` の色・`.mmd` の保存ダイアログ）。
   Build（spec 20）は 31 分で通り、Assets は v0.1.2 と同じ 7 つ。リリースノートは英語と日本語（v0.1.2 と同じ形）を利用者の指示で `gh release edit --draft=false --latest` で入れた。本文のリンクは publish の後に全部開くことを確かめた
 - 2026-10-14: [spec 25](specs/25_mmd-save-dialog.md) **Done**（rev3。起票 → P0（コードと文書を読む下調べ）→ 査読 3 本（1 本はこちらから、2 本は利用者が貼った）→ 裁定（推奨どおり）→ P1（`9f9879c`）→ P2（配布ビルドで利用者が「不具合はありません」。保存した `.mmd` は図の中身とバイト単位で同じ）。spec 24 P3 の利用者の言「ダウンロード押した後に保存されたという通知がないから、なにが起こったかわからない」）。

@@ -557,3 +557,17 @@
 - **真因**: ページの窓は 1024×768 で、スクリーンショットの座標の枠は 800×600 だった。ref から求めた座標が枠の換算を通っていない（道具の振る舞い。詳しい仕組みは見ていない）
 - **処方**: 押す前に `getBoundingClientRect()` と `innerWidth`・`innerHeight` を読み、枠へ換算した座標で押す（1024→800 なら 0.78 倍）。押した後は DOM の状態（`aria-pressed` など）で効いたかを確かめる
 - **一般化**: 「押した」という道具の返事は効いた証拠ではない。押した後の状態を読む（failures #41 と同じく、Browser pane の画面と DOM の見え方は食い違いうる）
+
+## #48 server component のまま yamada-ui の extendTheme を呼ぶと、vitest は緑のまま Web 版の画面が描けなかった（2026-10-29, spec 27 P1）
+
+- **症状**: 色の名を足したテーマ（`components/providers/theme.ts` の `extendTheme(...)()`）を `AppProviders` から `UIProvider` に渡すと、vitest は全件緑だったが、`next dev` のページはノードが 3 分たっても出ず、開発サーバーのログに `Error: Cannot access semantics.colors on the server. You cannot dot into a client module from a server component.` が並んだ。`next build`（静的書き出し）も同じエラーで落ちる
+- **真因**: `AppProviders` には `"use client"` が無く、`app/layout.tsx`（server component）から読まれる server component だった。yamada-ui の `extendTheme` は client module（dist が `"use client"`）なので、server 側でそれを呼んで中身（`semantics.colors`）に触れると Next が止める。vitest は server component を真似ないので捕まらない
+- **処方**: `AppProviders` を `"use client"` にした（`UIProvider`・`ReactFlowProvider` はもともと client なので振る舞いは変わらない。ライトの計算されたスタイルは前と一致）
+- **一般化**: プロバイダや `app/` から読まれる所に、ライブラリの関数を呼ぶ処理（テーマを作るなど）を足したら、vitest だけでなく開発サーバーのページか `TAURI_ENV_PLATFORM` 付きの `next build` で描けるまで確かめる（掟「GUI は実行して生成物を見るまで完了にしない」）
+
+## #49 見た目の記録の要素の名を兄弟の番号で作ると、Next が差し込む script の数で番号がずれた（2026-10-29, spec 27 P1）
+
+- **症状**: `scripts/ui-style-snapshot.mjs` で直す前と後を比べると、どの場面も「A だけ・B だけ」が数十〜三百、ポータルの中の要素は別の要素どうしを比べた違いになった。キャンバスの場面の画素は差 0 だった
+- **真因**: 要素の名（DOM の道筋）を `parentElement.children` の中の番号で作っていた。#48 の直しで `AppProviders` を client component にすると、Next が `body` に差し込む `<script>` が 1 つ減り、その後ろの `next-route-announcer` やポータル（yamada-ui のメニュー・ダイアログ）の番号が 1 つずつずれた
+- **処方**: 番号は script・style・link・noscript・template を除いた兄弟の中で数える（`326f3f6`）。直す前の記録は、フォーク元のコードの変更だけを `git stash push -- components features __tests__` で外して同じ台本で取り直した
+- **一般化**: 前後の記録を突き合わせる道具は、比べたい変化と関係の無い DOM の変化（フレームワークが差し込む要素）で名がずれないようにする。違いが大量に出て画素が同じなら、まず名のずれを疑う
