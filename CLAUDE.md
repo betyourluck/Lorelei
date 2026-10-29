@@ -63,9 +63,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
-- 2026-10-29: [spec 28](specs/28_selected-node-mark.md) **P1 着地**（フォーク元 `76a58fc`。利用者の言「Shift キーを押したまま node クリックで複数選択できるようにして欲しい」→ 下調べで、Ctrl+クリックの複数選択とまとめての移動は今もあり、
+- 2026-10-29: [spec 28](specs/28_selected-node-mark.md) **Done**（フォーク元 `76a58fc`。利用者の言「Shift キーを押したまま node クリックで複数選択できるようにして欲しい」→ 下調べで、Ctrl+クリックの複数選択とまとめての移動は今もあり、
   **選んだノードに印が出ないので気付きにくい**と分かった → 裁定「Shift ではなく Ctrl のままでよい。選択されたとわかりやすく」）。選んだノード・テーブル・枠の外側に青い輪（色の名 `selectionRing`、`components/layout/selection-ring.ts`）。
-  選んでいない時の見た目は前と同じ（spec 27 の台本）。jsdom は `outline` の一括指定を分けない（failures #50）。次は P2（配布ビルドで利用者）
+  選んでいない時の見た目は前と同じ（spec 27 の台本）。jsdom は `outline` の一括指定を分けない（failures #50）。P2（配布ビルドで利用者が「問題なし」）
 - 2026-10-29: [spec 26](specs/26_mcp-json-and-minimap.md) **Done**・[spec 27](specs/27_dark-theme.md) **Done**（利用者の 3 点「設定画面の MCP のクライアント側の設定に JSON の登録文も」「右下のミニマップの表示を切り替えたい」「UI のダークテーマ」）。
   spec 26 は rev1（裁定は推奨どおり）→ P1 → P2 → P3（配布ビルドで利用者が「問題なし」）。**P1**（`0c0903e`）: 設定画面の「クライアント側の設定」を「コマンド（Claude Code）」「JSON」のタブにし、JSON は Fuseforks と Claude Code の `.mcp.json` と同じ形（`mcpServers` の `type: "http"`・`url`・`headers`）。
   **`.mcp.json` は Git に入れて共有する前提のファイル**なので注意書きを出す。`tauri dev` で写した JSON を `.mcp.json` に置くと `claude mcp get` が読み、その url・headers で `list_diagrams` が通った（Claude Code が承認の後につなぐ所は P3 で利用者が確かめた）。
