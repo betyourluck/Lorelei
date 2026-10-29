@@ -301,6 +301,49 @@ EditorMinimap:
   read: "マウントの後に読む (静的書き出しでサーバー側でも描かれるので、最初の描画は既定値 = HTML と食い違わない)"
   on_read_error: "読めない・知らない値 → shown。localStorage に触れると投げる環境でも止めない。書けなくても切り替えは効く"
 
+UiColorMode:
+  description: >-
+    画面 (外枠・エディタ・ダイアログ) の色モード (spec 27)。図の出力の色 (MermaidTheme) とは別 — 画面を dark にしても書き出しとコード生成は変わらない
+  values: [light, dark, system]   # system は OS の色に追従する (yamada-ui が prefers-color-scheme を見る)
+  default: light   # 今と同じ見た目で始まる
+  storage: "yamada-ui の既定の色モードの記憶 (localStorage、キー ui-color-mode)。body に ui-dark / ui-light、html に data-mode と color-scheme"
+  control:
+    desktop: "タイトルバーの切り替え (「?」の左。P2、lib/desktop)"
+    web: "出さない (Web 版は light のまま, D3 案 A)"
+  canvas: "2 つの <ReactFlow> に yamada-ui の解決した色モード (light | dark) を colorMode で渡す (D5)"
+  unchanged: "CodeMirror のエディタ (今も暗い)・Mermaid のプレビューの中 (図のテーマの色)・書き出しとコード生成の出力 (D6)"
+
+UiColorTokens:
+  description: >-
+    直に書いていた色を置き換える yamada-ui の semantic token (spec 27 D4)。[ライト, dark] の 2 つの値を持ち、**ライトの値は置き換える前の値そのもの**
+    (ライトの値ごとに 1 つの名)。フォーク元の改善 (キーに Lorelei の名を入れない)。dark の値は P1 で画面とコントラストを見て決める (ここは始まりの案)
+  file: "components/providers/theme.ts の theme (extendTheme)。UIProvider に渡す"
+  css_variables: "yamada-ui が --ui-colors-<名> を出す。CSS Modules (線のラベル) はこれで読む"
+  tokens:   # 名: [ライト, dark]
+    surface: [white, gray.900]                 # 面 (パネル・ノード・入力欄・メニュー・ツールバー)
+    surfaceSubtle: [gray.50, gray.800]         # 一段沈んだ面 (タイトルバー・図の一覧)、面の上でマウスを乗せた時
+    surfaceSubtleHover: [gray.100, gray.700]   # 沈んだ面の上でマウスを乗せた時 (図の一覧)
+    surfaceSubtleActive: [gray.200, gray.600]  # 同、強め (タイトルバーのボタン)
+    line: [gray.200, gray.700]                 # 線・仕切り
+    lineStrong: [gray.300, gray.600]           # 入力欄・ボタンの枠線
+    text: [black, white]
+    textAlpha: [blackAlpha.800, whiteAlpha.800]
+    textSubtle: [gray.700, gray.200]
+    textHint: [gray.600, gray.300]             # 説明・案内
+    textCaption: [gray.500, gray.400]          # 小さい補足・アイコン
+    selected: [blue.50, blue.900]              # 選んでいる項目の面 (primary.50 と同じ値)
+    selectedStrong: [blue.100, blue.800]       # 開いている図 (図の一覧)
+    accent: [blue.500, blue.400]               # 未確定の ●
+    accentText: [blue.600, blue.300]           # 選んでいる項目の文字・矢印の記号
+    warningText: [orange.600, orange.300]
+    warningTextStrong: [orange.700, orange.300]
+    dangerText: [red.600, red.300]
+    dangerLine: [red.300, red.700]
+    dangerSurface: [red.50, red.900]
+    nodeBorder: ["#1a365d", blue.200]
+    frameSurface: ["rgba(255, 255, 222, 0.45)", "rgba(253, 226, 144, 0.1)"]
+    edgeStroke: ["#b1b1b7", gray.500]          # xyflow の線 (--xy-edge-stroke)。ライトは xyflow の既定の値
+
 RenderConfigOverrides:
   description: 入力の %%{init}%% より優先して Lorelei が固定する設定
   htmlLabels: false            # 最上位と flowchart.htmlLabels。true だと resvg-safe の代替テキストが折り返しを失う (P0-2)
