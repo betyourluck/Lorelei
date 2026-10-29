@@ -29,7 +29,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 - **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは spec 01 の 4 ファイル・8 行 + spec 02 の 5 ファイル・12 行（`app/layout.tsx` の外枠、エディタ 2 つの高さ、パネル 2 つの `useDesktopActions`。重なりを除いて計 7 ファイル）+ spec 04 P0 でエディタ 2 つの初期図を export（`initialFlowNodes` / `initialERNodes`。初期図の突き合わせ用。ファイルは既存の 7 つに含まれる）+ spec 07 P2 でパネル 2 つの `useDesktopActions` に向き（`direction` / `setDirection`）を足した（同じ 2 ファイル）+ spec 15 P3 でフローチャートのパネルの `useDesktopActions` に `addFrame` を足した（同じファイル）
   + spec 24 P2 でパネル 2 つの `useDesktopActions` に `theme` を足した（同じ 2 ファイル）+ spec 25 P1 でコード生成のダイアログ 2 つ（`download-modal.tsx`・`er-diagram-mermaid-modal.tsx`。spec 01 から `ExportButtons` を差し込んである）の「ダウンロード」を `useMmdDownload` に通した（各 2 行 + import）
 - **フロント（`app/` `features/` `components/`）**: フォーク元のコード。直してよい（下の掟の「フォーク元は必要なら直してよい」）。
-  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」「P4 結果」、spec 15（フローチャートのサブグラフ）の「P1 結果」「P3 結果」、spec 16（枠を指す線・枠の中の向き）の「P1 結果」〜「P3 結果」「P5 結果」、spec 23（線のラベル）の「P1 結果」、spec 24（テーマ）の「P1 結果」、spec 26（ミニマップの出し入れ）の「P2 結果」、spec 27（画面のダークテーマの色の名）の「P1 結果」に一覧がある。PR を出すかは利用者が決める。
+  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」「P4 結果」、spec 15（フローチャートのサブグラフ）の「P1 結果」「P3 結果」、spec 16（枠を指す線・枠の中の向き）の「P1 結果」〜「P3 結果」「P5 結果」、spec 23（線のラベル）の「P1 結果」、spec 24（テーマ）の「P1 結果」、spec 26（ミニマップの出し入れ）の「P2 結果」、spec 27（画面のダークテーマの色の名）の「P1 結果」、spec 28（選んだノードの印）の「P1 結果」に一覧がある。PR を出すかは利用者が決める。
   **フォーク元へ出した PR**: [illionillion/mermaid-editor#74](https://github.com/illionillion/mermaid-editor/pull/74)（spec 13 の生成器の直しだけを移植。Lorelei のコミットはデスクトップの差し込みの上で作ったので cherry-pick では載らない — spec 13「フォーク元への PR」）。
   **デスクトップではフォーク元のパネル（インポートを含む）を隠し、ツールバーから `lib/desktop/` のダイアログを開く** — フォーク元の部品を直したら、デスクトップのどの操作がどの部品を開くかを確かめる（failures #17）
 
@@ -63,6 +63,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-29: [spec 28](specs/28_selected-node-mark.md) **P1 着地**（フォーク元 `76a58fc`。利用者の言「Shift キーを押したまま node クリックで複数選択できるようにして欲しい」→ 下調べで、Ctrl+クリックの複数選択とまとめての移動は今もあり、
+  **選んだノードに印が出ないので気付きにくい**と分かった → 裁定「Shift ではなく Ctrl のままでよい。選択されたとわかりやすく」）。選んだノード・テーブル・枠の外側に青い輪（色の名 `selectionRing`、`components/layout/selection-ring.ts`）。
+  選んでいない時の見た目は前と同じ（spec 27 の台本）。jsdom は `outline` の一括指定を分けない（failures #50）。次は P2（配布ビルドで利用者）
 - 2026-10-29: [spec 26](specs/26_mcp-json-and-minimap.md) **Done**・[spec 27](specs/27_dark-theme.md) **Done**（利用者の 3 点「設定画面の MCP のクライアント側の設定に JSON の登録文も」「右下のミニマップの表示を切り替えたい」「UI のダークテーマ」）。
   spec 26 は rev1（裁定は推奨どおり）→ P1 → P2 → P3（配布ビルドで利用者が「問題なし」）。**P1**（`0c0903e`）: 設定画面の「クライアント側の設定」を「コマンド（Claude Code）」「JSON」のタブにし、JSON は Fuseforks と Claude Code の `.mcp.json` と同じ形（`mcpServers` の `type: "http"`・`url`・`headers`）。
   **`.mcp.json` は Git に入れて共有する前提のファイル**なので注意書きを出す。`tauri dev` で写した JSON を `.mcp.json` に置くと `claude mcp get` が読み、その url・headers で `list_diagrams` が通った（Claude Code が承認の後につなぐ所は P3 で利用者が確かめた）。

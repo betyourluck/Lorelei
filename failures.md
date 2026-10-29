@@ -571,3 +571,10 @@
 - **真因**: 要素の名（DOM の道筋）を `parentElement.children` の中の番号で作っていた。#48 の直しで `AppProviders` を client component にすると、Next が `body` に差し込む `<script>` が 1 つ減り、その後ろの `next-route-announcer` やポータル（yamada-ui のメニュー・ダイアログ）の番号が 1 つずつずれた
 - **処方**: 番号は script・style・link・noscript・template を除いた兄弟の中で数える（`326f3f6`）。直す前の記録は、フォーク元のコードの変更だけを `git stash push -- components features __tests__` で外して同じ台本で取り直した
 - **一般化**: 前後の記録を突き合わせる道具は、比べたい変化と関係の無い DOM の変化（フレームワークが差し込む要素）で名がずれないようにする。違いが大量に出て画素が同じなら、まず名のずれを疑う
+
+## #50 jsdom は `outline: 3px solid` を `outline-style`・`outline-width` に分けず、`toHaveStyle({ outlineStyle: "solid" })` が実装した後も落ちた（2026-10-29, spec 28 P1）
+
+- **症状**: 選んだノードに輪を出す実装（yamada-ui の `outline="3px solid"` + `outlineColor` + `outlineOffset`）の後も、vitest の `toHaveStyle({ outlineStyle: "solid", outlineWidth: "3px" })` が落ちた。jsdom の計算されたスタイルは `outline: "3px solid"`・`outlineStyle: ""`・`outlineWidth: ""` で、`outlineOffset` と `outlineColor` だけは入っていた
+- **真因**: jsdom（cssstyle）は Emotion が書いた一括指定 `outline` を個々の値へ展開しない。ブラウザは展開するので画面では効いていた
+- **処方**: 部品の側を個々の指定（`outlineWidth`・`outlineStyle`・`outlineColor`・`outlineOffset`）で書いた（ブラウザでの見た目は同じ。Web 版の Edge で計算されたスタイルを確かめた）
+- **一般化**: jsdom で見た目を `toHaveStyle` で確かめる時は、一括指定（`outline`・`border`・`margin` など）を使わず個々の指定で書くか、テストも一括指定の値で見る。落ちた時は jsdom の計算されたスタイルをそのまま出して、展開されているかを先に見る（実装が間違っていると決めつけない）

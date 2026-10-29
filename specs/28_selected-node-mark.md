@@ -2,7 +2,7 @@
 
 **ID**: 28
 **Date**: 2026-10-29
-**Status**: rev1（起票 → 裁定（「裁定」: Shift は足さず、選んだ印だけ）→ P1）
+**Status**: rev1（起票 → 裁定（「裁定」: Shift は足さず、選んだ印だけ）→ P1 着地（「P1 結果」、フォーク元 `76a58fc`）→ P2（配布ビルドで利用者）待ち）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。キャンバスはフォーク元の部品なので、**フォーク元の改善と台帳はコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする（PR を出すかは利用者が決める, CLAUDE.md）
 
 ## Goal
@@ -69,6 +69,23 @@
 
 - 2 つのエディタ（フローチャート・ER 図）。Web 版とデスクトップで同じ（キャンバスはフォーク元の部品なので、デスクトップの差し込みは要らない）
 - 線の選択（線を Shift+クリックで足す）: xyflow は線にも同じ複数選択のキーを使うので、Shift で線も足せるようになる。線は図ごとに数が多く選んで何かする操作も無いので、印は今の xyflow のまま（何もしない）
+
+## P1 結果（2026-10-29、フォーク元 `76a58fc`）
+
+- **入れたもの**（フォーク元の改善。`lib/desktop/` と台帳を含まないコミット = 上流へ返せる）:
+  `components/layout/selection-ring.ts` の `selectionRing(selected)`（選んでいる時だけ `outlineWidth: 3px`・`outlineStyle: solid`・`outlineColor: selectionRing`・`outlineOffset: 2px`、選んでいない時は空）を、
+  フローチャートのノード（`editable-node.tsx` の外枠の `Box`）・ER 図のテーブル（`er-table-content.tsx` の `VStack`。`ERTableNode` が xyflow の `selected` を渡す）・枠（`subgraph-node.tsx`。今の濃い縁は残す）に広げた。
+  色の名 `selectionRing` は `[blue.500, blue.400]`（`components/providers/theme.ts`。置き換えではなく新しく足した名）。操作（キー・まとめての移動）は変えていない
+- **テスト**（先に書いて、3 つとも「選ばれた class は付くが輪が無い」で落ちるのを見てから実装）: `__tests__/components/layout/selection-ring.test.tsx` 3 件（フローチャートのノード・ER 図のテーブル: 選ぶと輪、何も無い所を押して外すと消える / 枠: 見出しで選ぶと輪）、
+  `theme.test.ts` を「置き換えた 23 の名」と「新しく足した名」に分けた（1 件足した）。
+  **要の分岐を 1 つずつ壊すと 6 つとも落ちた**（輪を出さない・選んでいなくても輪・ノード／テーブル／枠のそれぞれに渡さない・色の名の値を変える）。vitest の全部（105 ファイル 1198 件）が緑で終了コード 0、`tsc` 0 件、eslint 0
+  - テストの罠: ノードを user-event で押すと d3-drag が jsdom に無い `event.view` を読むので `fireEvent.click`（failures の既知の処方）。jsdom は `outline` の一括指定を分けないので個々の指定で書いた（failures #50）
+- **実物**（Web 版、`web-dev` を裏の Edge で）:
+  - Ctrl+クリックで選んだノード 2 つと枠、ER 図のテーブル 2 つに輪が出る（ライト `rgb(67, 135, 244)` = `blue.500`、dark `rgb(101, 156, 246)` = `blue.400`、外側 2px）。撮った画面で見分けられることを見た。dark でノードの縁（`blue.200`）と輪の間に地のすき間が見える
+  - **選んでいない時の見た目は前と同じ**（spec 27 の台本: Web 版 12 場面・デスクトップ 6 場面で、違いは選ばれている要素の `outline-style`・`outline-color` だけ — 削除の確認の場面のノードと、枠の向きのメニューを開いた場面の枠（見出しを押すと枠が選ばれる））。dark の文字のコントラストは 12 場面で満たさないもの 0
+  - 操作は前と同じ: Ctrl+クリックで足す・外す、2 つ選んで 1 つをドラッグすると両方が同じだけ動く、Shift+ドラッグの範囲選択、ER 図の 2 つのテーブル（`select-probe.mjs`）
+  - 枠の見出しの真ん中を線が通っていると、そこの Ctrl+クリックは線に当たり線を選ぶ（xyflow の線の当たりの幅。今回の変更とは関係ない）
+- 撮った画面は scratchpad の `spec28-p1/`（`flow-light.png`・`flow-dark.png`・`er-light.png`・`er-dark.png`）
 
 ## 受け入れ条件（rev1）
 
