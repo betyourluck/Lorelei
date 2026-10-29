@@ -359,6 +359,18 @@ const DESKTOP_SCENES = [
       await openCodeDialog(page, "コード生成");
     },
   ],
+  [
+    "desk-color-menu",
+    async (page) => {
+      await page.keyboard.press("Escape");
+      await page
+        .getByRole("dialog")
+        .waitFor({ state: "detached", timeout: 30_000 })
+        .catch(() => {});
+      await page.getByRole("button", { name: /^画面の色:/ }).click();
+      await page.getByRole("menu").waitFor({ timeout: 10_000 });
+    },
+  ],
 ];
 
 /** 偽の Tauri (ブラウザの中で走る)。図の一覧 3 件・MCP は待ち受け中 */
