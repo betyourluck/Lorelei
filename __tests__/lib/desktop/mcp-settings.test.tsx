@@ -83,7 +83,9 @@ describe("MCP の設定画面 (spec 03 D4・D6)", { timeout: 15000 }, () => {
     expect(dlg.getByText("クライアント側の設定")).toBeInTheDocument();
     expect(dlg.getByRole("tab", { name: "コマンド（Claude Code）" })).toHaveAttribute("aria-selected", "true");
     expect(dlg.getByRole("tab", { name: "JSON" })).toHaveAttribute("aria-selected", "false");
-    expect(dlg.getByRole("button", { name: "登録コマンドをコピー" })).toBeVisible();
+    // 開いた直後のダイアログは出てくる途中 (opacity が 0 から上がる) なので、出終わるのを待つ。
+    // 遅いランナー (v0.1.4 の macOS) では最初の描き変えの前に見て、opacity 0 で「見えない」になった (failures #51)
+    await waitFor(() => expect(dlg.getByRole("button", { name: "登録コマンドをコピー" })).toBeVisible());
   });
 
   it("JSON のタブは伏せたトークンの JSON と注意書きを出し、コピーは .mcp.json の形で本物のトークンとポートを入れる (spec 26 D1・D2)", async () => {

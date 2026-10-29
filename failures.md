@@ -578,3 +578,13 @@
 - **真因**: jsdom（cssstyle）は Emotion が書いた一括指定 `outline` を個々の値へ展開しない。ブラウザは展開するので画面では効いていた
 - **処方**: 部品の側を個々の指定（`outlineWidth`・`outlineStyle`・`outlineColor`・`outlineOffset`）で書いた（ブラウザでの見た目は同じ。Web 版の Edge で計算されたスタイルを確かめた）
 - **一般化**: jsdom で見た目を `toHaveStyle` で確かめる時は、一括指定（`outline`・`border`・`margin` など）を使わず個々の指定で書くか、テストも一括指定の値で見る。落ちた時は jsdom の計算されたスタイルをそのまま出して、展開されているかを先に見る（実装が間違っていると決めつけない）
+
+## #51 設定のダイアログを開いた直後の `toBeVisible()` が、遅いランナー（v0.1.4 の macOS）でダイアログの不透明度 0 を見て落ちた（2026-10-29, spec 26 のテスト）
+
+- **症状**: v0.1.4 のタグの Build で、macOS だけが `__tests__/lib/desktop/mcp-settings.test.tsx` の「クライアント側の設定はコマンドと JSON のタブ。最初はコマンド」で `Received element is not visible`（「登録コマンドをコピー」のボタン）。手元の Windows と CI の Windows・Linux は通る
+- **真因**: yamada-ui のダイアログ（`section.ui-modal`）は `opacity` 0 から出てくる。テストは開いた直後に確かめていて、手元でもその瞬間は出てくる途中（`opacity: 0.32`）だった。
+  遅いランナーでは最初の描き変えの前に確かめて `opacity: 0` のままで、jest-dom の `toBeVisible()` は祖先の不透明度 0 を「見えない」とする。
+  手元の再現: ボタンを押した直後に `findByRole` を挟まず同期でダイアログを取ると `opacity: 0` で、直す前の確かめ方は同じ失敗、`waitFor` で包むと通る。
+  （`requestAnimationFrame` を止めても再現しなかった — motion は読み込みの時に握った `requestAnimationFrame` で動く）
+- **処方**: `await waitFor(() => expect(…).toBeVisible())` で出終わるのを待つ。ほかに開いた直後の `toBeVisible()` は無かった（grep）
+- **一般化**: アニメーションして出てくる部品（ダイアログ・メニュー・通知）の見え方を確かめる時は、待たずに `toBeVisible()` しない。手元で通っても、遅いランナーでは出てくる前を見る（failures #34 と同じ「遅いランナー」の形）
