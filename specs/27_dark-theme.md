@@ -2,7 +2,7 @@
 
 **ID**: 27
 **Date**: 2026-10-29
-**Status**: Draft（rev0。起票。査読・P0・裁定待ち）
+**Status**: Draft（rev0。起票 → P0 着地（「P0 結果」）→ 裁定待ち）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。spec 15〜24 と同じく、**フォーク元の改善と台帳・デスクトップはコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする
 （フォーク元のコミットは `lib/desktop/`・`src-tauri/`・`crates/` と台帳を含まない。PR を出すかは利用者が決める, CLAUDE.md）
 
@@ -76,6 +76,93 @@
 2. Web 版の画面（`web-dev`）で、`ColorModeScript` を入れず yamada-ui を dark にし xyflow に `colorMode="dark"` を渡した**試しの姿**を撮る: 白く残る面・読めない文字・線・枠のノード・線のラベル・ダイアログ
 3. yamada-ui の dark の地の色・文字の色の実際の値（計算されたスタイル）
 4. ライトの見た目が前と同じであることの確かめ方（spec 23 と同じく計算されたスタイルを前後で比べる）
+
+## P0 結果（2026-10-29、`9048616` の作業場所。コードは変えていない）
+
+確かめた道具: フォーク元と `lib/desktop` の grep、yamada-ui（theme 1.20.6・core 1.17.3）と xyflow 12.8.2 の `dist` のソース、Web 版（`web-dev`）を裏の Edge（Playwright の `channel: "msedge"`・headless・使い捨てのプロファイル・1280×800）で回す台本。
+台本・記録・撮った画面は scratchpad の `spec27-p0/`（`light-snapshot.mjs`・`compare.mjs`・`agg.mjs`）。
+
+### 1. 試しの dark の姿（P0 の 2）
+
+コードを変えずに、yamada-ui は覚えた色モード（localStorage の `ui-color-mode` を `dark`）で、xyflow は `.react-flow` の class を `light` → `dark` に替えて dark にした
+（xyflow は `colorMode` を渡さなくても `light` の class を付けるので、`dark` を足すだけでは足りず、`light` を外す）。
+**デスクトップの外枠**（`lib/desktop`）は `isTauri()` の時だけ描かれるので、**偽の `__TAURI_INTERNALS__`**（図の一覧 3 件・MCP は待ち受け中を返し、図の中身は空 = 初期図で開く）を差し込んで、同じ Edge で描かせた。
+
+- **yamada-ui の部品は dark で読める**: ダイアログ（インポート・コード生成・設定・削除の確認）の地 `#141414`・文字 `#fbfbfb`、メニュー、入力欄、タブ、チェックボックス、色付きのボタン。CodeMirror は今も暗く、Mermaid のプレビューの中は白（D6 のとおり）
+- **白い面が残り、その上の文字が白で読めない**（文字は `body` の色を継ぐので `#fbfbfb` になる）:
+  - ノード（フローチャート・ER 図のテーブル）の面と、その中のラベル・ER 図の列の入力欄の文字（比 1.0）
+  - 線のラベル（CSS Modules の `#fbfbfb`）の文字（比 1.0）、矢印のメニュー・枠の向きのメニュー
+  - Web 版の左上のパネルの面（題・「フローチャートエディタ」のボタンの文字が比 1.0〜1.02）
+  - デスクトップのツールバーの面（「ER図」「枠を追加」「コード生成」「インポート」「確定」の文字が比 1.02）、タイトルバーと図の一覧（`gray.50` の面に白、比 1.21〜1.29）
+- **選んでいる項目の面**（`primary.50`・`blue.50`・`blue.100`）は dark でも淡い青のままで、白い文字が比 1.14〜1.29（テーマ・向き・枠の向きのメニュー、図の一覧の開いている図）
+- **ノードの縁 `#1a365d`**（紺）は暗い地で比 1.52 で見えない。**線**は xyflow の dark の既定 `#3e3e3e` で、地 `#141414` に比 1.72（ライトの今の線 `#b1b1b7` も地に 2.06 と薄い）
+- **弱い文字**（`gray.500`・`gray.600`）は dark の地で比 2.74〜3.81（インポートの説明・設定画面の説明）。**枠**の面 `rgba(255, 255, 222, 0.45)` は暗い地に重なってくすんだ黄土色（`rgb(126, 126, 111)`）になり、ID の `S1`（`gray.500`）が比 1.17
+- 文字のコントラストの数（台本の `contrast`: 文字を直に持つ要素ごとに、文字の色と祖先の背景を重ねた色の比。CodeMirror と SVG の中を除く。要素の `opacity` は見ない近似）:
+
+| 場面（場面ごとの延べ） | 文字の数 | ライト 4.5 未満 / 3 未満 | 試しの dark 4.5 未満 / 3 未満 |
+| --------------------- | -------: | -----------------------: | ----------------------------: |
+| Web 版 12 場面の合計  |      329 |                103 / 20 |                     195 / 142 |
+| デスクトップ 5 場面   |      148 |                 27 / 10 |                       77 / 63 |
+
+  ライトで 4.5 未満の多くは **yamada-ui の色付きのボタンの白い文字**（`blue.500` の上で 3.38、`green` 3.25、`purple` 3.82、`red` 3.79）と、ノードの ID の札（`[A]` など、3.38）、
+  「枠を追加」の黄色の枠線のボタン（2.44）、xyflow の「React Flow」の印（2.8）、未確定の ●（`blue.500` が `gray.50` の上で 2.62）。これらは今の見た目のまま
+
+撮った画面（dark の試し）: `spec27-p0/trial/` の 1〜5（デスクトップ・フローチャート・ER 図・コード生成のダイアログのテーマのメニュー・設定画面）
+
+### 2. 直に書いた色の表（P0 の 1、D4）
+
+**数え方**: `app` `components` `features` `lib` の `.tsx` `.ts` `.css`（テスト・stories を除く 111 ファイル）で、
+色の props（`bg` `bgColor` `color` `borderColor` `border="… #…"`・`_hover` などの中の `bg` `color`）・16 進・`rgb(a)`・CSS Modules の色の値を拾い、色の名の値で役目に分けた。
+rev0 の「29 ファイル 69 か所」は `bgColor` と `border="2px solid #…"` の形を落としていた。
+
+| 役目                                   | ライトの今の値                                                    |  か所 | 所（ファイル:行）                                                                                                                                                                                                                                                                                                                                                                                       | dark の値の案（P1 で画面を見て決める）                                     |
+| -------------------------------------- | ----------------------------------------------------------------- | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| A. 面                                  | `white`（`#fbfbfb`）                                              |    15 | `toolbar.tsx:39`、`flow-panel.tsx:66`、`er-diagram-panel.tsx:68`、`editable-node.tsx:177`、`er-table-content.tsx:177`、`subgraph-node.tsx:102`（題の入力欄）、`editable-edge.tsx:128`、`er-editable-edge.tsx:62・72`、`arrow-type-selector.tsx:92・98・103`、`variable-name-editor.tsx:66`、`edge-label.module.css:21・46`                                                                     | `gray.900`（`#1c1e21`。地 `#141414` より一段明るい）                       |
+| B. 一段沈んだ面・マウスを乗せた面      | `gray.50`・`gray.100`・`gray.200`                                 |     6 | `title-bar.tsx:64`、`document-list.tsx:46`（面）、`document-list.tsx:74`・`title-bar.tsx:139`・`arrow-type-selector.tsx:95`・`edge-label.module.css:69`（乗せた時）                                                                                                                                                                                                                                       | `gray.800`（`#2e3138`）・乗せた時 `gray.700`                               |
+| C. 線・仕切り                          | `gray.200`・`gray.300`（`rgb(158, 163, 174)`）                    |    13 | `gray.200`: `document-list.tsx:48`、`title-bar.tsx:66・115`、`toolbar.tsx:41・56`、`arrow-type-selector.tsx:98`、`pane-splitter.tsx:54` / `gray.300`: `arrow-type-selector.tsx:94`、`editable-edge.tsx:130`、`er-editable-edge.tsx:64・78`、`edge-label.module.css:19・44`                                                                                                                                | `gray.700`（`#434851`）・`gray.600`（`#565c67`）                           |
+| D. 弱い文字                            | `gray.500`・`gray.600`・`gray.700`                                |    21 | `gray.500`: 2 つの `import-modal.tsx`（`:151`・`:121`）、`subgraph-node.tsx:166・217・242`、`desktop-shell.tsx:189`、`document-list.tsx:78・117`、`settings-dialog.tsx:134・243` / `gray.600`: 2 つの `import-modal.tsx`（`:144`・`:114`）、`er-diagram-panel.tsx:81`、`flow-panel.tsx:79`、`frame-direction-menu.tsx:38`、`import-dialog.tsx:82`、`settings-dialog.tsx:83`、`title-bar.tsx:76・106・138` / `gray.700`: `arrow-type-selector.tsx:104` | `gray.400`・`gray.300`・`gray.200`（地 `#141414` で 5.24・7.28・それ以上） |
+| E. 強い文字                            | `black`・`rgba(0, 0, 0, 0.8)`                                     |     2 | `variable-name-editor.tsx:67`、`edge-label.module.css:47`                                                                                                                                                                                                                                                                                                                                               | `white`・`whiteAlpha.800`                                                  |
+| F. 選んでいる・強調                    | `primary.50` = `blue.50`（`#e2edfd`）・`blue.100`・文字 `blue.600`・`blue.500` | 10 | 面: `shape-selector.tsx:23`、`direction-menu.tsx:45`、`frame-direction-menu.tsx:55`、`theme-menu.tsx:34`、`arrow-type-selector.tsx:103`、`document-list.tsx:73・74` / 文字: `arrow-type-selector.tsx:104`、`document-list.tsx:107`（●）、`edge-label.module.css:29`（矢印の記号）                                                                                                                 | 面 `blue.900`（白い文字で 11.18）・`blue.800`（8.16）、文字 `blue.300`・`blue.400` |
+| G. 知らせの文字                        | `orange.600`・`orange.700`・`red.600`、× の `red.300`・`red.50`    |     9 | `er-diagram-mermaid-modal.tsx:66`、`download-modal.tsx:99`、`settings-dialog.tsx:102・159`、`title-bar.tsx:81・88`、`edge-label.module.css:77・78・82`                                                                                                                                                                                                                                                    | `orange.300`・`red.300`（地で 9.87・7.76）、× の乗せた時 `red.900`         |
+| H. 図の部品                            | ノードの縁 `#1a365d`、枠の面と縁、線（xyflow の既定 `#b1b1b7`）     | 4 + 線 | `editable-node.tsx:178`、`er-table-content.tsx:178`（縁）、`subgraph-node.tsx:115・116`（枠の面・縁 `#aaaa33` / 選んだ時 `#8a8a1f`）                                                                                                                                                                                                                                                                  | 縁 `blue.200`（11.14）、枠の面は淡い黄の薄い重ね・縁は今のまま、線は地で 3 以上（`gray.500` で 3.81） |
+| I. 両方で今のままでよい                |                                                                   |    14 | `variable-name-editor.tsx:40・41・49`（ID の札の `blue.500` と白）、`pane-splitter.tsx:54〜56`（つまみの `blue.400`）、`title-bar.tsx:34〜39`（MCP の点）・`:139`（閉じるの `#e53935`）、`edge-label.module.css:73・87`（フォーカスの輪）、`contribution-panel.tsx:26〜28`（Web 版の右上、`gray.600` の地）、`edge-layout.ts:145`（循環の線の色。既定で使わない）  | —                                                                          |
+
+- **変えないもの（D6）**: `code-editor.tsx` の VS Code Dark+ の色（30 余り）、`lazy-code-editor.tsx:16`（読み込み中の地。CodeMirror と同じ `#1e1e1e`）、`copy-button.tsx`（CodeMirror の上のボタン）、
+  `mermaid-preview.tsx`・`mermaid-code-with-preview.tsx`・`mermaid-editor-with-preview.tsx:104`・`mermaid-theme.ts`（プレビューの中と、その上の案内）。`colorScheme` の props（25 か所ほど）は yamada-ui が dark の値を持つ
+- **名の数**: ライトの今の値を変えないには、役目が同じでも**ライトの値ごとに 1 つの名**が要る（A 1・B 3・C 2・D 3・E 2・F 4・G 5・H 3 で **23**）。表の所は合わせて 94（`document-list.tsx:74`・`pane-splitter.tsx:54` は 2 つの役目に数えた）。
+  所ごとに `_dark` を書くと 80 か所ほどに散り、同じ役目の所の dark の値がそろう保証が無い
+- **yamada-ui は色の名を CSS 変数で出している**（`--ui-colors-border`・`--ui-colors-muted`・`--ui-colors-primary-50` など、Web 版の画面で 311 個）。
+  semantic token に足した名も変数になる見込みなので、**線のラベルの CSS Modules は `var(--ui-colors-…)` で両方の色に追従できる**（rev0 の `:global(.ui-dark)` は要らない見込み。P1 で確かめる）
+- yamada-ui の dark の値（ソース）: `body` の地 `black` = `#141414`・文字 `white` = `#fbfbfb`、Modal・Menu・Popover・Tooltip の地も `black`、枠線の名 `border` は `["#dcdcde", "#434248"]`、`muted` は `["#656565", "#b3b3b3"]`。
+  **`primary` などの semantic の色は 1 つの値**（`primary.50` は dark でも `#e2edfd`）なので、F は名を足さないと直らない
+
+### 3. D5（xyflow）・D7（チラつき）
+
+- **D5**: xyflow の dark の地は `#141414` で、**yamada-ui の dark の地と同じ値**（キャンバスとダイアログの地がそろう）。ミニマップ（`#141414`・ノード `#2b2b2b`）・Controls（`#2b2b2b`・文字 `#f8f8f8`）・点の模様（`#777`）は読める。
+  **線は xyflow の dark の既定 `#3e3e3e` では比 1.72 で読めない** → 線の色を H の名に入れる（`--xy-edge-stroke` を dark の時だけ替える）。xyflow の dark のノードの既定（`#1e1e1e`）は既定の型のノードだけに効き、今のノードは自前なので効かない
+- **D7**: yamada-ui は覚えた色モードを `useState` の初めに読み、`body` の class を**プロバイダの effect** で付ける。デスクトップの外枠は `DesktopShell` の effect で `isTauri()` を見た**次の描画**で `Shell` を差し込み、その effect で窓を出す（`desktop-shell.tsx:46-49`）。
+  プロバイダの effect は最初の描画の後に走るので、**窓を出す時には class が付いている**見込み（`disableTransitionOnChange` は既定で真）。P2 の `tauri dev` と P3 の配布ビルドで確かめる。Web 版は D3 案 A なら light に固定で起きない
+- 「OS に合わせる」: WebView2 の `prefers-color-scheme` が Windows のアプリの色に追従するかは見ていない（P2 で）
+
+### 4. ライトが前と同じかの測り（P0 の 4）
+
+- **台本**（`light-snapshot.mjs`）: Web 版 12 場面（フローチャートの最初・インポートのダイアログ・取り込んだ後・矢印のメニュー・枠の向きのメニュー・コード生成のダイアログ・テーマのメニュー・削除の確認、ER 図の最初・インポート・取り込んだ後・コード生成）と、
+  偽の Tauri でデスクトップ 5 場面（外枠・設定画面・設定画面の JSON のタブ・インポートのダイアログ・コード生成のダイアログ）で、
+  全部の要素の計算されたスタイル 26 項目（色・背景・4 辺の枠の色と太さ・影・輪郭・`fill`・`stroke`・`opacity`・`color-scheme`・字の大きさと太さ・`display` など）と位置・大きさ、入力欄の `::placeholder` の色、画素を記録する
+- **揺れの床**（`9048616` で 2 回ずつ回して比べた）: Web 版 180,399 項目のうち違いは 6 項目（CodeMirror の行番号の位置の 0.1px）、デスクトップ 64,966 項目は 0。
+  画素はキャンバスの場面が差 0、**ダイアログの場面は同じコードで 1,200〜4,700 画素揺れる**（Mermaid のプレビューかダイアログの出方。突き止めていない）→ 画素はキャンバスの場面だけで見る
+- **今（`9048616`）の記録**を `spec27-p0/base-1`・`desk-1` に取ってある（P1・P2 の前の基準。失っても `9048616` で回し直せば同じものが取れる）
+- 同じ台本の `TRIAL_DARK=1` で、dark のコントラストを場面ごとに数えられる（上の表）。P1 で台本を `scripts/` に入れるかは裁定で
+
+## 裁定を仰ぐこと（P0 を受けて）
+
+- **D2（デスクトップの切り替えの置き場所）**・**D3（Web 版に切り替えを出すか）**: P0 で変わったことは無い。推奨は rev0 のまま（D2 案 A: タイトルバー、D3 案 A: Web 版は light に固定）
+- **D4**: 推奨は rev0 の方向のまま、**ライトの値ごとに 1 つの名（23）を yamada-ui の theme の semantic token に足す**。dark の値は上の表の案から始め、P1 で画面とコントラストの数を見て決める。線のラベルの CSS Modules は yamada-ui の CSS 変数で読む
+- **D5**: `colorMode` に加え、**dark の線の色を足す**（xyflow の既定では読めない）
+- **受け入れ条件 2 を改める**（推奨）: 「本文 4.5:1」は、ライトでも yamada-ui の色付きのボタンが 3.25〜3.82 なので、そのままでは満たせない。
+  → 「dark の文字のコントラスト比は 4.5 以上、またはライトの同じ文字の比以上（CodeMirror と Mermaid のプレビューの中を除く）。測りは P0 の台本」
+- **受け入れ条件 4 を改める**（推奨）: → 「ライトの計算されたスタイルが `9048616` の記録と一致する（揺れの床の 0.1px を除く）。画素はキャンバスの場面で差 0」
+- 測りの台本（偽の Tauri を含む）を P1 で `scripts/` に入れる（推奨。デスクトップの外枠を `tauri dev` なしで描けるので、P2 の確かめにも使える）
 
 ## 受け入れ条件（案。P0 の後に改める）
 

@@ -70,7 +70,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   **P2**（フォーク元 `affecfe`）: 左下の Controls に `ControlButton`（地図のアイコン）を足し、ミニマップの出し入れを localStorage の `mermaid-editor.minimap.v1` に 2 つのエディタで共通に覚える（Web 版にも出る・上流へ返せる）。
   覚えた値はマウントの後に読む（静的書き出しでサーバー側でも描かれるため）。xyflow は Controls の svg を `fill: currentColor` で塗るので、線のアイコンは `fill: none`。
   テストで `vi.restoreAllMocks()` を使うと setup の `ResizeObserver` の模擬まで消える（failures #46）。Browser pane の ref の押し位置がずれた（#47）。
-  spec 27 は rev0（査読・P0・裁定待ち）: yamada-ui は色モード（localStorage の `ui-color-mode`、`body` の `ui-dark`）を持つが、**色を直に書いた所が 29 ファイル 69 か所**・16 進 6・線のラベルの CSS 14 あり、P0 で表を作ってから値を決める。xyflow は `colorMode` を渡していない
+  spec 27 は rev0・**P0 着地**（裁定待ち）: yamada-ui は色モード（localStorage の `ui-color-mode`、`body` の `ui-dark`）を持ち、部品は dark で読めるが、**色を直に書いた所が 94**（9 つの役目。ライトの値ごとに 1 つの名で 23）。
+  コードを変えずに試した dark では、ノード・線のラベル・パネル・ツールバー・図の一覧が白い面のまま、その上の文字が `body` の白を継いで読めない。`primary.50` は dark でも淡い青。xyflow の dark の線 `#3e3e3e` は地に 1.72。
+  **デスクトップの外枠は偽の `__TAURI_INTERNALS__` を差し込むと Web の Edge で描ける**（P0 の台本 `light-snapshot.mjs`。ライトの計算されたスタイルの揺れの床は 0.1px、ダイアログの画素は同じコードで揺れる）
 - 2026-10-14: **v0.1.3 を publish した**（Latest。タグ `v0.1.3` = `23f44ea` は利用者が push。spec 22〜25: 大きな図のドラッグ・線のラベルの描き直し・出力のテーマ・`themeVariables` の色・`.mmd` の保存ダイアログ）。
   Build（spec 20）は 31 分で通り、Assets は v0.1.2 と同じ 7 つ。リリースノートは英語と日本語（v0.1.2 と同じ形）を利用者の指示で `gh release edit --draft=false --latest` で入れた。本文のリンクは publish の後に全部開くことを確かめた
 - 2026-10-14: [spec 25](specs/25_mmd-save-dialog.md) **Done**（rev3。起票 → P0（コードと文書を読む下調べ）→ 査読 3 本（1 本はこちらから、2 本は利用者が貼った）→ 裁定（推奨どおり）→ P1（`9f9879c`）→ P2（配布ビルドで利用者が「不具合はありません」。保存した `.mmd` は図の中身とバイト単位で同じ）。spec 24 P3 の利用者の言「ダウンロード押した後に保存されたという通知がないから、なにが起こったかわからない」）。
