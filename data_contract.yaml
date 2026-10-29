@@ -347,6 +347,14 @@ UiColorTokens:
     nodeBorder: ["#1a365d", blue.200]
     frameSurface: ["rgba(255, 255, 222, 0.45)", "rgba(253, 226, 144, 0.06)"]   # 0.1 では枠の ID (textCaption) が 4.16 (P1)
     edgeStroke: ["#b1b1b7", gray.500]          # xyflow の線 (--xy-edge-stroke)。ライトは xyflow の既定の値
+    selectionRing: [blue.500, blue.400]        # 選んだノード・テーブル・枠の輪 (spec 28)。新しい名なので「前の値」は無い。地に対して ライト 3.38・dark 6.70
+
+CanvasSelection:
+  description: >-
+    キャンバスでノード・テーブル・枠を選ぶ操作と、選んだ印 (spec 28)。操作は xyflow の既定のまま、印はフォーク元の改善
+  keys: "クリックで 1 つ選び直す、Ctrl (Mac は ⌘) + クリックで選びに足す・外す (xyflow の multiSelectionKeyCode の既定)、何も無い所から Shift+ドラッグで囲んで選ぶ (selectionKeyCode)。Shift+クリックで足すことはしない (spec 28 裁定)"
+  move: "選んだものの 1 つをドラッグすると全部が動く (xyflow)。枠へのドロップ・やめた時に戻すのは動かした全部 (flow-editor の onNodeDragStart / onNodeDragStop)"
+  mark: "選んだノード (editable-node)・テーブル (er-table-content)・枠 (subgraph-node) の外枠の要素に outline 3px solid、色の名 selectionRing、outline-offset 2px。選んでいない時は何も足さない (見た目は前と同じ)。共通の形は components/layout/selection-ring.ts"
 
 RenderConfigOverrides:
   description: 入力の %%{init}%% より優先して Lorelei が固定する設定
