@@ -85,11 +85,13 @@ const PROPS = [
 /** 全部の要素の計算されたスタイルと位置・大きさ */
 const dump = (page) =>
   page.evaluate((props) => {
-    // 要素の DOM の道筋 (記録どうしで同じ要素を同じ名で呼ぶ)
+    // 要素の DOM の道筋 (記録どうしで同じ要素を同じ名で呼ぶ)。script・style などは数えない
+    // (Next が差し込む script の数が変わっても、後ろの要素の名が変わらないように)
+    const counted = (e) => !["SCRIPT", "STYLE", "LINK", "NOSCRIPT", "TEMPLATE"].includes(e.tagName);
     const path = (el) => {
       const parts = [];
       for (let e = el; e && e !== document.documentElement; e = e.parentElement) {
-        const i = e.parentElement ? [...e.parentElement.children].indexOf(e) : 0;
+        const i = e.parentElement ? [...e.parentElement.children].filter(counted).indexOf(e) : 0;
         parts.push(`${e.tagName.toLowerCase()}[${i}]`);
       }
       return parts.reverse().join(">");
@@ -119,11 +121,13 @@ const dump = (page) =>
  */
 const contrast = (page) =>
   page.evaluate(() => {
-    // 要素の DOM の道筋 (記録どうしで同じ要素を同じ名で呼ぶ)
+    // 要素の DOM の道筋 (記録どうしで同じ要素を同じ名で呼ぶ)。script・style などは数えない
+    // (Next が差し込む script の数が変わっても、後ろの要素の名が変わらないように)
+    const counted = (e) => !["SCRIPT", "STYLE", "LINK", "NOSCRIPT", "TEMPLATE"].includes(e.tagName);
     const path = (el) => {
       const parts = [];
       for (let e = el; e && e !== document.documentElement; e = e.parentElement) {
-        const i = e.parentElement ? [...e.parentElement.children].indexOf(e) : 0;
+        const i = e.parentElement ? [...e.parentElement.children].filter(counted).indexOf(e) : 0;
         parts.push(`${e.tagName.toLowerCase()}[${i}]`);
       }
       return parts.reverse().join(">");
@@ -228,7 +232,7 @@ const WEB_SCENES = [
   [
     "flow-initial",
     async (page) => {
-      await page.goto(`${base}/`);
+      await page.goto(`${base}/`, { timeout: 300_000 });
       await page.locator(".react-flow__node").first().waitFor({ timeout: 120_000 });
     },
   ],
@@ -302,7 +306,7 @@ const WEB_SCENES = [
   [
     "er-initial",
     async (page) => {
-      await page.goto(`${base}/er-diagram/`);
+      await page.goto(`${base}/er-diagram/`, { timeout: 300_000 });
       await page.locator(".react-flow__node").first().waitFor({ timeout: 120_000 });
     },
   ],
@@ -324,7 +328,7 @@ const DESKTOP_SCENES = [
   [
     "desk-initial",
     async (page) => {
-      await page.goto(`${base}/`);
+      await page.goto(`${base}/`, { timeout: 300_000 });
       await page.locator(".react-flow__node").first().waitFor({ timeout: 120_000 });
       await page.getByText("会員テーブル").waitFor({ timeout: 30_000 });
       await settle(page, 1500);
