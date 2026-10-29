@@ -58,6 +58,9 @@ The MCP server runs **inside the Lorelei window** and listens on `127.0.0.1:3964
    Add `--scope user` to use it from every folder.
 4. Restart Claude Code, or reconnect with `/mcp`.
 
+Prefer a config file? The settings also have a 「JSON」 tab: 「JSON をコピー」 (copy JSON) gives a `.mcp.json` snippet (`mcpServers` → `lorelei` with `type: "http"`, `url` and the `Authorization` header) for clients that read `mcpServers`.
+`.mcp.json` is meant to be committed to Git, so pasting it there commits your token too — use the command above if you don't want that.
+
 ### Tools
 
 | Tool | What it does |
@@ -74,6 +77,12 @@ Things to ask:
 - "Draw an ER diagram of this database schema in Mermaid, check it with Lorelei, and export it to `D:/out/schema.pdf`."
 - "Turn the flow in `src/order.rs` into a flowchart and open it in Lorelei."
 - "Read the diagram I fixed in Lorelei and make `src/order.rs` follow that flow."
+
+## In the editor
+
+- **Dark mode** (desktop app): the button left of "?" in the title bar switches between 「ライト」 (Light), 「ダーク」 (Dark) and 「OS に合わせる」 (System). It changes only the app's look — exports and generated code keep the theme you pick in 「コード生成」 (Generate code).
+- **Selecting several items**: Ctrl+click (⌘+click on macOS) adds or removes a node, ER table or subgraph frame; Shift+drag on an empty area selects everything inside the box. Selected items get a blue ring, and dragging one of them moves them all.
+- **Minimap**: the map button at the bottom of the canvas controls (bottom-left) shows or hides the minimap.
 
 ## Limitations
 
