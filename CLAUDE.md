@@ -63,7 +63,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
-- 2026-10-29: [spec 26](specs/26_mcp-json-and-minimap.md) **Done**・[spec 27](specs/27_dark-theme.md) **P2 着地**（利用者の 3 点「設定画面の MCP のクライアント側の設定に JSON の登録文も」「右下のミニマップの表示を切り替えたい」「UI のダークテーマ」）。
+- 2026-10-29: [spec 26](specs/26_mcp-json-and-minimap.md) **Done**・[spec 27](specs/27_dark-theme.md) **Done**（利用者の 3 点「設定画面の MCP のクライアント側の設定に JSON の登録文も」「右下のミニマップの表示を切り替えたい」「UI のダークテーマ」）。
   spec 26 は rev1（裁定は推奨どおり）→ P1 → P2 → P3（配布ビルドで利用者が「問題なし」）。**P1**（`0c0903e`）: 設定画面の「クライアント側の設定」を「コマンド（Claude Code）」「JSON」のタブにし、JSON は Fuseforks と Claude Code の `.mcp.json` と同じ形（`mcpServers` の `type: "http"`・`url`・`headers`）。
   **`.mcp.json` は Git に入れて共有する前提のファイル**なので注意書きを出す。`tauri dev` で写した JSON を `.mcp.json` に置くと `claude mcp get` が読み、その url・headers で `list_diagrams` が通った（Claude Code が承認の後につなぐ所は P3 で利用者が確かめた）。
   computer-use で開発版を写すには `request_access` に `"lorelei.exe"`（failures #45）。**README・README.ja の案内は次の版を出す時に足す**。
@@ -76,7 +76,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   見た目の記録と比べは `scripts/ui-style-snapshot.mjs`（偽の `__TAURI_INTERNALS__` でデスクトップの外枠も描く、`--dark`）・`ui-style-compare.mjs`（`style` / `contrast`）。要素の名で script を数えるとずれた（#49）。
   **P2 着地**（`faf1d07`）: タイトルバーの「?」の左に画面の色の切り替え（`lib/desktop/color-mode-menu.tsx`、ライト・ダーク・OS に合わせる。yamada-ui が `ui-color-mode` に覚える）、外枠の直の色 27 か所を色の名に。
   `tauri dev` でダーク・開き直しても残る・OS に合わせる（今の OS はダーク）を確かめた。窓を出す時に色の class が付いていること（D7）はテストで（目では見ていない）。
-  次は P3（配布ビルドで利用者が確かめる。OS の色を切り替えた時の追従と、起動直後のチラつきも）
+  **P3**（配布ビルドで利用者が「問題なし」）。OS の色を切り替えた時の追従は任意の手順にしたので未確認。**README・README.ja の案内（spec 26 の JSON のタブと画面の色）は次の版を出す時に足す**
 - 2026-10-14: **v0.1.3 を publish した**（Latest。タグ `v0.1.3` = `23f44ea` は利用者が push。spec 22〜25: 大きな図のドラッグ・線のラベルの描き直し・出力のテーマ・`themeVariables` の色・`.mmd` の保存ダイアログ）。
   Build（spec 20）は 31 分で通り、Assets は v0.1.2 と同じ 7 つ。リリースノートは英語と日本語（v0.1.2 と同じ形）を利用者の指示で `gh release edit --draft=false --latest` で入れた。本文のリンクは publish の後に全部開くことを確かめた
 - 2026-10-14: [spec 25](specs/25_mmd-save-dialog.md) **Done**（rev3。起票 → P0（コードと文書を読む下調べ）→ 査読 3 本（1 本はこちらから、2 本は利用者が貼った）→ 裁定（推奨どおり）→ P1（`9f9879c`）→ P2（配布ビルドで利用者が「不具合はありません」。保存した `.mmd` は図の中身とバイト単位で同じ）。spec 24 P3 の利用者の言「ダウンロード押した後に保存されたという通知がないから、なにが起こったかわからない」）。
