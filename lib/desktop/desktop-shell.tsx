@@ -186,7 +186,7 @@ const LoadingLabel: FC = () => {
   if (!shown) return null;
   return (
     <Center position="absolute" inset="0" pointerEvents="none">
-      <Text fontSize="sm" color="gray.500">
+      <Text fontSize="sm" color="textCaption">
         読み込み中…
       </Text>
     </Center>

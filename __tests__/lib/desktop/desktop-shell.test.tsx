@@ -2,6 +2,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@/__tests__/test-utils";
+import { theme } from "@/components/providers/theme";
 import { DesktopShell as Shell } from "@/lib/desktop/desktop-shell";
 import { fakeBackend } from "./fake-backend";
 
@@ -79,6 +80,29 @@ describe("DesktopShell", () => {
     );
     await screen.findByRole("banner");
     await waitFor(() => expect(win.show).toHaveBeenCalledTimes(1));
+  });
+
+  it("覚えた画面の色が dark なら、窓を出す時には body に ui-dark が付いている (spec 27 D7: 明るい画面を見せない)", async () => {
+    let darkAtShow: boolean | null = null;
+    win.show.mockClear();
+    win.show.mockImplementationOnce(async () => {
+      darkAtShow = document.body.classList.contains("ui-dark");
+    });
+    window.localStorage.setItem("ui-color-mode", "dark");
+    try {
+      setTauri(true);
+      render(
+        <DesktopShell>
+          <p>editor</p>
+        </DesktopShell>,
+        { providerProps: { theme } }
+      );
+      await waitFor(() => expect(win.show).toHaveBeenCalledTimes(1));
+      expect(darkAtShow).toBe(true);
+    } finally {
+      window.localStorage.removeItem("ui-color-mode");
+      document.body.classList.remove("ui-dark", "ui-light");
+    }
   });
 
   it("デスクトップ版ではタイトルバーの下に children を出し、エディタの高さを 100% にする (D1・D4)", async () => {

@@ -36,9 +36,9 @@ export const Toolbar: FC<Props> = ({ actions, current, onSwitchKind, onSave }) =
       flexShrink={0}
       gap="sm"
       px="sm"
-      bg="white"
+      bg="surface"
       borderBottomWidth="1px"
-      borderColor="gray.200"
+      borderColor="line"
     >
       <ButtonGroup size="sm" variant="outline" attached>
         {KINDS.map(({ kind, label }) => (
@@ -53,7 +53,7 @@ export const Toolbar: FC<Props> = ({ actions, current, onSwitchKind, onSave }) =
           </Button>
         ))}
       </ButtonGroup>
-      <Box w="1px" h="5" bg="gray.200" />
+      <Box w="1px" h="5" bg="line" />
       <Button
         size="sm"
         colorScheme="blue"

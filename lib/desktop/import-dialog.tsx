@@ -79,7 +79,7 @@ export const ImportDialog: FC<{ open: boolean; onClose: () => void }> = ({ open,
           onChange={setSource}
           placeholder={"flowchart TD\n  A[開始] --> B{判定}"}
           description={
-            <Text fontSize="sm" color="gray.600">
+            <Text fontSize="sm" color="textHint">
               flowchart / erDiagram を貼り付けてください。図の種類に合うエディタで開きます
             </Text>
           }

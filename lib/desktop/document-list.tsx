@@ -43,9 +43,9 @@ export const DocumentList: FC<Props> = ({ list, currentId, onOpen, onCreate, onR
       flexShrink={0}
       h="full"
       gap="0"
-      bg="gray.50"
+      bg="surfaceSubtle"
     >
-      <Box p="sm" borderBottomWidth="1px" borderColor="gray.200">
+      <Box p="sm" borderBottomWidth="1px" borderColor="line">
         <Menu>
           <MenuButton as={Button} size="sm" w="full" startIcon={<PlusIcon />} variant="outline">
             新規作成
@@ -70,12 +70,12 @@ export const DocumentList: FC<Props> = ({ list, currentId, onOpen, onCreate, onR
               py="xs"
               rounded="md"
               cursor="pointer"
-              bg={active ? "blue.100" : undefined}
-              _hover={{ bg: active ? "blue.100" : "gray.100" }}
+              bg={active ? "selectedStrong" : undefined}
+              _hover={{ bg: active ? "selectedStrong" : "surfaceSubtleHover" }}
               onClick={() => !active && editing !== d.id && onOpen(d.id)}
               onDoubleClick={() => setEditing(d.id)}
             >
-              <Box color="gray.500" flexShrink={0} aria-hidden>
+              <Box color="textCaption" flexShrink={0} aria-hidden>
                 {d.editor === "flowchart" ? <WorkflowIcon /> : <DatabaseIcon />}
               </Box>
               {editing === d.id ? (
@@ -104,7 +104,7 @@ export const DocumentList: FC<Props> = ({ list, currentId, onOpen, onCreate, onR
                 </Text>
               )}
               {d.unsaved && (
-                <Text as="span" color="blue.500" fontSize="xs" title="最後の「確定」より後の変更があります">
+                <Text as="span" color="accent" fontSize="xs" title="最後の「確定」より後の変更があります">
                   ●
                 </Text>
               )}
@@ -114,7 +114,7 @@ export const DocumentList: FC<Props> = ({ list, currentId, onOpen, onCreate, onR
                 icon={<Trash2Icon />}
                 size="xs"
                 variant="ghost"
-                color="gray.500"
+                color="textCaption"
                 onClick={(e) => {
                   e.stopPropagation();
                   onTrash(d.id);

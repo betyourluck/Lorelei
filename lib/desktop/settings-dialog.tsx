@@ -80,7 +80,7 @@ export const SettingsDialog: FC<Props> = ({ open, onClose, status, onStatus }) =
         ) : (
           <VStack gap="md" align="stretch">
             <Heading size="sm">MCP サーバー（AI から図を受け取る）</Heading>
-            <Text fontSize="sm" color="gray.600">
+            <Text fontSize="sm" color="textHint">
               Claude Code などの MCP クライアントから、validate / render / open_in_editor を呼べるようにします。
               Lorelei を開いている間だけ使えます。
             </Text>
@@ -99,7 +99,7 @@ export const SettingsDialog: FC<Props> = ({ open, onClose, status, onStatus }) =
               </Text>
               <Text fontSize="sm">{stateLabel(status)}</Text>
               {status.detail && (
-                <Text fontSize="sm" color="red.600">
+                <Text fontSize="sm" color="dangerText">
                   {status.detail}
                 </Text>
               )}
@@ -131,7 +131,7 @@ export const SettingsDialog: FC<Props> = ({ open, onClose, status, onStatus }) =
                   適用
                 </Button>
               </HStack>
-              <Text fontSize="xs" color="gray.500">
+              <Text fontSize="xs" color="textCaption">
                 待ち受けは 127.0.0.1 のみです（他の端末からは接続できません）。
               </Text>
             </Box>
@@ -156,7 +156,7 @@ export const SettingsDialog: FC<Props> = ({ open, onClose, status, onStatus }) =
               </HStack>
               {confirming && (
                 <HStack gap="sm" mt="xs">
-                  <Text fontSize="sm" color="orange.600">
+                  <Text fontSize="sm" color="warningText">
                     今のトークンを設定したクライアントはつながらなくなります。
                   </Text>
                   <Button
@@ -240,7 +240,7 @@ const CopyableSetup: FC<{
         {copyLabel}
       </Button>
     </HStack>
-    <Text fontSize="xs" color="gray.500">
+    <Text fontSize="xs" color="textCaption">
       {note}
     </Text>
   </>

@@ -10,6 +10,7 @@ import {
 } from "@yamada-ui/lucide";
 import { Box, Button, HStack, IconButton, Text } from "@yamada-ui/react";
 import type { FC, ReactElement } from "react";
+import { ColorModeMenu } from "./color-mode-menu";
 import type { McpStatus } from "./mcp";
 import { stateLabel } from "./mcp";
 import type { WindowAction } from "./tauri";
@@ -38,6 +39,16 @@ const MCP_COLOR: Record<McpStatus["state"], string> = {
   blocked: "red.500",
 };
 
+/** タイトルバーのアイコンのボタンの形 (BarButton と画面の色の切り替えで共通) */
+const BAR_BUTTON = {
+  variant: "ghost",
+  size: "sm",
+  w: "44px",
+  h: TITLE_BAR_HEIGHT,
+  rounded: "0",
+  color: "textHint",
+} as const;
+
 const mcpLabel = (s: McpStatus): string =>
   s.state === "listening" ? `MCP: 待ち受け中 127.0.0.1:${s.port}` : `MCP: ${stateLabel(s)}`;
 
@@ -61,9 +72,9 @@ export const TitleBar: FC<Props> = ({
     h={TITLE_BAR_HEIGHT}
     flexShrink={0}
     gap="0"
-    bg="gray.50"
+    bg="surfaceSubtle"
     borderBottomWidth="1px"
-    borderColor="gray.200"
+    borderColor="line"
     userSelect="none"
   >
     {onToggleList && (
@@ -73,19 +84,19 @@ export const TitleBar: FC<Props> = ({
       Lorelei
     </Text>
     {title && (
-      <Text data-tauri-drag-region="" fontSize="sm" color="gray.600" pointerEvents="none" lineClamp={1}>
+      <Text data-tauri-drag-region="" fontSize="sm" color="textHint" pointerEvents="none" lineClamp={1}>
         {title}
       </Text>
     )}
     {warning && (
-      <HStack data-tauri-drag-region="" gap="xs" px="sm" color="orange.600" fontSize="xs" pointerEvents="none">
+      <HStack data-tauri-drag-region="" gap="xs" px="sm" color="warningText" fontSize="xs" pointerEvents="none">
         <TriangleAlertIcon />
         <Text lineClamp={1}>{warning}</Text>
       </HStack>
     )}
     <Box data-tauri-drag-region="" flex="1" h="full" />
     {closeError && (
-      <HStack role="alert" gap="xs" px="sm" color="red.600" fontSize="xs">
+      <HStack role="alert" gap="xs" px="sm" color="dangerText" fontSize="xs">
         <Text lineClamp={1} title={closeError}>
           保存できないので閉じませんでした
         </Text>
@@ -103,7 +114,7 @@ export const TitleBar: FC<Props> = ({
         h={TITLE_BAR_HEIGHT}
         rounded="0"
         fontSize="xs"
-        color="gray.600"
+        color="textHint"
         gap="xs"
         onClick={onOpenSettings}
       >
@@ -111,8 +122,10 @@ export const TitleBar: FC<Props> = ({
         MCP
       </Button>
     )}
+    {/* 画面の色 (spec 27 D2) */}
+    <ColorModeMenu buttonProps={{ ...BAR_BUTTON, _hover: { bg: "surfaceSubtleActive" } }} />
     <BarButton label="Lorelei について" icon={<CircleHelpIcon />} onClick={() => void showAbout()} />
-    <Box w="1px" h="4" bg="gray.200" mx="xs" />
+    <Box w="1px" h="4" bg="line" mx="xs" />
     <WindowButton label="最小化" action="minimize" icon={<MinusIcon />} />
     <WindowButton label="最大化" action="toggleMaximize" icon={<SquareIcon fontSize="xs" />} />
     <WindowButton label="閉じる" action="close" icon={<XIcon />} danger />
@@ -130,13 +143,8 @@ const BarButton: FC<{
     title={label}
     icon={icon}
     onClick={onClick}
-    variant="ghost"
-    size="sm"
-    w="44px"
-    h={TITLE_BAR_HEIGHT}
-    rounded="0"
-    color="gray.600"
-    _hover={danger ? { bg: "#e53935", color: "white" } : { bg: "gray.200" }}
+    {...BAR_BUTTON}
+    _hover={danger ? { bg: "#e53935", color: "white" } : { bg: "surfaceSubtleActive" }}
   />
 );
 
