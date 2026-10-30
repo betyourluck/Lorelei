@@ -63,6 +63,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-31: [spec 29](specs/29_node-shape-icon.md) **Done**・[spec 30](specs/30_undo-redo.md) **Done**（配布ビルド `fa62afc` で利用者が両方を「問題なし」。spec 30 は macOS の ⌘Z が未確認）。
+  README・README.ja の「エディタの操作」の節（形の札・Undo/Redo）は次の版を出す時に足す。次は [spec 32](specs/32_revert-to-confirmed.md)（確定へ戻す、rev0 の裁定待ち）か [spec 31](specs/31_ui-language.md)（画面の言語、rev0）
 - 2026-10-31: [spec 30](specs/30_undo-redo.md) **P1 着地**（裁定「推奨どおり」→ P0 → P1。フォーク元の改善のコミットに分けた）: `components/editor-history/`（中身の鍵が変わった時に 1 手・ドラッグとダイアログの間は保留・
   `HistoryGateContext` で起点と止め方を受ける）、2 つのパネルに ↶ ↷、Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z、削除の確認の文から「元に戻せません。」を外した。Web 版でドラッグ・矢印キー・枠の大きさ・確認を挟む付け替え・枠の削除・ER 図のセルと FK を確かめた。
   **未解明**: 起点で毎回描き直すと、デスクトップで ER 図を開いた時に自動保存が始まらないことがあった（同じファイルの前のテストの後だけ。spec 30「P1 結果」）。
