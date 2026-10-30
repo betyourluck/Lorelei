@@ -360,7 +360,7 @@ NodeShapeBadge:
   description: >-
     フローチャートのノードの右上の、形のアイコンの札 (spec 29)。ノードは形にかかわらず四角で描くので、Mermaid のどの形になるかをこれで見せる。フォーク元の改善 (Web 版とデスクトップで同じ)
   shapes: "MermaidShapeType の 6 つ (rectangle / diamond / rounded / circle / hexagon / stadium)。絵は 6 つとも自前の SVG (16px、線は currentColor、aria-hidden)。lucide の組では角丸と四角形・左右が尖る六角形を表せない"
-  position: "ノードの外枠の要素の最後の子。position absolute、bottom 100% (下端がノードの上の縁)、right 0。⋮⋮ のメニュー (ノードの内側の右上 24px 四方) と重ならない。xyflow の測った大きさに入らない"
+  position: "ノードの外枠の要素の最後の子。position absolute、bottom calc(100% + 2px)・right -2px (外枠の内側から測るので縁の 2px を足し、下端と右端をノードの外側の縁にそろえる)。26×19px (spec 29 P1 で測った)。⋮⋮ のメニュー (ノードの内側の右上 24px 四方) と重ならない。xyflow の測った大きさに入らない"
   press: >-
     札は素のボタン (aria-label・title に形の名)。押すと形のメニュー (6 つの項目、⋮⋮ の「ノード形状」と同じ部品 ShapeMenuItems) を開く。
     メニューは押した時だけ差し込み (components/ui/use-deferred-menu.ts、spec 23 の矢印の切り替えと同じ仕組み)、リストは Portal で文書の直下に出す (failures #28)。
