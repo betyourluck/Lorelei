@@ -63,6 +63,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-31: [spec 32](specs/32_revert-to-confirmed.md) **rev1**（査読 1 本を採った）・[spec 33](specs/33_normalize-race.md) **起票**（rev0）。spec 32 は「確定へ戻す」と ● を中身で決める（位置は許容誤差）に絞り、
+  確定は `confirm_document` で自動保存と 1 つの鍵の中で書く・確定を自動保存の列に並べる・戻すは門を開けたままその場で 1 回で当てる（取り込みに省略できる `adjust`）。「AI の書き換えを 1 手にする」は後の候補へ外した。
+  査読で、**AI の書き換えの直後 1 秒の人の編集が揃え書きに混ざり `updated_at` を進めずに書かれ、AI が人の編集を知らずに上書きできる**（spec 08 からある不具合、コードで確かめた。実物の再現は spec 33 P0）を見つけ、spec 33 に分けて先に直す
 - 2026-10-31: [spec 29](specs/29_node-shape-icon.md) **Done**・[spec 30](specs/30_undo-redo.md) **Done**（配布ビルド `fa62afc` で利用者が両方を「問題なし」。spec 30 は macOS の ⌘Z が未確認）。
   README・README.ja の「エディタの操作」の節（形の札・Undo/Redo）は次の版を出す時に足す。次は [spec 32](specs/32_revert-to-confirmed.md)（確定へ戻す、rev0 の裁定待ち）か [spec 31](specs/31_ui-language.md)（画面の言語、rev0）
 - 2026-10-31: [spec 30](specs/30_undo-redo.md) **P1 着地**（裁定「推奨どおり」→ P0 → P1。フォーク元の改善のコミットに分けた）: `components/editor-history/`（中身の鍵が変わった時に 1 手・ドラッグとダイアログの間は保留・
