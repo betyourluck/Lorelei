@@ -15,11 +15,15 @@ export interface DocumentSummary {
   updatedAt: string;
   /** 利用者が「確定」(旧「保存」) を押した時刻 (D12)。一覧はこれ (無ければ createdAt) の新しい順 */
   savedAt: string | null;
-  /** 最後の「確定」より後の変更がある (●) */
+  /** 最後に「確定」した中身と今の中身が違う (●。spec 32 D2) */
   unsaved: boolean;
+  /** 確定した中身がある (「確定へ戻す」を出せる。spec 32 D3) */
+  hasConfirmed?: boolean;
 }
 
-export interface DocumentFull extends Omit<DocumentSummary, "unsaved"> {
+export interface DocumentFull extends Omit<DocumentSummary, "unsaved" | "hasConfirmed"> {
+  /** 最後に「確定」した中身 (spec 32 D1)。無い図は持たない */
+  confirmed?: { source: string; layout: Layout } | null;
   source: string;
   layout: Layout;
   originalSource: string | null;
@@ -43,9 +47,16 @@ export const saveDocument = (
   normalize = false
 ): Promise<DocumentSummary> =>
   invoke("save_document", { id, source, layout, baseUpdatedAt, normalize });
-/** 利用者の「確定」(D12。旧「保存」)。一覧の先頭へ動き、● が消える */
-export const markDocumentSaved = (id: string): Promise<DocumentSummary> =>
-  invoke("mark_document_saved", { id });
+/**
+ * 利用者の「確定」(D12、spec 32 D1)。今の中身を自動保存と同じ規則で書き、確定した中身として残す。一覧の先頭へ動き、● が消える。
+ * baseUpdatedAt は自動保存と同じ (古い版なら STALE_BASE で拒まれ、何も書かれない)
+ */
+export const confirmDocument = (
+  id: string,
+  source: string,
+  layout: Layout,
+  baseUpdatedAt: string
+): Promise<DocumentSummary> => invoke("confirm_document", { id, source, layout, baseUpdatedAt });
 export const renameDocument = (id: string, title: string): Promise<void> =>
   invoke("rename_document", { id, title });
 export const trashDocument = (id: string): Promise<void> => invoke("trash_document", { id });

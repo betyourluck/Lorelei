@@ -59,6 +59,35 @@ pub struct Document {
     /// update_diagram が立てる印 (spec 08 D1)。次の save は揃え書きなので updated_at を進めず、印を消す。古いファイルに無ければ false
     #[serde(default)]
     pub normalize_pending: bool,
+    /// 最後に「確定」した時の中身 (spec 32 D1)。「確定へ戻す」で戻す先、● の比べる先。古いファイルに無ければ None
+    /// (読む時に移行する: read_doc)。MCP の読み戻しには出さない
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confirmed: Option<Confirmed>,
+}
+
+/// 確定した時の中身 (spec 32 D1)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Confirmed {
+    pub source: String,
+    #[serde(default)]
+    pub layout: Layout,
+}
+
+/// 位置が同じと見てよい (spec 32 D2)。キーの集合が同じで、各値の差が 1e-6 以下。
+/// フロントの位置の往復 (絶対 → 相対 → 絶対) は浮動小数点で一致しないことがある
+fn layout_close(a: &Layout, b: &Layout) -> bool {
+    let near = |p: f64, q: f64| (p - q).abs() <= 1e-6;
+    let near_opt = |p: Option<f64>, q: Option<f64>| match (p, q) {
+        (Some(p), Some(q)) => near(p, q),
+        (None, None) => true,
+        _ => false,
+    };
+    a.len() == b.len()
+        && a.iter().all(|(k, p)| {
+            b.get(k).is_some_and(|q| {
+                near(p.x, q.x) && near(p.y, q.y) && near_opt(p.width, q.width) && near_opt(p.height, q.height)
+            })
+        })
 }
 
 impl Document {
@@ -67,9 +96,13 @@ impl Document {
         self.saved_at.as_deref().unwrap_or(&self.created_at)
     }
 
-    /// 最後の「保存」(無ければ作った時) より後に中身が変わった
+    /// ● (spec 32 D2)。確定した中身があれば、今の中身がそれと違う (source は完全一致、位置は layout_close)。
+    /// 無ければ今までどおり、最後の「確定」(無ければ作った時) より後に中身が変わった
     fn unsaved(&self) -> bool {
-        self.updated_at.as_str() > self.order_key()
+        match &self.confirmed {
+            Some(c) => !(c.source == self.source && layout_close(&c.layout, &self.layout)),
+            None => self.updated_at.as_str() > self.order_key(),
+        }
     }
 }
 
@@ -83,8 +116,10 @@ pub struct DocumentSummary {
     pub created_at: String,
     pub updated_at: String,
     pub saved_at: Option<String>,
-    /// 最後の「保存」より後の変更がある (一覧とタイトルの ●)
+    /// 最後の「確定」と中身が違う (一覧とタイトルの ●。spec 32 D2)
     pub unsaved: bool,
+    /// 確定した中身がある (「確定へ戻す」を出せる。spec 32 D3)
+    pub has_confirmed: bool,
 }
 
 impl From<&Document> for DocumentSummary {
@@ -98,6 +133,7 @@ impl From<&Document> for DocumentSummary {
             updated_at: d.updated_at.clone(),
             saved_at: d.saved_at.clone(),
             unsaved: d.unsaved(),
+            has_confirmed: d.confirmed.is_some(),
         }
     }
 }
@@ -178,6 +214,7 @@ impl Store {
             updated_at: now,
             saved_at: None,
             normalize_pending: false,
+            confirmed: None,
         };
         self.write(&doc)?;
         Ok(doc)
@@ -210,6 +247,34 @@ impl Store {
         normalize: bool,
     ) -> Result<DocumentSummary, String> {
         let _lock = lock();
+        let doc = self.save_unlocked(id, source, layout, base_updated_at, normalize)?;
+        Ok((&doc).into())
+    }
+
+    /// 利用者の「確定」(spec 02 D12、spec 32 D1)。今の中身を自動保存と同じ規則で書き (印の無い保存 = 人の操作)、
+    /// 同じ鍵の中で saved_at と confirmed を書く。一覧の先頭へ動き、● が消える。
+    /// STALE_BASE・INITIAL_FIGURE_REJECTED・DOCUMENT_GONE は save と同じく拒み、何も書かない。空の中身は確定しない
+    pub fn confirm(&self, id: &str, source: String, layout: Layout, base_updated_at: &str) -> Result<DocumentSummary, String> {
+        let _lock = lock();
+        if source.trim().is_empty() {
+            return Err("確定する中身がありません".into());
+        }
+        let mut doc = self.save_unlocked(id, source, layout, base_updated_at, false)?;
+        doc.saved_at = Some(now());
+        doc.confirmed = Some(Confirmed { source: doc.source.clone(), layout: doc.layout.clone() });
+        self.write(&doc)?;
+        Ok((&doc).into())
+    }
+
+    /// save の本体 (鍵は呼び手が持つ)。書いた (または同じだった) Document を返す
+    fn save_unlocked(
+        &self,
+        id: &str,
+        source: String,
+        layout: Layout,
+        base_updated_at: &str,
+        normalize: bool,
+    ) -> Result<Document, String> {
         // ごみ箱へ移した・消えた図への書き込みは、書き直しても通らない。フロントが見分けて捨てる印を付ける
         if !self.contains(id) {
             return Err(format!("{DOCUMENT_GONE}: 図が一覧にありません（ごみ箱へ移したか、消えました）"));
@@ -230,7 +295,7 @@ impl Store {
         let pending = doc.normalize_pending;
         let unchanged = doc.source == source && doc.layout == layout;
         if unchanged && !pending {
-            return Ok((&doc).into());
+            return Ok(doc);
         }
         doc.source = source;
         doc.layout = layout;
@@ -240,7 +305,7 @@ impl Store {
             doc.updated_at = now();
         }
         self.write(&doc)?;
-        Ok((&doc).into())
+        Ok(doc)
     }
 
     /// update_diagram の書き込み (spec 08 D1、data_contract `Document.update`)。届いた Mermaid で中身を丸ごと差し替える。
@@ -277,15 +342,6 @@ impl Store {
         doc.normalize_pending = true;
         self.write(&doc).map_err(UpdateError::Other)?;
         Ok(doc)
-    }
-
-    /// 利用者が「保存」を押した (D12)。一覧の先頭へ動き、● が消える
-    pub fn mark_saved(&self, id: &str) -> Result<DocumentSummary, String> {
-        let _lock = lock();
-        let mut doc = self.load(id)?;
-        doc.saved_at = Some(now());
-        self.write(&doc)?;
-        Ok((&doc).into())
     }
 
     /// 名前を変える。並びも ● も動かさない
@@ -335,7 +391,22 @@ fn check_id(id: &str) -> Result<(), String> {
 
 fn read_doc(path: &Path) -> Result<Document, String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("図を読めません: {e}"))?;
-    serde_json::from_str(&text).map_err(|e| format!("図のファイルが壊れています: {e}"))
+    let mut doc: Document = serde_json::from_str(&text).map_err(|e| format!("図のファイルが壊れています: {e}"))?;
+    migrate_confirmed(&mut doc);
+    Ok(doc)
+}
+
+/// この版より前に確定した図の移行 (spec 32 D1)。確定の後に中身が変わっていなければ (updated_at ≤ saved_at)、
+/// 今の中身が確定した中身そのもの。読む時に埋める (次の書き込みでファイルに残る)
+fn migrate_confirmed(doc: &mut Document) {
+    if doc.confirmed.is_some() || doc.source.is_empty() {
+        return;
+    }
+    if let Some(saved) = &doc.saved_at {
+        if doc.updated_at.as_str() <= saved.as_str() {
+            doc.confirmed = Some(Confirmed { source: doc.source.clone(), layout: doc.layout.clone() });
+        }
+    }
 }
 
 /// 同じフォルダの一時ファイルへ書いてから rename する (途中で切れた壊れファイルを残さない。OutputPathPolicy と同じ)
@@ -416,6 +487,12 @@ mod tests {
         s.save(id, source.into(), layout, &base, true)
     }
 
+    /// 「確定」の形: 今のファイルの中身と版で確定する (spec 32 D1)
+    fn cf(s: &Store, id: &str) -> DocumentSummary {
+        let d = s.load(id).unwrap();
+        s.confirm(id, d.source, d.layout, &d.updated_at).unwrap()
+    }
+
     // spec 15 D4: 枠 (サブグラフ) は位置に加えて大きさを持つ。フロントから届いた width / height を保存し、読み戻す。
     // 大きさの無い位置は width / height を書かない (今の版のファイルと同じ形)
     #[test]
@@ -478,7 +555,7 @@ mod tests {
         let mut layout = BTreeMap::new();
         layout.insert("A".to_string(), Pos { x: 1.0, y: 2.0, width: None, height: None });
         sv(&s, &d.id, "flowchart TD\n    A[A]\n", layout.clone()).unwrap();
-        s.mark_saved(&d.id).unwrap();
+        cf(&s, &d.id);
         let before = s.load(&d.id).unwrap();
         assert!(!before.unsaved());
 
@@ -671,7 +748,7 @@ mod tests {
         assert_eq!(ids(&s), vec![b.id.clone(), a.id.clone()]);
 
         // 「保存」を押すと先頭へ
-        s.mark_saved(&a.id).unwrap();
+        cf(&s, &a.id);
         assert_eq!(ids(&s), vec![a.id.clone(), b.id.clone()]);
 
         // 名前を変えても動かない
@@ -691,7 +768,7 @@ mod tests {
         assert!(!unsaved(&s));
         sv(&s, &d.id, "flowchart TD\n    a[a]\n", BTreeMap::new()).unwrap();
         assert!(unsaved(&s), "作った後に編集した");
-        s.mark_saved(&d.id).unwrap();
+        cf(&s, &d.id);
         assert!(!unsaved(&s));
 
         // 中身が同じ保存 (図を開いただけ) では変更にならない
@@ -794,6 +871,96 @@ mod tests {
         assert!(s.set_last_opened("../x").is_err());
     }
 
+    // spec 32 D1・D2: 確定は中身を残し、● は確定した中身との違い。戻せば ● が消える。位置は浮動小数点のずれを許す
+    #[test]
+    fn confirm_keeps_the_content_and_unsaved_compares_with_it() {
+        let s = store();
+        let d = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
+        let mut layout = BTreeMap::new();
+        layout.insert("A".to_string(), Pos { x: 453.18, y: 2.0, width: None, height: None });
+        sv(&s, &d.id, "flowchart TD\n    A[A]\n", layout.clone()).unwrap();
+        let summary = cf(&s, &d.id);
+        assert!(!summary.unsaved);
+        assert!(summary.has_confirmed);
+        let doc = s.load(&d.id).unwrap();
+        assert_eq!(doc.confirmed.as_ref().unwrap().source, "flowchart TD\n    A[A]\n");
+        assert_eq!(doc.confirmed.as_ref().unwrap().layout, layout);
+
+        let edit = |s: &Store, src: &str, l: Layout| {
+            let base = s.load(&d.id).unwrap().updated_at;
+            s.save(&d.id, src.into(), l, &base, false).unwrap()
+        };
+        assert!(edit(&s, "flowchart TD\n    A[A]\n    B[B]\n", layout.clone()).unsaved);
+        // 確定と同じ中身へ戻すと ● が消える (時刻は進んでいても)。位置は往復のずれ (1e-13) を許す
+        let mut back = layout.clone();
+        back.get_mut("A").unwrap().x = 453.18000000000006;
+        assert!(!edit(&s, "flowchart TD\n    A[A]\n", back).unsaved);
+        // 位置だけの変更も ●
+        let mut moved = layout.clone();
+        moved.get_mut("A").unwrap().x = 460.0;
+        assert!(edit(&s, "flowchart TD\n    A[A]\n", moved).unsaved);
+    }
+
+    // spec 32 D1: 確定は自動保存と同じ規則で拒む (古い版・初期図の保険・ごみ箱)。拒んだら何も書かない。空の中身は確定しない。
+    // update の印が立っていても、確定は人の操作なので揃え書きにしない
+    #[test]
+    fn confirm_refuses_like_save_and_writes_nothing() {
+        let s = store();
+        let d = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
+        sv(&s, &d.id, "flowchart TD\n    A[A]\n", BTreeMap::new()).unwrap();
+        let err = s.confirm(&d.id, "flowchart TD\n    B[B]\n".into(), BTreeMap::new(), "2026-01-01T00:00:00+09:00").unwrap_err();
+        assert!(err.starts_with(STALE_BASE), "{err}");
+        let doc = s.load(&d.id).unwrap();
+        assert!(doc.confirmed.is_none() && doc.saved_at.is_none());
+        assert_eq!(doc.source, "flowchart TD\n    A[A]\n");
+
+        assert!(s.confirm(&d.id, "  \n".into(), BTreeMap::new(), &doc.updated_at).is_err());
+        assert!(s.load(&d.id).unwrap().confirmed.is_none());
+
+        let ai = s.create(Editor::Flowchart, None, Origin::Ai, Some("flowchart LR\n  A --> B\n".into())).unwrap();
+        let err = s.confirm(&ai.id, initial_source(Editor::Flowchart).into(), BTreeMap::new(), &ai.updated_at).unwrap_err();
+        assert!(err.starts_with(INITIAL_FIGURE_REJECTED), "{err}");
+
+        let cur = s.load(&d.id).unwrap().updated_at;
+        let updated = s.update(&d.id, "flowchart LR\n  A --> B\n".into(), Editor::Flowchart, &cur).unwrap();
+        let confirmed = s
+            .confirm(&d.id, "flowchart LR\n    A[A]\n    B[B]\n    C[C]\n".into(), BTreeMap::new(), &updated.updated_at)
+            .unwrap();
+        assert!(confirmed.updated_at > updated.updated_at, "確定は揃え書きにしない");
+        assert!(!s.load(&d.id).unwrap().normalize_pending);
+
+        s.trash(&d.id).unwrap();
+        let err = s.confirm(&d.id, "flowchart TD\n    x[x]\n".into(), BTreeMap::new(), &confirmed.updated_at).unwrap_err();
+        assert!(err.starts_with(DOCUMENT_GONE), "{err}");
+    }
+
+    // spec 32 D1: この版より前に確定した図。確定の後に中身が変わっていなければ今の中身を確定した中身として埋める
+    #[test]
+    fn old_confirmed_diagrams_are_migrated_on_read() {
+        let s = store();
+        let d = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
+        sv(&s, &d.id, "flowchart TD\n    A[A]\n", BTreeMap::new()).unwrap();
+        // 前の版の確定 (saved_at だけを書いた) を写す
+        let mut doc = s.load(&d.id).unwrap();
+        doc.saved_at = Some(now());
+        doc.confirmed = None;
+        let path = s.doc_path(&d.id).unwrap();
+        std::fs::write(&path, serde_json::to_vec(&doc).unwrap()).unwrap();
+        assert!(!std::fs::read_to_string(&path).unwrap().contains("confirmed"), "古いファイルの形");
+        let read = s.load(&d.id).unwrap();
+        assert_eq!(read.confirmed.as_ref().unwrap().source, "flowchart TD\n    A[A]\n");
+        assert!(s.list().unwrap()[0].has_confirmed);
+
+        // 確定の後に変わっていた図は埋めない (今の中身は確定した中身ではない)
+        let mut doc = s.load(&d.id).unwrap();
+        doc.confirmed = None;
+        doc.saved_at = Some("2026-01-01T00:00:00+09:00".into());
+        std::fs::write(&path, serde_json::to_vec(&doc).unwrap()).unwrap();
+        let read = s.load(&d.id).unwrap();
+        assert!(read.confirmed.is_none());
+        assert!(read.unsaved(), "今までどおり時刻で ●");
+    }
+
     #[test]
     fn serializes_with_contract_names() {
         let s = store();
@@ -805,6 +972,9 @@ mod tests {
         assert!(v["createdAt"].as_str().unwrap().contains('T'));
         let summary = serde_json::to_value(s.list().unwrap()[0].clone()).unwrap();
         assert!(summary.get("source").is_none());
+        assert_eq!(summary["hasConfirmed"], false);
+        // 確定していない図のファイルに confirmed を書かない (前の版と同じ形)
+        assert!(v.get("confirmed").is_none());
         assert_eq!(summary["updatedAt"], v["updatedAt"]);
     }
 }

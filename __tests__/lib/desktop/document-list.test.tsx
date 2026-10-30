@@ -4,6 +4,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@/__tests__/test-utils";
+import { FlowEditor } from "@/features/flowchart/flow-editor";
 import { useDesktopActions } from "@/lib/desktop/desktop-actions";
 import { DesktopShell } from "@/lib/desktop/desktop-shell";
 import { clearPendingOpens } from "@/lib/desktop/use-desktop-open";
@@ -24,6 +25,9 @@ vi.mock("@/lib/desktop/tauri", async (importOriginal) => ({
   listenPayload: async () => () => {},
   onCloseRequested: async () => () => {},
   windowAction: async () => {},
+  // invoke も境界で静的に模擬する。エディタを描くテスト (確定, spec 32) の後で、動的 import の invoke が本物に差し替わり、
+  // 次のテストの起動処理が list_documents で止まった (failures #14 と同じ形)
+  invoke: (cmd: string, args?: Record<string, unknown>) => backend.invoke(cmd, args ?? {}),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), usePathname: () => pathname }));
 
@@ -48,6 +52,15 @@ const DirectionEditor = () => {
 
 const registeredArea = () => screen.getByText("registering editor").closest("[aria-busy]")!;
 
+/** 確定はエディタの中身を送る (spec 32 D1) ので、確定を試すテストはエディタを描く */
+const shellWithEditor = () =>
+  render(
+    <ReactFlowProvider>
+      <DesktopShell>
+        <FlowEditor />
+      </DesktopShell>
+    </ReactFlowProvider>
+  );
 const shell = () =>
   render(
     <ReactFlowProvider>
@@ -175,23 +188,28 @@ describe("図の一覧 (spec 02 P3)", { timeout: 15000 }, () => {
     const a = backend.add("flowchart", "古い図");
     backend.add("flowchart", "新しい図");
     backend.setLast(a.id);
-    const { user } = shell();
+    const { user } = shellWithEditor();
     await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("古い図"), LONG);
     expect((await list()).getAllByRole("listitem")[0]).toHaveTextContent("新しい図");
     // ファイルへ書き出すと思われないよう「保存」とは呼ばない (中身は自動保存で残っている)
     expect(screen.queryByRole("button", { name: "保存" })).toBeNull();
+    // 図の準備ができるまでは押せない (spec 32 D1)
+    await waitFor(() => expect(screen.getByRole("button", { name: "確定" })).toBeEnabled(), LONG);
     await user.click(screen.getByRole("button", { name: "確定" }));
     await waitFor(async () => expect((await list()).getAllByRole("listitem")[0]).toHaveTextContent("古い図"));
-    expect(backend.calls("mark_document_saved")).toEqual([{ id: a.id }]);
+    expect(backend.calls("confirm_document").map((c) => (c as { id: string }).id)).toEqual([a.id]);
   });
 
   it("Ctrl+S でも確定する (D12)", async () => {
     const a = backend.add("flowchart", "図");
     backend.setLast(a.id);
-    const { user } = shell();
+    const { user } = shellWithEditor();
     await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("図"), LONG);
+    await waitFor(() => expect(screen.getByRole("button", { name: "確定" })).toBeEnabled(), LONG);
     await user.keyboard("{Control>}s{/Control}");
-    await waitFor(() => expect(backend.calls("mark_document_saved")).toEqual([{ id: a.id }]));
+    await waitFor(() =>
+      expect(backend.calls("confirm_document").map((c) => (c as { id: string }).id)).toEqual([a.id])
+    );
   });
 
   it("最後の「確定」より後に変更がある図に ● を付ける (D12)", async () => {

@@ -14,6 +14,8 @@ type Doc = {
   savedAt: string | null;
   /** update_diagram が立て、次の save が消す印 (spec 08 D1) */
   normalizePending: boolean;
+  /** 最後に確定した中身 (spec 32 D1) */
+  confirmed?: { source: string; layout: Record<string, { x: number; y: number }> } | null;
 };
 
 /** src-tauri の OpenRequest (take_pending_open の中身)。テストが積む */
@@ -48,8 +50,17 @@ export function fakeBackend() {
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
     savedAt: d.savedAt,
-    unsaved: d.updatedAt > orderKey(d),
+    // src-tauri documents::Document::unsaved と同じ (spec 32 D2): 確定した中身があればそれと比べ、無ければ時刻
+    unsaved: d.confirmed
+      ? !(d.confirmed.source === d.source && sameLayout(d.confirmed.layout, d.layout))
+      : d.updatedAt > orderKey(d),
+    hasConfirmed: Boolean(d.confirmed),
   });
+  const sameLayout = (a: Doc["layout"], b: Doc["layout"]) =>
+    Object.keys(a).length === Object.keys(b).length &&
+    Object.entries(a).every(
+      ([k, p]) => k in b && Math.abs(p.x - b[k].x) <= 1e-6 && Math.abs(p.y - b[k].y) <= 1e-6
+    );
 
   const add = (editor: Doc["editor"], title?: string, extra: Partial<Doc> = {}): Doc => {
     const t = now();
@@ -125,9 +136,13 @@ export function fakeBackend() {
         if (!(pending && args.normalize === true) && !unchanged && !firstFill) d.updatedAt = now();
         return summary(d);
       }
-      case "mark_document_saved": {
+      case "confirm_document": {
+        // src-tauri documents::Store::confirm と同じ (spec 32 D1): 自動保存と同じ規則 (印無し) で書き、確定した中身を残す
+        if (String(args.source ?? "").trim() === "") throw "確定する中身がありません";
+        await invoke("save_document", { ...args, normalize: false });
         const d = docs.get(args.id as string)!;
         d.savedAt = now();
+        d.confirmed = { source: d.source, layout: d.layout };
         return summary(d);
       }
       case "rename_document":

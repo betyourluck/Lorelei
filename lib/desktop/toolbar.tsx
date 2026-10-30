@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, CodeIcon, FileInputIcon, PlusIcon, SquareDashedIcon } from "@yamada-ui/lucide";
+import { CheckIcon, CodeIcon, FileInputIcon, PlusIcon, RotateCcwIcon, SquareDashedIcon } from "@yamada-ui/lucide";
 import { Box, Button, ButtonGroup, HStack } from "@yamada-ui/react";
 import type { FC } from "react";
 import { useState } from "react";
@@ -27,10 +27,24 @@ interface Props {
   onSave: () => void;
   /** 戻す・やり直すを押せるか (spec 30) */
   history: HistoryStatus;
+  /** 「確定」を押せるか (spec 32 D1: 図の準備ができている時だけ。開いている途中・開けない図では押せない) */
+  canConfirm: boolean;
+  /** 「確定へ戻す」(spec 32 D3)。押せる時は enabled、title は押せる・押せない理由 */
+  revert: { enabled: boolean; title: string };
+  onRevert: () => void;
 }
 
 /** タイトルバーの下のツールバー (spec 02 D3) */
-export const Toolbar: FC<Props> = ({ actions, current, onSwitchKind, onSave, history }) => {
+export const Toolbar: FC<Props> = ({
+  actions,
+  current,
+  onSwitchKind,
+  onSave,
+  history,
+  canConfirm,
+  revert,
+  onRevert,
+}) => {
   const [importing, setImporting] = useState(false);
 
   return (
@@ -102,11 +116,21 @@ export const Toolbar: FC<Props> = ({ actions, current, onSwitchKind, onSave, his
         variant="outline"
         startIcon={<CheckIcon />}
         // ファイルへ書き出すと思われないよう「保存」とは呼ばない (中身は裏で自動保存されている。2026-10-04 利用者 FB)
-        title="確定 (Ctrl+S): 編集は自動で保存されています。確定すると一覧の先頭に上がり、● が消えます"
-        disabled={!current}
+        title="確定 (Ctrl+S): 編集は自動で保存されています。確定すると今の中身を戻れる区切りとして残し、一覧の先頭に上がり、● が消えます"
+        disabled={!current || !canConfirm}
         onClick={onSave}
       >
         確定
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        startIcon={<RotateCcwIcon />}
+        title={revert.title}
+        disabled={!revert.enabled}
+        onClick={onRevert}
+      >
+        確定へ戻す
       </Button>
     </HStack>
   );

@@ -166,7 +166,7 @@ pub fn run_gui() {
             create_document,
             load_document,
             save_document,
-            mark_document_saved,
+            confirm_document,
             rename_document,
             trash_document,
             last_opened,
@@ -240,10 +240,15 @@ fn save_document(
     store()?.save(&id, source, layout, &base_updated_at, normalize)
 }
 
-/// 利用者の「保存」(D12)。一覧の先頭へ動く
+/// 利用者の「確定」(D12、spec 32 D1)。今の中身を書いて確定した中身として残し、一覧の先頭へ動く。base_updated_at は自動保存と同じ
 #[tauri::command]
-fn mark_document_saved(id: String) -> Result<documents::DocumentSummary, String> {
-    store()?.mark_saved(&id)
+fn confirm_document(
+    id: String,
+    source: String,
+    layout: documents::Layout,
+    base_updated_at: String,
+) -> Result<documents::DocumentSummary, String> {
+    store()?.confirm(&id, source, layout, &base_updated_at)
 }
 
 #[tauri::command]

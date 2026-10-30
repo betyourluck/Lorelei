@@ -1,6 +1,7 @@
 "use client";
 
 
+import type { Node } from "@xyflow/react";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useRef } from "react";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
@@ -22,6 +23,8 @@ export interface DesktopActions {
   addFrame?: () => void;
   /** 操作の Undo / Redo (spec 30)。ツールバーの ↶ ↷ */
   history?: { undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean };
+  /** エディタの取り込み (spec 32 D4)。「確定へ戻す」が、確定した中身を位置を当てて (adjust) その場で載せ直すのに使う */
+  importMermaid?: (data: never, adjust?: (nodes: Node[]) => Node[]) => void;
 }
 
 /** 外枠が受け取る形。パネルの関数は毎回作り直されるので、呼ぶ時に最新のものを読む */
@@ -40,6 +43,8 @@ export interface RegisteredActions {
   /** 戻す・やり直す。登録されなければ null。押せるかは HistoryStatus で別に渡す (手を打つたびに登録し直さない) */
   undo: (() => void) | null;
   redo: (() => void) | null;
+  /** エディタの取り込み。登録されなければ null (「確定へ戻す」を出さない) */
+  importMermaid: ((data: unknown, adjust: (nodes: Node[]) => Node[]) => void) | null;
 }
 
 /** 戻す・やり直すを押せるか (spec 30)。登録とは別に渡す (登録し直すと editorMounted が走るので) */
@@ -81,6 +86,7 @@ export function useDesktopActions(actions: DesktopActions): void {
   const hasDirection = Boolean(actions.setDirection);
   const hasAddFrame = Boolean(actions.addFrame);
   const hasHistory = Boolean(actions.history);
+  const hasImport = Boolean(actions.importMermaid);
   const reportHistory = useContext(HistoryStatusContext);
   const canUndo = actions.history?.canUndo ?? false;
   const canRedo = actions.history?.canRedo ?? false;
@@ -98,9 +104,12 @@ export function useDesktopActions(actions: DesktopActions): void {
       addFrame: hasAddFrame ? () => latest.current.addFrame?.() : null,
       undo: hasHistory ? () => latest.current.history?.undo() : null,
       redo: hasHistory ? () => latest.current.history?.redo() : null,
+      importMermaid: hasImport
+        ? (data, adjust) => latest.current.importMermaid?.(data as never, adjust)
+        : null,
     });
     return () => register(null);
-  }, [register, label, direction, theme, hasDirection, hasAddFrame, hasHistory]);
+  }, [register, label, direction, theme, hasDirection, hasAddFrame, hasHistory, hasImport]);
 
   // 押せるかは別に知らせる (spec 30)
   useEffect(() => {

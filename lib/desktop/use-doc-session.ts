@@ -1,5 +1,6 @@
 "use client";
 
+import type { Node } from "@xyflow/react";
 import { useReactFlow, useStore } from "@xyflow/react";
 import { useNotice } from "@yamada-ui/react";
 import { usePathname, useRouter } from "next/navigation";
@@ -26,7 +27,7 @@ import {
   lastOpened,
   listDocuments,
   loadDocument,
-  markDocumentSaved,
+  confirmDocument,
   renameDocument,
   saveDocument,
   setLastOpened,
@@ -69,6 +70,11 @@ export interface DocSession {
   rename(id: string, title: string): Promise<void>;
   trash(id: string): Promise<void>;
   save(): Promise<void>;
+  /**
+   * 最後に確定した中身へ戻す (spec 32 D3・D4)。apply はエディタの取り込み (取り込んだノードに adjust をかけてから当てる)。
+   * 当てたら true。確定した中身が無い・変換できない・その間に図が替わった時は false
+   */
+  revert(apply: (data: unknown, adjust: (nodes: Node[]) => Node[]) => void): Promise<boolean>;
   /** パネルが操作を登録した = エディタが作り直された */
   editorMounted(): void;
   /** 閉じる前の保存。失敗したら false (閉じない) */
@@ -132,6 +138,8 @@ export function useDocSession(
   const firstSaveRef = useRef(true);
   /** 位置を当てる指示を出し、当たったのをまだ見ていない (spec 33 P1。onNodesChanged の awaitingLayout) */
   const awaitingLayoutRef = useRef(false);
+  /** 今のエディタの中身を作る (確定で送る, spec 32 D1)。ノードが変わるたびに差し替える */
+  const snapshotRef = useRef<(() => Snapshot) | null>(null);
   const importedRef = useRef(false);
   const expectedRef = useRef<string[] | null>(null);
   const layoutRef = useRef<Layout>({});
@@ -333,23 +341,56 @@ export function useDocSession(
   );
 
   /** 利用者の「確定」(D12。旧「保存」)。今の変更を書いてから、一覧の先頭へ動かす */
+  // 利用者の「確定」(spec 32 D1)。図の準備ができている時だけ (開いている途中・開けない図は readyRef が false)。
+  // 自動保存の列に並べ、走っている保存と待っている変更を書き終えてから、その時の中身と版で確定する
   const save = useCallback(async () => {
     const doc = currentRef.current;
-    if (!doc) return;
+    if (!doc || !readyRef.current) return;
+    const id = doc.id;
     try {
-      await autosaver.flush();
-      await markDocumentSaved(doc.id);
+      await autosaver.enqueue(async () => {
+        const produce = snapshotRef.current;
+        if (currentRef.current?.id !== id || !readyRef.current || !produce) return;
+        const s = produce();
+        const saved = await confirmDocument(id, s.source, s.layout, baseRef.current);
+        if (currentRef.current?.id === id) baseRef.current = saved.updatedAt;
+      });
       await refreshList();
     } catch (e) {
-      notice({
-        status: "error",
-        title: "保存できませんでした",
-        description: String(e),
-        isClosable: true,
-        duration: null,
-      });
+      notice(
+        isStaleBase(e)
+          ? { status: "warning", title: "AI が図を書き換えたので、確定しませんでした", isClosable: true, duration: 5000 }
+          : { status: "error", title: "確定できませんでした", description: String(e), isClosable: true, duration: null }
+      );
     }
   }, [autosaver, notice, refreshList]);
+
+  // 最後に確定した中身へ戻す (spec 32 D3・D4)。開く経路は使わず (Undo の履歴を捨てるので)、その場で取り込みと位置を 1 回で当てる
+  // (apply はエディタの取り込みに位置を当てる関数を添えて呼ぶ)。変換の await の間に図が替わったら当てない
+  const hideSeqRef = useRef(hideSeq);
+  hideSeqRef.current = hideSeq;
+  const revert = useCallback(
+    async (apply: (data: unknown, adjust: (nodes: Node[]) => Node[]) => void): Promise<boolean> => {
+      const doc = currentRef.current;
+      if (!doc || !readyRef.current) return false;
+      const id = doc.id;
+      const epoch = hideSeqRef.current;
+      const unchanged = () => currentRef.current?.id === id && hideSeqRef.current === epoch && readyRef.current;
+      try {
+        const full = await loadDocument(id);
+        const confirmed = full.confirmed;
+        if (!confirmed || !unchanged()) return false;
+        const request = await convertSource(confirmed.source);
+        if (!request.payload || !unchanged()) return false;
+        apply(request.payload.data, (nodes) => withLayout(doc.editor, nodes, confirmed.layout));
+        return true;
+      } catch (e) {
+        notice({ status: "error", title: "確定へ戻せませんでした", description: String(e), isClosable: true, duration: null });
+        return false;
+      }
+    },
+    [notice]
+  );
 
   const editorMounted = useCallback(() => {
     if (!awaitMountRef.current) return;
@@ -384,6 +425,13 @@ export function useDocSession(
   useEffect(() => {
     const doc = currentRef.current;
     if (!doc) return;
+    {
+      const [n0, e0, d0, t0] = [nodes, edges, direction, theme];
+      snapshotRef.current = () => ({
+        source: toSource(doc.editor, n0, e0, d0, t0),
+        layout: collectLayout(doc.editor, n0),
+      });
+    }
     const layout = layoutRef.current;
     const next = onNodesChanged({
       ready: readyRef.current,
@@ -545,6 +593,7 @@ export function useDocSession(
     rename,
     trash,
     save,
+    revert,
     editorMounted,
     flushForClose,
   };

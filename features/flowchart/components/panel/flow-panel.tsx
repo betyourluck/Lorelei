@@ -66,6 +66,7 @@ export const PanelContent: FC<PanelContentProps> = ({
     theme,
     addFrame: onAddFrame,
     history,
+    importMermaid: onImportMermaid,
   });
 
   return (

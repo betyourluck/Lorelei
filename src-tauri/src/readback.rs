@@ -131,7 +131,8 @@ mod tests {
         assert!(after.summary.open);
         assert_eq!(after.source, "flowchart TD\n    受付[受付]\n    検品[検品]\n");
         assert!(after.summary.unsaved, "最後の「保存」の後に変わった");
-        s.mark_saved(&d.id).unwrap();
+        let cur = s.load(&d.id).unwrap();
+        s.confirm(&d.id, cur.source, cur.layout, &cur.updated_at).unwrap();
         assert!(!read(&s, None).unwrap().summary.unsaved);
     }
 

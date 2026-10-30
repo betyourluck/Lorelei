@@ -4,6 +4,7 @@ import { Box, Center, Flex, Text } from "@yamada-ui/react";
 import type { FC, ReactNode } from "react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HistoryGateContext } from "@/components/editor-history/gate";
+import { useConfirmDelete } from "@/components/ui/confirm-delete";
 import type { HistoryStatus, RegisteredActions } from "./desktop-actions";
 import { DesktopActionsProvider } from "./desktop-actions";
 import { DocumentList } from "./document-list";
@@ -49,6 +50,14 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
     void windowAction("show");
   }, []);
   const [closeError, setCloseError] = useState<string | null>(null);
+  // 「確定」を押せる時 (spec 32 D1): 図の準備ができている (開いている途中・開けない図ではない)
+  const canConfirm = session.historyReady && !session.unopenable;
+  const canConfirmRef = useRef(canConfirm);
+  canConfirmRef.current = canConfirm;
+  // 「確定へ戻す」の確認 (spec 32 D3)。削除の確認と同じダイアログを使う
+  const revertConfirm = useConfirmDelete("node", () => "");
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
   const [mcp, setMcp] = useMcpStatus();
   const [settingsOpen, setSettingsOpen] = useState(false);
   // 操作の履歴 (spec 30): 図の準備ができた時を起点にし、隠して開き直す・別の図に替わる・載せ替えるたびに捨てる
@@ -97,6 +106,8 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
+        // 準備の前・開けない図・ダイアログが開いている間は確定しない (spec 32 D1)
+        if (!canConfirmRef.current || dialogOpen()) return;
         void saveRef.current();
       }
     };
@@ -104,7 +115,31 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const unsaved = session.list.find((d) => d.id === session.current?.id)?.unsaved ?? false;
+  const item = session.list.find((d) => d.id === session.current?.id);
+  const unsaved = item?.unsaved ?? false;
+  // 「確定へ戻す」(spec 32 D3): 確定した中身があり、それと今の中身が違う時だけ
+  const revert = !item?.hasConfirmed
+    ? {
+        enabled: false,
+        title: "まだ確定していません (この版より前に確定して、その後に変更した図も戻せません)",
+      }
+    : !unsaved
+      ? { enabled: false, title: "最後の確定から変わっていません" }
+      : {
+          enabled: canConfirm && Boolean(actions?.importMermaid),
+          title: "最後に「確定」した中身へ戻します (戻した後も Ctrl+Z で取り消せます)",
+        };
+  const onRevert = async () => {
+    const ok = await revertConfirm.ask(
+      "最後に確定した中身へ戻しますか？",
+      "今の変更は、戻した後に Ctrl+Z (元に戻す) で取り戻せます。",
+      "戻す"
+    );
+    if (!ok) return;
+    // 確認のダイアログが閉じ切ってから当てる (閉じかけのダイアログがあると、Undo の記録が次の編集とまとまる, spec 30 D1)
+    for (let i = 0; i < 40 && dialogOpen(); i++) await new Promise((r) => setTimeout(r, 25));
+    await session.revert((data, adjust) => actionsRef.current?.importMermaid?.(data, adjust));
+  };
   const warning = session.unopenable
     ? "この図は開けないので保存しません"
     : session.saveError
@@ -136,6 +171,9 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
         onSwitchKind={(kind) => void session.switchKind(kind)}
         onSave={() => void session.save()}
         history={historyStatus}
+        canConfirm={canConfirm}
+        revert={revert}
+        onRevert={() => void onRevert()}
       />
       <Flex flex="1" minH="0">
         {pane.listOpen && (
@@ -183,9 +221,13 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
           {!session.settled && <LoadingLabel />}
         </Box>
       </Flex>
+      {revertConfirm.dialog}
     </Flex>
   );
 };
+
+/** ダイアログ (削除の確認・コード生成・インポート・設定) が開いている */
+const dialogOpen = () => document.querySelector('[role="dialog"], [role="alertdialog"]') !== null;
 
 /** 「読み込み中…」。普段の速い切り替えで点滅させないよう、少し待ってから出す (spec 05 D4、利用者裁定 2026-09-26) */
 const LOADING_LABEL_DELAY_MS = 200;

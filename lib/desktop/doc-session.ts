@@ -237,10 +237,24 @@ export class Autosaver<T> {
 
   /** 変化が無ければ何もしない。走っている保存を待ってから、残っている変更を全部書く。失敗したら変更を残したまま投げる */
   flush(): Promise<void> {
+    return this.enqueue(async () => {});
+  }
+
+  /**
+   * 保存の列に並べて fn を走らせる (走っている保存と待っている変更を書き終えてから)。確定など、自動保存と順序を守る操作 (spec 32 D1)。
+   * 待っている変更の書き込みが失敗したら fn は走らず、その失敗を投げる
+   */
+  enqueue<R>(fn: () => Promise<R>): Promise<R> {
     this.clearTimer();
-    const run = () => this.drain();
+    const run = async () => {
+      await this.drain();
+      return fn();
+    };
     const done = this.tail ? this.tail.then(run) : run();
-    const tail = done.catch(() => {});
+    const tail = done.then(
+      () => {},
+      () => {}
+    );
     this.tail = tail;
     void tail.then(() => {
       if (this.tail === tail) this.tail = null;

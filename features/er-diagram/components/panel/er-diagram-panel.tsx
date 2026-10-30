@@ -57,6 +57,7 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
     setDirection: onDirectionChange,
     theme,
     history,
+    importMermaid: onImportMermaid,
   });
 
   const handleDownload = () => {
