@@ -63,7 +63,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
-- 2026-10-30: [spec 29](specs/29_node-shape-icon.md)・[spec 30](specs/30_undo-redo-and-revert.md)・[spec 31](specs/31_ui-language.md) **起票**（rev0、裁定待ち。利用者の 3 点「ノード形状のアイコン」「確定の前に戻せる Undo/Redo」「UI 言語の切り替え（英・中・韓・日、定番のライブラリで）」）。
+- 2026-10-30: [spec 29](specs/29_node-shape-icon.md)・[spec 30](specs/30_undo-redo-and-revert.md)・[spec 31](specs/31_ui-language.md) **起票**（rev0、裁定待ち。spec 29 は査読 1 本を採って rev1: 札の下端をノードの縁にそろえ ⋮⋮ を避ける・メニューは Portal・札は線に避けさせない・押した時に `Menu` を差し込む。利用者の 3 点「ノード形状のアイコン」「確定の前に戻せる Undo/Redo」「UI 言語の切り替え（英・中・韓・日、定番のライブラリで）」）。
   下調べ: ノードは形にかかわらず同じ四角で、形は左上の札の括弧（`{A}`）でしか分からない / エディタに元に戻す仕組みは無く（CodeMirror の中だけ）、「確定」は `saved_at` を書くだけで中身を残さない、ノードと線の `data` に関数が入っている /
   画面の言葉はフロントの 56 ファイル・362 行と Rust（エラー・保存ダイアログの題・About・新しい図の題）に直に書いてあり、**ER 図の初期図の「ユーザー」は Rust の初期図の保険が文字で突き合わせている**（言語で変えると保険が外れる）。
   推す形: 29 は右上の縁の上の札（押すと形のメニュー）、30 は Undo/Redo（フォーク元・Web 版も）と `Document.confirmed` に残して「確定へ戻す」（デスクトップ）、31 は `i18next` + `react-i18next`・言語ごとの JSON・Rust はエラーをコードで返す。進める順は 29 → 30 → 31
