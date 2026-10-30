@@ -214,6 +214,9 @@ DesktopActions:
     history: >-
       { undo, redo, canUndo, canRedo } (任意、spec 30 P2)。外枠はツールバーに ↶ ↷ を出す。undo / redo は登録に載せ、canUndo / canRedo は登録とは別の通り道
       (DesktopActionsProvider の onHistoryStatus) で知らせる (登録し直すと editorMounted が走るので、手を打つたびに登録し直さない)
+  importMermaid: >-
+    (data, adjust?) => void (任意、spec 32 D4)。エディタの取り込み (handleImportMermaid)。adjust は取り込んだノードを当てる前にかける関数 (フォーク元の省略できる引数)。
+    「確定へ戻す」は確定した中身を convert_source で変換し、図が替わっていなければ adjust = withLayout(確定した位置) で 1 回の setNodes で当てる (開く経路を使わないので Undo の 1 手になる)
   autosave: "外枠は向き・テーマの変化でも自動保存する (ノード・辺が変わらなくても。spec 07 D3・spec 24 P2)"
 
 DesktopMmdDownload:
@@ -511,7 +514,7 @@ DiagramSummary:   # MCP の出力の形 (snake_case)。GUI の Document / Docume
     created_at: { type: string, format: "RFC 3339" }
     updated_at: { type: string, format: "RFC 3339" }
     saved_at: { type: string, format: "RFC 3339", nullable: true }
-    unsaved: "bool。最後の「確定」(Ctrl+S。2026-10-04 に「保存」から改名、名詞は unsaved のまま) の後に中身が変わったか (DocumentSummary.unsaved と同じ。ファイルの時刻の比較で、画面上の書き込み前の編集ではない)"
+    unsaved: "bool。最後に「確定」(Ctrl+S) した中身と今の中身が違うか (DocumentSummary.unsaved と同じ。spec 32 D2: 確定した中身があればその比べ、無い古い図は確定の後に変わったかの時刻の比較。ファイルの中身で、画面上の書き込み前の編集ではない)"
     open: "bool。今 GUI で開いている図 (DocumentState.last_opened と一致)。一致する図が無ければ全件 false"
 
 Diagram:
@@ -539,7 +542,11 @@ GuiCommands:
   create_document: "(editor, title?) → Document。origin: new、source は空 (エディタの初期図で始まり、最初の自動保存で埋まる)"
   load_document: "(id) → Document"
   save_document: "(id, source, layout, base_updated_at, normalize) → DocumentSummary。自動保存 (D7)。normalize は揃え書きの印 (spec 33、Document.save_normalize)。title / editor / origin / original_source / saved_at は書き換えさせない。中身が同じなら書かない (normalize_pending を消す時は除く)。source が空だった図の最初の書き込みは updated_at を進めない。base_updated_at は Document.save_stale (spec 08 D2)"
-  mark_document_saved: "(id) → DocumentSummary。利用者の「確定」(Ctrl+S, D12。画面の言葉は 2026-10-04 に「保存」から「確定」へ。名詞は変えない)。saved_at を今にする = 一覧の先頭へ動き、unsaved が消える"
+  confirm_document: >-
+    (id, source, layout, base_updated_at) → DocumentSummary。利用者の「確定」(Ctrl+S, D12。spec 32 D1 で mark_document_saved を置き換えた)。
+    1 つの鍵の中で、save_document と同じ規則 (印の無い保存 = 人の操作) で中身を書き、saved_at を今にし、Document.confirmed に書いた中身を残す = 一覧の先頭へ動き、unsaved が消える。
+    STALE_BASE・INITIAL_FIGURE_REJECTED・DOCUMENT_GONE は save_document と同じく拒み、何も書かない。空の source は確定しない。
+    フロントは自動保存の列に並べ (Autosaver.enqueue、走っている保存と待っている変更を書き終えてから)、図の準備ができている時だけ送る (開いている途中・開けない図・ダイアログの間はボタンも Ctrl+S も効かない)
   rename_document: "(id, title) → ()。並びも unsaved も動かさない"
   trash_document: "(id) → ()。documents/ から trash/ へ移す。物理削除しない。history/{id}.json は動かさない (Document.history)"
   documents_event: "lorelei://documents-changed (本体は DocumentSummary)。update_diagram がファイルを書けた時に出す (spec 08 D3)。外枠はその 1 件だけを一覧で差し替える (setList(map)。一覧を丸ごと読み直さない — 読み直しは自動保存の 1 件差し替えと競合して ● が戻ることがある)"
@@ -604,6 +611,7 @@ Document:
     created_at: { type: string, format: "RFC 3339" }
     updated_at: { type: string, format: "RFC 3339" }   # 中身が最後に変わった時刻。人の編集の自動保存と update_diagram で進む。first_fill と揃え書き (normalize_pending が立っていて、保存に normalize の印がある時) では進まない
     saved_at: { type: string, format: "RFC 3339", nullable: true }   # 利用者が「確定」(旧「保存」) を押した時刻 (D12)。一覧の並びの鍵 (null なら created_at)
+    confirmed: { type: "{ source: string, layout: Layout } | null", default: null }  # 最後に「確定」した中身 (spec 32 D1)。確定へ戻す先・● の比べる先。無ければファイルに書かない。前の版で確定した図は、updated_at ≤ saved_at なら読む時に今の中身で埋める。MCP には出さない
     normalize_pending: { type: bool, default: false }  # update_diagram が立てる印 (spec 08 D1)。次の save で消える (source / layout が同じでも印を消すために書く)。updated_at を進めないのは、その save が揃え書きの印 (normalize) を持つ時だけ (spec 33)。古いファイルに無ければ false
   json_keys: camelCase   # ファイルと GUI の受け渡しはどちらも camelCase (originalSource / createdAt / normalizePending ...)
   default_titles:
@@ -622,7 +630,7 @@ Document:
   save_stale: >-
     save_document は base_updated_at (フロントが読んだ版) を添える (spec 08 D2)。ファイルの updated_at と時刻として違えば「STALE_BASE: {今の updated_at}」で拒む (捨ててよい失敗)。
     フロントは、今の updated_at が自分の base_updated_at と同じなら黙って捨てる (載せ替えが先に届いていて画面は新しい)。違えば通知「AI が図を書き換えたので開き直します」を出してその図を開き直す。
-    base は load_document・OpenRequest.document・各 save の戻り値の updated_at で更新する。mark_saved / rename / first_fill / 揃え書きでは updated_at が進まないので base は変わらない
+    base は load_document・OpenRequest.document・各 save の戻り値の updated_at で更新する。rename / first_fill / 揃え書き / 中身の変わらない確定 (confirm_document) では updated_at が進まないので base は変わらない (確定は戻り値で base を更新する)
   save_normalize: >-
     save_document は normalize_pending をどの保存でも消してファイルに書く (中身が同じでも)。updated_at を進めないのは、保存が揃え書きの印 (normalize: true) を持つ時・中身が同じ時・first_fill の時だけ。
     印の無い保存 (人の編集) は normalize_pending が立っていても中身が違えば updated_at を進める (spec 33: 揃え書きとして通すと AI の古い expected_updated_at が通り、人の編集が知らされずに上書きされる)。
@@ -633,13 +641,16 @@ Document:
     update_diagram の書き込み (spec 08 D1)。documents/ にある図だけ (uuid の形でない・ごみ箱は NotFound)。expected_updated_at をファイルの updated_at と時刻として比べ、違えば Conflict (今の値を載せる)。
     editor が Document.editor と違えば KindMismatch。書くのは source (届いた Mermaid そのまま。生成器を通さない・空にしない) / original_source (同じ文字列) / updated_at (今) / normalize_pending (true)。
     title / editor / origin / created_at / saved_at / layout は変えない (一覧の並びは動かず、● が付く。同じ ID のノードは位置を保つ)。書く前に history へ 1 世代写す。比較と書き込みは store_lock の中
-  store_lock: "Store の save / update / mark_saved / rename / trash の load → write は、プロセスで 1 つの static Mutex の中で行う (Store は呼ぶたび作られる。MCP は spawn_blocking、Tauri の command は別スレッドで順序が無い。TOCTOU を作らない, spec 08 D2)"
+  store_lock: "Store の save / confirm / update / rename / trash の load → write は、プロセスで 1 つの static Mutex の中で行う (Store は呼ぶたび作られる。MCP は spawn_blocking、Tauri の command は別スレッドで順序が無い。TOCTOU を作らない, spec 08 D2)"
   history: "{app_data_dir}/history/{id}.json。update_diagram が書き換える前の Document を 1 世代だけ写す (次の update で上書き, spec 08 D5)。GUI は持たない (戻すのは人が手で)。ごみ箱へ移しても動かさない・消さない (空にする操作は無い)"
 
 DocumentSummary:
   description: 一覧用。source / layout / original_source を持たない
-  fields: [id, title, editor, origin, created_at, updated_at, saved_at, unsaved]
-  unsaved: "updated_at > (saved_at ?? created_at)。一覧とタイトルの ●"
+  fields: [id, title, editor, origin, created_at, updated_at, saved_at, unsaved, has_confirmed]
+  unsaved: >-
+    一覧とタイトルの ● (spec 32 D2)。Document.confirmed があれば「source が完全一致、layout はキーの集合が同じで各値の差 ≤ 1e-6」でなければ true (戻せば消える)。
+    無ければ今までどおり updated_at > (saved_at ?? created_at)
+  has_confirmed: "Document.confirmed がある。ツールバーの「確定へ戻す」は has_confirmed かつ unsaved かつ図の準備ができている時だけ押せる (spec 32 D3)"
 
 DocumentState:
   path: "{app_data_dir}/state.json"

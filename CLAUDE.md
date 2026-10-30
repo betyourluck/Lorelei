@@ -27,7 +27,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   設定は `{app_data_dir}/mcp_server.json`、設定画面から切り替え）。保存ダイアログと About は rfd（JS に権限を足さない）。
   CSP は style-src の自動ハッシュ追記を止めている
 - **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは spec 01 の 4 ファイル・8 行 + spec 02 の 5 ファイル・12 行（`app/layout.tsx` の外枠、エディタ 2 つの高さ、パネル 2 つの `useDesktopActions`。重なりを除いて計 7 ファイル）+ spec 04 P0 でエディタ 2 つの初期図を export（`initialFlowNodes` / `initialERNodes`。初期図の突き合わせ用。ファイルは既存の 7 つに含まれる）+ spec 07 P2 でパネル 2 つの `useDesktopActions` に向き（`direction` / `setDirection`）を足した（同じ 2 ファイル）+ spec 15 P3 でフローチャートのパネルの `useDesktopActions` に `addFrame` を足した（同じファイル）
-  + spec 24 P2 でパネル 2 つの `useDesktopActions` に `theme` を足した（同じ 2 ファイル）+ spec 30 P2 でパネル 2 つの `useDesktopActions` に `history` を足した（同じ 2 ファイル。エディタ側の履歴の口 `HistoryGateContext` は `lib/desktop` を参照しないフォーク元の改善で、外枠が Provider で包む）+ spec 25 P1 でコード生成のダイアログ 2 つ（`download-modal.tsx`・`er-diagram-mermaid-modal.tsx`。spec 01 から `ExportButtons` を差し込んである）の「ダウンロード」を `useMmdDownload` に通した（各 2 行 + import）
+  + spec 24 P2 でパネル 2 つの `useDesktopActions` に `theme` を足した（同じ 2 ファイル）+ spec 32 P2 でエディタ 2 つの `handleImportMermaid` に省略できる `adjust` を足し（フォーク元の改善）、パネル 2 つの `useDesktopActions` に `importMermaid` を足した（同じ 2 ファイル）+ spec 30 P2 でパネル 2 つの `useDesktopActions` に `history` を足した（同じ 2 ファイル。エディタ側の履歴の口 `HistoryGateContext` は `lib/desktop` を参照しないフォーク元の改善で、外枠が Provider で包む）+ spec 25 P1 でコード生成のダイアログ 2 つ（`download-modal.tsx`・`er-diagram-mermaid-modal.tsx`。spec 01 から `ExportButtons` を差し込んである）の「ダウンロード」を `useMmdDownload` に通した（各 2 行 + import）
 - **フロント（`app/` `features/` `components/`）**: フォーク元のコード。直してよい（下の掟の「フォーク元は必要なら直してよい」）。
   **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」「P4 結果」、spec 15（フローチャートのサブグラフ）の「P1 結果」「P3 結果」、spec 16（枠を指す線・枠の中の向き）の「P1 結果」〜「P3 結果」「P5 結果」、spec 23（線のラベル）の「P1 結果」、spec 24（テーマ）の「P1 結果」、spec 26（ミニマップの出し入れ）の「P2 結果」、spec 27（画面のダークテーマの色の名）の「P1 結果」、spec 28（選んだノードの印）の「P1 結果」に一覧がある。PR を出すかは利用者が決める。
   **フォーク元へ出した PR**: [illionillion/mermaid-editor#74](https://github.com/illionillion/mermaid-editor/pull/74)（spec 13 の生成器の直しだけを移植。Lorelei のコミットはデスクトップの差し込みの上で作ったので cherry-pick では載らない — spec 13「フォーク元への PR」）。
@@ -63,6 +63,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-31: [spec 32](specs/32_revert-to-confirmed.md) **P1・P2 着地**: 確定は `confirm_document`（`mark_document_saved` を置き換え。自動保存と 1 つの鍵の中で書き `Document.confirmed` を残す）・
+  ● は確定した中身との違い（位置は 1e-6 まで許す。MCP の `unsaved` も同じ）・前の版で確定した図は読む時に移行・確定は自動保存の列に並べ、図の準備ができている時だけ（Ctrl+S も）・
+  ツールバーの「確定へ戻す」（その場で取り込みと位置を 1 回で当て、Undo の 1 手）。生成器の往復の確かめ（P0）はしていない。残りは P3（配布ビルド、spec 33 P2 と一緒に）
 - 2026-10-31: [spec 33](specs/33_normalize-race.md) **P1 着地**（裁定「推奨どおり」。spec 32 も裁定「推奨どおり」で、spec 33 の後に進める）: 揃え書きの不具合を偽のバックエンドで再現（間合いで出たり出なかったりする）→
   Rust の `save` に揃え書きの印（印の無い保存は `normalize_pending` でも中身が違えば `updated_at` を進める）・準備ができてから最初の保存だけを即時に印付きで書く（`Autosaver.saveNow`）・`Autosaver` は保存を 1 つずつ順に送る。
   途中で、**位置を当てる指示の直後に当たる前のノードの変化が 1 回届き、それで準備済み（保存・Undo の起点）になっていた**のを見つけて直した（failures #53、1 秒の待ちに隠れていた）。外枠が消える時に自動保存の待ちを捨てる（#54）。残りは P2（配布ビルド）
@@ -189,7 +192,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   P0 で、mermaid.js / merman は**外とつながらない枠を定義の逆順で先に、続いてノードを最初に出てきた順**にグラフへ入れ、graphlib のキーの順で**整数に見える ID が数の順で先頭**に来ると確かめた（格子 20 通り・69 本の線の上下が下書きと一致）。
   枠のある輪では最後に定義した枠が一番上（人の直感と違うが、プレビュー・書き出しと揃う, 裁定 1）。今の段が段の条件を満たす輪の無い図は配置が変わらない。P1（フォーク元 `9a61e63`）・P2（配布ビルドで利用者が確かめた）着地、受け入れ条件 1〜6 通過。
   P2 で、**枠の無い図の戻る線はノードの後ろに隠れ、ボタンが別の線のボタンと重なる・ノードに隠れて押せない**ことを見つけた（spec 17 裁定 1 で回さない線）→ spec 19 で見直す（候補 ⑧）
-- 2026-10-04: デスクトップの UI（利用者 FB、spec 02 D12 の追記）: ツールバーの「保存」を**「確定」**に改名（ファイルへの書き出しと思われたため。Ctrl+S・振る舞い・データの名詞 `saved_at` / `unsaved` / `mark_document_saved` は同じ）。
+- 2026-10-04: デスクトップの UI（利用者 FB、spec 02 D12 の追記）: ツールバーの「保存」を**「確定」**に改名（ファイルへの書き出しと思われたため。Ctrl+S・振る舞い・データの名詞 `saved_at` / `unsaved` / `mark_document_saved` は同じ。spec 32 で `mark_document_saved` は `confirm_document` に置き換えた）。
   タイトルバーの歯車を外した（設定の入口は「● MCP」だけ）
 - 2026-10-04: [spec 17](specs/17_edge-routing-around-frames.md) **Done**（rev3。spec 16 のスコープ外の持ち越し: 枠をまたいで戻る線・段を飛ばす線が途中の枠と中のノードを貫く。裁定 1〜3 済み）。
   エディタの表示だけを変える（保存・コード生成・`read_diagram` には何も足さない）。今の曲線か中点のボタンが、どちらの端も中にいない枠・線より低いノード・端である枠の内側と交わる線だけを、縦と横の線分の道で回す

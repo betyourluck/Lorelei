@@ -2,7 +2,7 @@
 
 **ID**: 32
 **Date**: 2026-10-31
-**Status**: **Draft** — rev1（裁定済み（「裁定」、推奨どおり）。spec 30 rev1 の査読で spec 30 rev0 の D4・D5 を分けて起票 → 査読 1 本（「査読の採否」）→ rev1。D1〜D6 の裁定待ち。rev1 で「AI の書き換えを 1 手にする」を外し、
+**Status**: **Active** — rev1（裁定済み（「裁定」、推奨どおり）→ P1・P2 着地（「P1・P2 結果」）。残りは P3（配布ビルド、spec 33 P2 と同じビルド）。spec 30 rev1 の査読で spec 30 rev0 の D4・D5 を分けて起票 → 査読 1 本（「査読の採否」）→ rev1。D1〜D6 の裁定待ち。rev1 で「AI の書き換えを 1 手にする」を外し、
 査読で見つけた今ある不具合（載せ替えの後の揃え書きに人の編集が混ざる）を [spec 33](33_normalize-race.md) に分けた。spec 33 の後に進める）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。デスクトップ専用（`src-tauri/`・`lib/desktop/`）。エディタの取り込みに足す省略できる引数（D4）だけフォーク元の改善のコミットに分ける
 
@@ -15,6 +15,26 @@
 ## 裁定（2026-10-31、利用者）
 
 利用者の言: 「推奨どおりで進める」 — D1〜D6 を推奨どおりに決めた（spec 33 の後に進める）
+
+## P1・P2 結果（2026-10-31）
+
+- **P0 の「生成器の往復を fixture の全部の図で確かめる」はしていない**。● を中身で決めても、開いただけで ● が付く図は今と同じ（今も `save` の完全一致の比べ）なので、P3 の配布ビルドで開いた図に ● が付かないことを見る
+- **入れたもの（P1、Rust）**: `Document.confirmed`（`#[serde(default, skip_serializing_if)]`）・`Store::confirm`（`save` の本体を鍵の外の `save_unlocked` に切り出し、同じ鍵の中で印の無い保存 → `saved_at` → `confirmed`。空の中身は拒む）・
+  `confirm_document` のコマンド（`mark_document_saved` と `Store::mark_saved` を置き換えた）・`unsaved`（`confirmed` があれば source の完全一致と `layout_close`（キーの集合が同じで各値の差 ≤ 1e-6）、無ければ時刻）・
+  `DocumentSummary.has_confirmed`・読む時の移行（`read_doc` で、`saved_at` があり `updated_at ≤ saved_at` なら今の中身で `confirmed` を埋める）・MCP の `unsaved` の説明の文と LORELEI.md。
+  テスト 3 件（確定で中身が残り ● は確定との違い・位置の 1e-13 のずれは許し位置だけの変更は ●／確定は古い版・空・初期図・ごみ箱で拒み何も書かず、揃え書きにしない／前の版で確定した図の移行）。
+  **要の分岐を 4 通り壊すと 4 通りとも落ちた**（● を時刻だけ・位置の完全一致・移行しない・確定を揃え書きにする）。`src-tauri` 54 件・workspace 全部が緑
+- **入れたもの（P2）**:
+  - フォーク元の改善: 2 つのエディタの `handleImportMermaid` に省略できる `adjust`（取り込んだノードを当てる前にかける）
+  - `lib/desktop`: `Autosaver.enqueue`（保存の列に並べて走らせる。`flush` もこれで）・確定は列に並べてその時の中身（`snapshotRef`）と版で `confirm_document`、`STALE_BASE` なら「AI が図を書き換えたので、確定しませんでした」・
+    確定は図の準備ができている時だけ（セッションの `readyRef` とツールバー・Ctrl+S の `canConfirm`、Ctrl+S はダイアログの間も止める）・
+    「確定へ戻す」（ツールバー。確認 →ダイアログが閉じ切るのを待つ → `load_document` の `confirmed` を `convert_source` → 図の id と epoch が同じなら `importMermaid(data, withLayout)` で 1 回で当てる）・`DesktopActions.importMermaid`（パネル 2 つの差し込み）・
+    押せる理由・押せない理由を `title` に
+  - テスト `__tests__/lib/desktop/revert-confirmed.test.tsx` 4 件（確定 → 編集で ● → 確定へ戻すで戻り ● が消え位置も戻る → Ctrl+Z で編集へ／開けない図は Ctrl+S でもボタンでも確定しない／走っている自動保存と確定が重なっても STALE や偽の「開き直します」が出ない／載せ替えが届いていない AI の書き換えの後の確定は断られる）。
+    **壊して落ちるか**: 準備の止めを外す・戻す時に位置を当てない、の 2 通りとも落ちた（最初の形のテストは変換を待つ間に Ctrl+S を押していて、止めを外しても落ちなかったので、開けない図で試す形に替えた）
+  - 既存のテスト: 確定を見ていた 2 か所（`direction-save`・`document-list`）を `confirm_document` に。`document-list` の確定の 2 件はエディタを描く形にした（エディタの無い所では準備ができない）。
+    そのファイルは `invoke` を `@tauri-apps/api/core` の動的 import でしか模擬しておらず、エディタを描いたテストの後で次のテストの起動処理が止まったので、`@/lib/desktop/tauri` の `invoke` も静的に模擬した（failures #14 と同じ形）
+- vitest の全部（111 ファイル 1246 件）が緑で終了コード 0、`tsc` 0 件、eslint 0
 
 ## 現況（2026-10-31、コードを読んだ。rev1 で査読の確かめを足した）
 
