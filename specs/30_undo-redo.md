@@ -2,7 +2,7 @@
 
 **ID**: 30
 **Date**: 2026-10-30
-**Status**: **Draft** — rev1（起票 → 査読 1 本（「査読の採否」）→ rev1。D1〜D8 の裁定待ち。rev1 で「確定へ戻す」を [spec 32](32_revert-to-confirmed.md) へ分けた）
+**Status**: **Active** — rev1（起票 → 査読 1 本（「査読の採否」）→ rev1 → 裁定（「裁定」、推奨どおり）→ P0（「P0 結果」）。rev1 で「確定へ戻す」を [spec 32](32_revert-to-confirmed.md) へ分けた）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。Undo/Redo はエディタ（フォーク元の部品）の改善なので、**フォーク元の改善と台帳・デスクトップはコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする（PR を出すかは利用者が決める, CLAUDE.md）
 
 ## Goal
@@ -11,6 +11,29 @@
 
 エディタの操作を 1 手ずつ元に戻す・やり直せるようにする（Web 版とデスクトップ）。
 「確定」を戻れる区切りにする（最後に確定した中身へ戻す）のは [spec 32](32_revert-to-confirmed.md)（rev1 で分けた。Rust の `Document`・`unsaved` の意味・MCP の契約に及ぶため）
+
+## 裁定（2026-10-31、利用者）
+
+利用者の言: 「推奨どおりで進める」 — D1〜D8 を推奨どおりに決めた（D1: 中身の鍵が変わった時に 1 手、途中は保留してまとめる / D2: Ctrl+Z・Ctrl+Y・Ctrl+Shift+Z、Mac は ⌘Z・⌘⇧Z、文字の入力の中は欄に任せる /
+D3: 図の id に結び付け、準備ができた時を起点、図が替わったら・載せ替えで捨てる / D4: 載せ替えで履歴を捨てる / D5: 準備の途中・モーダル・確認・ドラッグの間は効かない /
+D6: 口は `lib/desktop` を参照しない形でフォーク元に / D7: 案 A（配列の参照を持つ） / D8: 削除の確認の文から「元に戻せません。」を外す）
+
+## P0 結果（2026-10-31、コードを読んで形を決めた）
+
+- **置き場所**: `components/editor-history/`（フォーク元の改善。2 つのエディタで共有）
+  - `history.ts`（純粋な部分）: `contentKey(snapshot)`・`EditorHistory`（`reset` / `record` / `undo` / `redo`、上限 100）・`restoreNodes`・`nextNodeId`
+  - `use-editor-history.ts`（hook）: エディタの state と setter を受け、記録・キー・戻す・やり直すを持つ。返すのは `{ undo, redo, canUndo, canRedo }`
+  - `gate.ts`: `HistoryGateContext`（`{ ready: boolean; epoch: unknown }`。Web 版は既定の `{ ready: true, epoch: 0 }`）。デスクトップは `lib/desktop` が Provider で包んで渡す（P2）
+- **中身の鍵**: ノードは `id`・`type`・`parentId`・`position`・`width`・`height`・`data`、線は `id`・`source`・`target`・`sourceHandle`・`targetHandle`・`type`・`data`、それに図の向きとテーマを `JSON.stringify` したもの
+  （`data` の関数は JSON に入らないので自然に外れる。`selected`・`dragging`・`resizing`・`measured` は欄を選ぶので入らない）。次のノードの番号は写しには持つが鍵には入れない
+- **記録**: state が変わった描画の後に、次のフレームで鍵を比べ、違えば 1 手（同じフレームの中の変更はまとまる — 枠の削除の付け替え → remove → 線の remove）。
+  ドラッグ・大きさの変更の途中（`dragging` / `resizing` のノードがある）とダイアログ（`role="dialog"` / `alertdialog`）が開いている間は記録を保留し、次の変更か Undo を押した時にまとめて 1 手にする
+  （確認を挟む付け替え・削除は、確認の後の state で 1 手）
+- **戻す**: 戻す前に保留の変更を 1 手として記録してから、1 つ前の写しを当てる。ノードは `selected`・`dragging`・`resizing` を落とし、`measured` は今の同じ id の値を当てる。線は `selected` を落とす。
+  次のノードの番号は今の値と戻したノードの数字の ID の最大 + 1 の大きい方
+- **起点**: `HistoryGate` の `ready` が true になった時と `epoch` が変わった時に、その時の state を起点にして履歴を捨てる。`ready` が false の間は記録も戻しもしない
+- **キー**: `document` の keydown。文字の入力の中（`input` の文字の種類・`textarea`・contenteditable）と IME の変換中は何もしない。ダイアログが開いている間・ドラッグの途中も何もしない
+- data_contract に `EditorHistory`・`HistoryGate` を書いた
 
 ## 現況（2026-10-30、コードを読んだ。rev1 で査読の確かめを足した）
 
