@@ -55,6 +55,13 @@ export interface DocSession {
   generation: number;
   /** エディタを見せてよい。図を開いている間 (初期図・位置を当てる前) は false (spec 05 D4) */
   settled: boolean;
+  /**
+   * 操作の履歴を始めてよい (spec 30 D3・D5、data_contract HistoryGate.ready)。位置を当て終えて自動保存を始めた時に true。
+   * 時間切れで見せただけ (settled だが準備ができていない) の間は false
+   */
+  historyReady: boolean;
+  /** 履歴を捨てる合図 (HistoryGate.epoch)。図を隠して開き直す・別の図に替わる・載せ替えるたびに進む */
+  historyEpoch: number;
   open(id: string): Promise<void>;
   create(editor: EditorKind): Promise<void>;
   /** ツールバーの [フローチャート|ER図] (D11) */
@@ -112,6 +119,8 @@ export function useDocSession(
   const [settled, setSettled] = useState(false);
   /** 隠し始めるたびに進む番号。時間切れの数え直しに使う */
   const [hideSeq, setHideSeq] = useState(0);
+  // readyRef の写し (画面へ知らせる。位置を当てる前の回は入れない, spec 30)
+  const [historyReady, setHistoryReady] = useState(false);
   const hide = useCallback(() => {
     setSettled(false);
     setHideSeq((n) => n + 1);
@@ -189,6 +198,7 @@ export function useDocSession(
     currentRef.current = doc ? summaryOf(doc) : null;
     setCurrent(doc ? summaryOf(doc) : null);
     readyRef.current = false;
+    setHistoryReady(false);
     importedRef.current = false;
     if (doc) void setLastOpened(doc.id);
   }, []);
@@ -209,6 +219,7 @@ export function useDocSession(
     }
     autosaver.cancel();
     readyRef.current = false;
+    setHistoryReady(false);
     return true;
   }, [autosaver, notice]);
 
@@ -301,6 +312,7 @@ export function useDocSession(
       if (wasCurrent) {
         autosaver.cancel();
         readyRef.current = false;
+        setHistoryReady(false);
       }
       await trashDocument(id);
       const docs = await refreshList();
@@ -338,6 +350,7 @@ export function useDocSession(
     if (currentRef.current && currentRef.current.editor !== pathKindRef.current) return;
     awaitMountRef.current = false;
     readyRef.current = true;
+    setHistoryReady(true);
     // 新規作成の直後は初期図がこの図の中身
     setSettled(true);
   }, []);
@@ -374,6 +387,8 @@ export function useDocSession(
       layout,
     });
     readyRef.current = next.ready;
+    // 位置を当てる回 (settled でない) はまだ履歴を始めない。当てた後の回が起点 (当てたこと自体を 1 手にしない)
+    setHistoryReady(next.ready && next.settled);
     if (next.settled) setSettled(true);
     if (next.applyLayout) rf.setNodes((ns) => withLayout(doc.editor, ns, layout));
     if (!next.save) return;
@@ -413,6 +428,7 @@ export function useDocSession(
       );
       autosaver.cancel();
       readyRef.current = false;
+      setHistoryReady(false);
     };
     setDocsBridge({
       beforeImport: (request) => {
@@ -425,6 +441,7 @@ export function useDocSession(
         if (reloading) {
           autosaver.cancel();
           readyRef.current = false;
+          setHistoryReady(false);
           openingRef.current = null;
         } else {
           leaveNow();
@@ -498,6 +515,8 @@ export function useDocSession(
     saveError,
     generation,
     settled,
+    historyReady,
+    historyEpoch: hideSeq,
     open,
     create,
     switchKind,

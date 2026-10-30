@@ -4,8 +4,9 @@ import { CheckIcon, CodeIcon, FileInputIcon, PlusIcon, SquareDashedIcon } from "
 import { Box, Button, ButtonGroup, HStack } from "@yamada-ui/react";
 import type { FC } from "react";
 import { useState } from "react";
+import { HistoryButtons } from "@/components/ui/history-buttons";
 import { DirectionMenu } from "@/features/flowchart/components/direction-menu";
-import type { RegisteredActions } from "./desktop-actions";
+import type { HistoryStatus, RegisteredActions } from "./desktop-actions";
 import { ImportDialog } from "./import-dialog";
 import type { EditorKind } from "./open-requests";
 
@@ -24,10 +25,12 @@ interface Props {
   onSwitchKind: (kind: EditorKind) => void;
   /** 「確定」(D12。2026-10-04 に「保存」から改名)。一覧の並びはこれを押した時刻で決まる */
   onSave: () => void;
+  /** 戻す・やり直すを押せるか (spec 30) */
+  history: HistoryStatus;
 }
 
 /** タイトルバーの下のツールバー (spec 02 D3) */
-export const Toolbar: FC<Props> = ({ actions, current, onSwitchKind, onSave }) => {
+export const Toolbar: FC<Props> = ({ actions, current, onSwitchKind, onSave, history }) => {
   const [importing, setImporting] = useState(false);
 
   return (
@@ -85,6 +88,15 @@ export const Toolbar: FC<Props> = ({ actions, current, onSwitchKind, onSave }) =
       {actions?.setDirection && <DirectionMenu value={actions.direction} onChange={actions.setDirection} />}
       <ImportDialog open={importing} onClose={() => setImporting(false)} />
       <Box flex="1" />
+      {/* 戻す・やり直す (spec 30)。図を開いている間 (actions が null) は押せない */}
+      {actions?.undo && actions.redo && (
+        <HistoryButtons
+          undo={actions.undo}
+          redo={actions.redo}
+          canUndo={history.canUndo}
+          canRedo={history.canRedo}
+        />
+      )}
       <Button
         size="sm"
         variant="outline"

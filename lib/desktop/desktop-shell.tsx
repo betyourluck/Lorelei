@@ -2,8 +2,9 @@
 
 import { Box, Center, Flex, Text } from "@yamada-ui/react";
 import type { FC, ReactNode } from "react";
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import type { RegisteredActions } from "./desktop-actions";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { HistoryGateContext } from "@/components/editor-history/gate";
+import type { HistoryStatus, RegisteredActions } from "./desktop-actions";
 import { DesktopActionsProvider } from "./desktop-actions";
 import { DocumentList } from "./document-list";
 import { useMcpStatus } from "./mcp";
@@ -50,6 +51,15 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
   const [closeError, setCloseError] = useState<string | null>(null);
   const [mcp, setMcp] = useMcpStatus();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 操作の履歴 (spec 30): 図の準備ができた時を起点にし、隠して開き直す・別の図に替わる・載せ替えるたびに捨てる
+  const [historyStatus, setHistoryStatus] = useState<HistoryStatus>({
+    canUndo: false,
+    canRedo: false,
+  });
+  const historyGate = useMemo(
+    () => ({ ready: session.historyReady, epoch: session.historyEpoch }),
+    [session.historyReady, session.historyEpoch]
+  );
 
   const { editorMounted, flushForClose } = session;
   const register = useCallback(
@@ -125,6 +135,7 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
         current={session.current?.editor ?? null}
         onSwitchKind={(kind) => void session.switchKind(kind)}
         onSave={() => void session.save()}
+        history={historyStatus}
       />
       <Flex flex="1" minH="0">
         {pane.listOpen && (
@@ -162,9 +173,11 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
               pointerEvents: session.settled ? undefined : "none",
             }}
           >
-            <DesktopActionsProvider register={register}>
-              {/* 同じ種類の図へ切り替える時は key でエディタを作り直す (D9) */}
-              <Fragment key={session.generation}>{children}</Fragment>
+            <DesktopActionsProvider register={register} onHistoryStatus={setHistoryStatus}>
+              <HistoryGateContext.Provider value={historyGate}>
+                {/* 同じ種類の図へ切り替える時は key でエディタを作り直す (D9) */}
+                <Fragment key={session.generation}>{children}</Fragment>
+              </HistoryGateContext.Provider>
             </DesktopActionsProvider>
           </Box>
           {!session.settled && <LoadingLabel />}

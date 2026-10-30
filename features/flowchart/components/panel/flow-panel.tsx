@@ -65,6 +65,7 @@ export const PanelContent: FC<PanelContentProps> = ({
     setDirection: onDirectionChange,
     theme,
     addFrame: onAddFrame,
+    history,
   });
 
   return (
