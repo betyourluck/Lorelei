@@ -2,7 +2,7 @@
 
 **ID**: 30
 **Date**: 2026-10-30
-**Status**: **Active** — rev1（起票 → 査読 1 本（「査読の採否」）→ rev1 → 裁定（「裁定」、推奨どおり）→ P0（「P0 結果」）→ P1 着地（「P1 結果」）。残りは P2（デスクトップ）・P3（配布ビルド）。rev1 で「確定へ戻す」を [spec 32](32_revert-to-confirmed.md) へ分けた）
+**Status**: **Active** — rev1（起票 → 査読 1 本（「査読の採否」）→ rev1 → 裁定（「裁定」、推奨どおり）→ P0（「P0 結果」）→ P1 着地（「P1 結果」）→ P2 着地（「P2 結果」。`tauri dev` は未確認）。残りは P3（配布ビルド）。rev1 で「確定へ戻す」を [spec 32](32_revert-to-confirmed.md) へ分けた）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。Undo/Redo はエディタ（フォーク元の部品）の改善なので、**フォーク元の改善と台帳・デスクトップはコミットを分け**、フォーク元のコミットだけで上流へ PR を出せる形にする（PR を出すかは利用者が決める, CLAUDE.md）
 
 ## Goal
@@ -54,6 +54,20 @@ D6: 口は `lib/desktop` を参照しない形でフォーク元に / D7: 案 A�
   ラベルの編集中にパネルの ↶ を押すと、blur で確定した編集が戻る / ER 図の FK のチェックを押した直後の Ctrl+Z / ER 図の列の名を Enter で確定して Ctrl+Z（Enter の後、フォーカスは入力欄から外れていた）。
   パネルの ↶ ↷ をライト・dark で撮った（scratchpad の `panel30-light.png`・`panel30-dark.png`）
   - 台本の誤り 2 つ（押した点が左上のパネルに当たってドラッグしていなかった・「削除」の探し方が複数に当たった）は、どちらも Undo が取り込みまで戻したことで気付いた。押す点は、ノードの上でほかの部品に隠れていない所を探してから押す形に直した
+
+## P2 結果（2026-10-31）
+
+- **入れたもの**（デスクトップ。フォーク元の改善とはコミットを分けた）:
+  - `lib/desktop/use-doc-session.ts`: `DocSession.historyReady`（`readyRef` の写しを画面へ知らせる状態。**位置を当てる回は入れず、当てた後の回で true**。`readyRef` を false にする 5 か所で false）と `historyEpoch`（`hideSeq`）
+  - `lib/desktop/desktop-shell.tsx`: `HistoryGateContext.Provider` でエディタを包む。`lib/desktop/desktop-actions.tsx`: `DesktopActions.history`、登録には `undo` / `redo` だけを載せ、押せるかは `onHistoryStatus` で別に知らせる
+  - `lib/desktop/toolbar.tsx`: 「確定」の左に ↶ ↷（`components/ui/history-buttons.tsx` を使う）。フォーク元のパネル 2 つの `useDesktopActions` に `history`（差し込み）
+- **テスト**（先に書き、P1 だけの形で 4 件とも落ちるのを見てから実装）: `__tests__/lib/desktop/undo-desktop.test.tsx` 4 件
+  （開いた直後の Ctrl+Z で図も当てた位置も変わらず保存も起きない・ツールバーの ↶ ↷・AI の載せ替えの後の Ctrl+Z が載せ替える前へ戻らない・AI が別の図を開いた後の Ctrl+Z で前の図の中身が出ない）。
+  **口を渡さない（P1 だけの形）と 3 件、位置を当てる前から準備ができたことにすると 2 件が落ちた**。P1 だけの形では、開いた直後の Ctrl+Z で開いた時に当てた位置が戻り、それが保存されていた（査読 1 の後半）。
+  ノードの数は変わらなかった — 開く処理はエディタを作り直したその描画の中で取り込むので、起点が取り込んだ後になる。epoch を固定しても 4 件とも通る（開く・替わる・載せ替えるのどれも準備がいったん false に戻るので、そこで起点を置き直す）。
+  false と true が同じ描画にまとまった時の守りとして epoch は残す
+- vitest の全部（109 ファイル 1236 件）が緑で終了コード 0（P1 で未解明だった `theme-save.test.tsx` も通る）、`tsc` 0 件、eslint 0
+- **`tauri dev` は未確認**: 入れた版の Lorelei（`%LOCALAPPDATA%\Lorelei\lorelei.exe`）が動いていて、single-instance のため立てられなかった（こちらからは止めない）。P3 の配布ビルドで利用者が確かめる
 
 ## 現況（2026-10-30、コードを読んだ。rev1 で査読の確かめを足した）
 

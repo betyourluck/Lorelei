@@ -211,6 +211,9 @@ DesktopActions:
     setDirection: "(EditorDirection) => void。ツールバーの切り替えから向きを変える (spec 07 D3)"
     theme: "MermaidTheme (任意、無ければ default)。今のエディタのテーマ (spec 24 P2)。外枠は保存 (toSource) にだけ使う。選ぶのはコード生成のダイアログで、ツールバーには出さない"
     addFrame: "() => void (任意)。フローチャートのパネルだけが登録し、登録した時だけツールバーに「枠を追加」を出す (spec 15 D5)"
+    history: >-
+      { undo, redo, canUndo, canRedo } (任意、spec 30 P2)。外枠はツールバーに ↶ ↷ を出す。undo / redo は登録に載せ、canUndo / canRedo は登録とは別の通り道
+      (DesktopActionsProvider の onHistoryStatus) で知らせる (登録し直すと editorMounted が走るので、手を打つたびに登録し直さない)
   autosave: "外枠は向き・テーマの変化でも自動保存する (ノード・辺が変わらなくても。spec 07 D3・spec 24 P2)"
 
 DesktopMmdDownload:
@@ -389,7 +392,10 @@ HistoryGate:
     Web 版は既定の { ready: true, epoch: 0 }
   fields:
     ready: "false の間は記録も戻しもしない。true になった時、その時の state を起点にして履歴を捨てる (デスクトップ: 図の準備ができるまで false)"
-    epoch: "変わった時、その時の state を起点にして履歴を捨てる (デスクトップ: 図の id、AI の載せ替えの回)"
+    epoch: "変わった時、その時の state を起点にして履歴を捨てる (デスクトップ: 図を隠すたびに進む番号 hideSeq = 開く・別の図に替わる・載せ替える)"
+  desktop: >-
+    lib/desktop/desktop-shell.tsx が HistoryGateContext.Provider でエディタを包む (spec 30 P2)。ready = DocSession.historyReady
+    (位置を当て終えて自動保存を始めた回に true。位置を当てる回・時間切れで見せただけの間は false)、epoch = DocSession.historyEpoch (hideSeq)
 
 RenderConfigOverrides:
   description: 入力の %%{init}%% より優先して Lorelei が固定する設定

@@ -27,7 +27,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   設定は `{app_data_dir}/mcp_server.json`、設定画面から切り替え）。保存ダイアログと About は rfd（JS に権限を足さない）。
   CSP は style-src の自動ハッシュ追記を止めている
 - **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは spec 01 の 4 ファイル・8 行 + spec 02 の 5 ファイル・12 行（`app/layout.tsx` の外枠、エディタ 2 つの高さ、パネル 2 つの `useDesktopActions`。重なりを除いて計 7 ファイル）+ spec 04 P0 でエディタ 2 つの初期図を export（`initialFlowNodes` / `initialERNodes`。初期図の突き合わせ用。ファイルは既存の 7 つに含まれる）+ spec 07 P2 でパネル 2 つの `useDesktopActions` に向き（`direction` / `setDirection`）を足した（同じ 2 ファイル）+ spec 15 P3 でフローチャートのパネルの `useDesktopActions` に `addFrame` を足した（同じファイル）
-  + spec 24 P2 でパネル 2 つの `useDesktopActions` に `theme` を足した（同じ 2 ファイル）+ spec 25 P1 でコード生成のダイアログ 2 つ（`download-modal.tsx`・`er-diagram-mermaid-modal.tsx`。spec 01 から `ExportButtons` を差し込んである）の「ダウンロード」を `useMmdDownload` に通した（各 2 行 + import）
+  + spec 24 P2 でパネル 2 つの `useDesktopActions` に `theme` を足した（同じ 2 ファイル）+ spec 30 P2 でパネル 2 つの `useDesktopActions` に `history` を足した（同じ 2 ファイル。エディタ側の履歴の口 `HistoryGateContext` は `lib/desktop` を参照しないフォーク元の改善で、外枠が Provider で包む）+ spec 25 P1 でコード生成のダイアログ 2 つ（`download-modal.tsx`・`er-diagram-mermaid-modal.tsx`。spec 01 から `ExportButtons` を差し込んである）の「ダウンロード」を `useMmdDownload` に通した（各 2 行 + import）
 - **フロント（`app/` `features/` `components/`）**: フォーク元のコード。直してよい（下の掟の「フォーク元は必要なら直してよい」）。
   **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」「P4 結果」、spec 15（フローチャートのサブグラフ）の「P1 結果」「P3 結果」、spec 16（枠を指す線・枠の中の向き）の「P1 結果」〜「P3 結果」「P5 結果」、spec 23（線のラベル）の「P1 結果」、spec 24（テーマ）の「P1 結果」、spec 26（ミニマップの出し入れ）の「P2 結果」、spec 27（画面のダークテーマの色の名）の「P1 結果」、spec 28（選んだノードの印）の「P1 結果」に一覧がある。PR を出すかは利用者が決める。
   **フォーク元へ出した PR**: [illionillion/mermaid-editor#74](https://github.com/illionillion/mermaid-editor/pull/74)（spec 13 の生成器の直しだけを移植。Lorelei のコミットはデスクトップの差し込みの上で作ったので cherry-pick では載らない — spec 13「フォーク元への PR」）。
@@ -65,7 +65,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 - 2026-10-31: [spec 30](specs/30_undo-redo.md) **P1 着地**（裁定「推奨どおり」→ P0 → P1。フォーク元の改善のコミットに分けた）: `components/editor-history/`（中身の鍵が変わった時に 1 手・ドラッグとダイアログの間は保留・
   `HistoryGateContext` で起点と止め方を受ける）、2 つのパネルに ↶ ↷、Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z、削除の確認の文から「元に戻せません。」を外した。Web 版でドラッグ・矢印キー・枠の大きさ・確認を挟む付け替え・枠の削除・ER 図のセルと FK を確かめた。
-  **未解明**: 起点で毎回描き直すと、デスクトップで ER 図を開いた時に自動保存が始まらないことがあった（同じファイルの前のテストの後だけ。spec 30「P1 結果」）。残りは P2（デスクトップの口とツールバー）・P3
+  **未解明**: 起点で毎回描き直すと、デスクトップで ER 図を開いた時に自動保存が始まらないことがあった（同じファイルの前のテストの後だけ。spec 30「P1 結果」）。
+  **P2 着地**（コードとテスト。`tauri dev` は入れた版の Lorelei が動いていて立てられず未確認）: 外枠が `HistoryGateContext` で包み（図の準備ができた時を起点、隠すたびに捨てる）、ツールバーに ↶ ↷。
+  口を渡さない形（P1 だけ）では開いた直後の Ctrl+Z で開いた時に当てた位置が戻って保存されることを、テストで確かめた。残りは P3（配布ビルドで利用者）
 - 2026-10-31: [spec 30](specs/30_undo-redo.md) **rev1**（査読 1 本を採った）・[spec 32](specs/32_revert-to-confirmed.md) **起票**（rev0）。spec 30 から「確定へ戻す」を spec 32 へ分けた（Rust の `Document`・● の意味・MCP の契約に及ぶため）。
   spec 30 rev1: 1 手は「中身の鍵」が変わった時（差分）・デスクトップは図の準備ができた時を起点にし、図の id が替わったら・AI の載せ替えで履歴を捨てる・準備の途中とモーダルの間は効かない・
   `nodes`/`edges` の参照を持つ案に決めた。査読で、**デスクトップで開いた直後の Ctrl+Z が初期図に戻して保存する**・**同じエディタのまま図が替わる経路（AI の `open_in_editor`・インポート）で前の図の手が残る**・
