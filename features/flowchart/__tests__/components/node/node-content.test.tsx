@@ -42,7 +42,7 @@ describe("NodeContent", () => {
       render(<NodeContent {...defaultProps} />);
 
       // メニューボタンが存在することを確認
-      const menuButton = screen.getByRole("button");
+      const menuButton = screen.getByLabelText("ノードの操作メニューを開く");
       expect(menuButton).toBeInTheDocument();
     });
   });

@@ -1,0 +1,33 @@
+/*
+ * ノードの右上の形の札 (spec 29、data_contract NodeShapeBadge)。ノードはドラッグのたびに描き直すので、yamada-ui の部品 (Emotion) を通さずに描く。
+ * ノードの外枠 (position: relative、縁 2px) の外、上の縁の上に載せる: 位置は外枠の内側 (padding の縁) から測るので、縁の 2px を足す。
+ * 下端が縁にそろうので ⋮⋮ のメニュー (外枠の内側の右上) と重ならず、xyflow の測る大きさにも入らない。
+ * 色は画面の色の名 (components/providers/theme.ts) の CSS 変数。選んだ輪の青 (selectionRing) は使わない (D5)
+ */
+.badge {
+  position: absolute;
+  right: -2px;
+  bottom: calc(100% + 2px);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 4px;
+  border: 1px solid var(--ui-colors-nodeBorder);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: var(--ui-colors-surface);
+  color: var(--ui-colors-nodeBorder);
+  line-height: 0;
+  cursor: pointer;
+  appearance: none;
+  outline: none;
+}
+
+.badge:hover {
+  background: var(--ui-colors-surfaceSubtleHover);
+}
+
+.badge:focus-visible {
+  box-shadow: 0 0 0 2px var(--ui-colors-accent);
+}

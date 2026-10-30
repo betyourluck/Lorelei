@@ -1,8 +1,8 @@
 "use client";
 
 import { ShapesIcon } from "@yamada-ui/lucide";
-import { Menu, MenuButton, MenuItem, MenuList, Box, Text } from "@yamada-ui/react";
-import { SHAPE_OPTIONS } from "../../types/types";
+import { Menu, MenuButton, MenuItem, MenuList } from "@yamada-ui/react";
+import { ShapeMenuItems } from "./shape-menu-items";
 
 interface ShapeSelectorProps {
   currentShape?: string;
@@ -16,20 +16,7 @@ export const ShapeSelector = ({ currentShape, onShapeChange }: ShapeSelectorProp
         ノード形状
       </MenuButton>
       <MenuList>
-        {SHAPE_OPTIONS.map((shape) => (
-          <MenuItem
-            key={shape.type}
-            onClick={() => onShapeChange?.(shape.type)}
-            bg={currentShape === shape.type ? "selected" : undefined}
-          >
-            <Box display="flex" alignItems="center" justifyContent="space-between" w="full">
-              <Text>{shape.label}</Text>
-              <Text fontSize="sm" color="muted" fontFamily="mono">
-                {shape.symbol}
-              </Text>
-            </Box>
-          </MenuItem>
-        ))}
+        <ShapeMenuItems currentShape={currentShape} onShapeChange={onShapeChange} />
       </MenuList>
     </Menu>
   );

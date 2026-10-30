@@ -48,6 +48,12 @@ export const VariableNameEditor: FC<VariableNameEditorProps> = ({
       onClick={onClick}
       _hover={{ bg: "blue.600" }}
       zIndex={10}
+      // 長い名で右上の形の札 (spec 29) にぶつからないよう、札の手前で省略する。全文は title
+      maxW="calc(100% - 32px)"
+      overflow="hidden"
+      textOverflow="ellipsis"
+      whiteSpace="nowrap"
+      title={isEditing ? undefined : displayValue}
     >
       {isEditing ? (
         <Input

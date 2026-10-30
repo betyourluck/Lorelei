@@ -13,6 +13,7 @@ import { UI_CONSTANTS } from "../../types/types";
 import { useHandleDirection } from "../direction-context";
 import { VariableNameEditor, LabelEditor } from "../editor";
 import { NodeMenu } from "./node-menu";
+import { ShapeBadge } from "./shape-badge";
 
 interface EditableNodeProps {
   data: {
@@ -226,6 +227,9 @@ export const NodeContent: FC<EditableNodeProps> = ({ data, id, selected }) => {
         onCompositionEnd={handleCompositionEnd}
         onBlur={handleLabelSave}
       />
+
+      {/* 右上の形の札 (spec 29)。最後の子に置く (前の要素の DOM の道筋をずらさない) */}
+      <ShapeBadge shape={data.shapeType || "rectangle"} onShapeChange={handleShapeChange} />
     </Box>
   );
 };
