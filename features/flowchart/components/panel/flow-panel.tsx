@@ -5,7 +5,9 @@ import type { Node, Edge } from "@xyflow/react";
 import { PlusIcon, CodeIcon, UploadIcon, SquareDashedIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import { VStack, HStack, Text, Button, useDisclosure } from "@yamada-ui/react";
+import type { EditorHistoryActions } from "@/components/editor-history/use-editor-history";
 import { NavigationMenu } from "@/components/ui";
+import { HistoryButtons } from "@/components/ui/history-buttons";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { useDesktopActions } from "@/lib/desktop";
 import type { ParsedMermaidData } from "../../hooks/mermaid";
@@ -27,6 +29,8 @@ interface FlowPanelProps {
   /** 出力のテーマ (エディタが持つ, spec 24)。コード生成のダイアログで選ぶ */
   theme?: MermaidTheme;
   onThemeChange?: (theme: MermaidTheme) => void;
+  /** 操作の Undo / Redo (spec 30)。渡されると戻す・やり直すのボタンを出す */
+  history?: EditorHistoryActions;
 }
 
 type PanelContentProps = FlowPanelProps;
@@ -49,6 +53,7 @@ export const PanelContent: FC<PanelContentProps> = ({
   onDirectionChange,
   theme,
   onThemeChange,
+  history,
 }) => {
   const { open: openImport, onOpen: onOpenImport, onClose: onCloseImport } = useDisclosure();
   const { open: openDownload, onOpen: onOpenDownload, onClose: onCloseDownload } = useDisclosure();
@@ -95,6 +100,7 @@ export const PanelContent: FC<PanelContentProps> = ({
             インポート
           </Button>
           {direction && onDirectionChange && <DirectionMenu value={direction} onChange={onDirectionChange} />}
+          {history && <HistoryButtons {...history} />}
         </HStack>
       </VStack>
       <ImportModal open={openImport} onClose={onCloseImport} onImport={onImportMermaid} />

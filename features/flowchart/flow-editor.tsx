@@ -18,6 +18,7 @@ import {
 } from "@xyflow/react";
 import { Box, useToken } from "@yamada-ui/react";
 import { useCallback, useState, useRef, useEffect, useMemo } from "react";
+import { useEditorHistory } from "@/components/editor-history/use-editor-history";
 import { FlowLayout } from "@/components/layout/";
 import { useCanvasColors } from "@/components/layout/use-canvas-colors";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
@@ -116,6 +117,11 @@ export function FlowEditor() {
   const [direction, setDirection] = useState<GraphType>("TD");
   // 出力のテーマ (spec 24)。コード生成・プレビュー・書き出しにだけ効き、編集画面の見た目は変えない
   const [theme, setTheme] = useState<MermaidTheme>("default");
+  // 操作の Undo / Redo (spec 30)
+  const history = useEditorHistory(
+    { nodes, edges, direction, theme, nodeId },
+    { setNodes, setEdges, setDirection, setTheme, setNodeId }
+  );
   // DownloadModalの状態管理はFlowPanelに移動
   const connectingNodeId = useRef<string | null>(null);
   // メニューや枠の × で名指しして消している途中のノード (onBeforeDelete が読んで消す)
@@ -547,7 +553,6 @@ export function FlowEditor() {
         plan.kept > 0 ? `中のノード・枠 ${plan.kept} 個は残ります（外側へ移します）。` : "",
         frameEdges.length > 0 ? `枠につながる線 ${frameEdges.length} 本も消えます。` : "",
         plan.removeEdges.length > frameEdges.length || others > 0 ? "消すノードにつながっている線も一緒に消えます。" : "",
-        "元に戻せません。",
       ].join("");
       if (!(await askDelete(title, body))) return false;
       setNodes(plan.reparent);
@@ -774,6 +779,7 @@ export function FlowEditor() {
             onDirectionChange={setDirection}
             theme={theme}
             onThemeChange={setTheme}
+            history={history}
           />
         </FlowLayout>
       </ReactFlow>

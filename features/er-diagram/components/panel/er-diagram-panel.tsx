@@ -3,7 +3,9 @@ import { Panel } from "@xyflow/react";
 import { PlusIcon, DownloadIcon, UploadIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import { VStack, HStack, Text, Button, useBoolean } from "@yamada-ui/react";
+import type { EditorHistoryActions } from "@/components/editor-history/use-editor-history";
 import { NavigationMenu } from "@/components/ui";
+import { HistoryButtons } from "@/components/ui/history-buttons";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { DirectionMenu } from "@/features/flowchart/components/direction-menu";
 import type { GraphType } from "@/features/flowchart/types/types";
@@ -26,6 +28,8 @@ export type ERDiagramPanelProps = {
   /** 出力のテーマ (エディタが持つ, spec 24)。コード生成のダイアログで選ぶ */
   theme?: MermaidTheme;
   onThemeChange?: (theme: MermaidTheme) => void;
+  /** 操作の Undo / Redo (spec 30)。渡されると戻す・やり直すのボタンを出す */
+  history?: EditorHistoryActions;
 };
 
 export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
@@ -38,6 +42,7 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
   onDirectionChange,
   theme,
   onThemeChange,
+  history,
 }) => {
   const [open, setOpen] = useBoolean(false);
   const [openImport, setOpenImport] = useBoolean(false);
@@ -99,6 +104,7 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
             {direction && onDirectionChange && (
               <DirectionMenu value={direction} onChange={onDirectionChange} />
             )}
+            {history && <HistoryButtons {...history} />}
           </HStack>
         </VStack>
       </VStack>

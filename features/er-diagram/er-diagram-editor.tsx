@@ -12,6 +12,7 @@ import type {
 import type { FC } from "@yamada-ui/react";
 import { Box, useToken } from "@yamada-ui/react";
 import { useCallback, useState, useRef } from "react";
+import { useEditorHistory } from "@/components/editor-history/use-editor-history";
 import { FlowLayout } from "@/components/layout/";
 import { useCanvasColors } from "@/components/layout/use-canvas-colors";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
@@ -97,6 +98,11 @@ export const ERDiagramEditor: FC = () => {
   const [direction, setDirection] = useState<GraphType>("TD");
   // 出力のテーマ (spec 24)。コード生成・プレビュー・書き出しにだけ効き、編集画面の見た目は変えない
   const [theme, setTheme] = useState<MermaidTheme>("default");
+  // 操作の Undo / Redo (spec 30)。写すのは state のノード (ハンドラは描くたびに nodesWithHandlers で付け直す)
+  const history = useEditorHistory(
+    { nodes, edges, direction, theme, nodeId },
+    { setNodes, setEdges, setDirection, setTheme, setNodeId }
+  );
 
   // エッジラベル編集ハンドラ
   const handleEdgeLabelChange = useCallback(
@@ -350,6 +356,7 @@ export const ERDiagramEditor: FC = () => {
             onDirectionChange={setDirection}
             theme={theme}
             onThemeChange={setTheme}
+            history={history}
           />
         </FlowLayout>
       </ReactFlow>

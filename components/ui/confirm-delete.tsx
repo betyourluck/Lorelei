@@ -32,7 +32,7 @@ interface Pending {
   resolve: (ok: boolean) => void;
 }
 
-const DEFAULT_BODY = "つながっている線も一緒に消えます。元に戻せません。";
+const DEFAULT_BODY = "つながっている線も一緒に消えます。";
 
 /**
  * 削除の前の確認。xyflow の onBeforeDelete に渡すと、Backspace でも deleteElements でも同じ確認を通る

@@ -41,7 +41,7 @@ describe("useConfirmDelete — onBeforeDelete を確認のダイアログにつ�
       result = onBeforeDelete({ nodes: [node("1", "会員")], edges: [] });
     });
     expect(await screen.findByText("『会員』を削除しますか？")).toBeInTheDocument();
-    expect(screen.getByText("つながっている線も一緒に消えます。元に戻せません。")).toBeInTheDocument();
+    expect(screen.getByText("つながっている線も一緒に消えます。")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "削除" }));
     await expect(result!).resolves.toBe(true);
 

@@ -26,7 +26,7 @@ describe("フローチャートのノード削除の確認", { timeout: 15000 },
     const { user } = editor();
     await openDelete(user);
     expect(await screen.findByText("『Start』を削除しますか？")).toBeInTheDocument();
-    expect(screen.getByText("つながっている線も一緒に消えます。元に戻せません。")).toBeInTheDocument();
+    expect(screen.getByText("つながっている線も一緒に消えます。")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "削除" }));
     await waitFor(() => expect(screen.queryByText("Start")).toBeNull());
   });
