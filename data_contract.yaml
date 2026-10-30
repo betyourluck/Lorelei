@@ -538,7 +538,7 @@ GuiCommands:
   list_documents: "() → DocumentSummary[] (saved_at 、無ければ created_at の新しい順。見る・自動保存・改名では動かない, spec 02 D12)"
   create_document: "(editor, title?) → Document。origin: new、source は空 (エディタの初期図で始まり、最初の自動保存で埋まる)"
   load_document: "(id) → Document"
-  save_document: "(id, source, layout, base_updated_at) → DocumentSummary。自動保存 (D7)。title / editor / origin / original_source / saved_at は書き換えさせない。中身が同じなら書かない (normalize_pending を消す時は除く)。source が空だった図の最初の書き込みは updated_at を進めない。base_updated_at は Document.save_stale (spec 08 D2)"
+  save_document: "(id, source, layout, base_updated_at, normalize) → DocumentSummary。自動保存 (D7)。normalize は揃え書きの印 (spec 33、Document.save_normalize)。title / editor / origin / original_source / saved_at は書き換えさせない。中身が同じなら書かない (normalize_pending を消す時は除く)。source が空だった図の最初の書き込みは updated_at を進めない。base_updated_at は Document.save_stale (spec 08 D2)"
   mark_document_saved: "(id) → DocumentSummary。利用者の「確定」(Ctrl+S, D12。画面の言葉は 2026-10-04 に「保存」から「確定」へ。名詞は変えない)。saved_at を今にする = 一覧の先頭へ動き、unsaved が消える"
   rename_document: "(id, title) → ()。並びも unsaved も動かさない"
   trash_document: "(id) → ()。documents/ から trash/ へ移す。物理削除しない。history/{id}.json は動かさない (Document.history)"
@@ -602,9 +602,9 @@ Document:
     origin: { enum: [new, ai, import] }       # 来歴。update_diagram でも変えない (spec 08 裁定 4)
     original_source: { type: string, nullable: true }  # AI・インポートが最後に届けた原文 (update_diagram で置き換わる, spec 08 D1)。new は update_diagram されるまで null
     created_at: { type: string, format: "RFC 3339" }
-    updated_at: { type: string, format: "RFC 3339" }   # 中身が最後に変わった時刻。人の編集の自動保存と update_diagram で進む。first_fill と揃え書き (normalize_pending) では進まない
+    updated_at: { type: string, format: "RFC 3339" }   # 中身が最後に変わった時刻。人の編集の自動保存と update_diagram で進む。first_fill と揃え書き (normalize_pending が立っていて、保存に normalize の印がある時) では進まない
     saved_at: { type: string, format: "RFC 3339", nullable: true }   # 利用者が「確定」(旧「保存」) を押した時刻 (D12)。一覧の並びの鍵 (null なら created_at)
-    normalize_pending: { type: bool, default: false }  # update_diagram が立てる印 (spec 08 D1)。次の save はエディタの書き方に揃えるだけなので updated_at を進めず、印を消してファイルに書く (source / layout が同じでも印を消すために書く)。古いファイルに無ければ false
+    normalize_pending: { type: bool, default: false }  # update_diagram が立てる印 (spec 08 D1)。次の save で消える (source / layout が同じでも印を消すために書く)。updated_at を進めないのは、その save が揃え書きの印 (normalize) を持つ時だけ (spec 33)。古いファイルに無ければ false
   json_keys: camelCase   # ファイルと GUI の受け渡しはどちらも camelCase (originalSource / createdAt / normalizePending ...)
   default_titles:
     new: { flowchart: 無題のフローチャート, erDiagram: 無題の ER 図 }
@@ -623,7 +623,12 @@ Document:
     save_document は base_updated_at (フロントが読んだ版) を添える (spec 08 D2)。ファイルの updated_at と時刻として違えば「STALE_BASE: {今の updated_at}」で拒む (捨ててよい失敗)。
     フロントは、今の updated_at が自分の base_updated_at と同じなら黙って捨てる (載せ替えが先に届いていて画面は新しい)。違えば通知「AI が図を書き換えたので開き直します」を出してその図を開き直す。
     base は load_document・OpenRequest.document・各 save の戻り値の updated_at で更新する。mark_saved / rename / first_fill / 揃え書きでは updated_at が進まないので base は変わらない
-  save_normalize: "save_document は normalize_pending が立っていれば updated_at を進めず、印を消してファイルに書く (中身が同じでも)。first_fill とは重ならない (update は source を非空にする)。updated_at を進めない書き込みは first_fill か印の消える 1 回のどちらか 1 回だけ"
+  save_normalize: >-
+    save_document は normalize_pending をどの保存でも消してファイルに書く (中身が同じでも)。updated_at を進めないのは、保存が揃え書きの印 (normalize: true) を持つ時・中身が同じ時・first_fill の時だけ。
+    印の無い保存 (人の編集) は normalize_pending が立っていても中身が違えば updated_at を進める (spec 33: 揃え書きとして通すと AI の古い expected_updated_at が通り、人の編集が知らされずに上書きされる)。
+    フロントは図の準備ができてから最初の保存だけを、その時の中身で待たずに印付きで書き (Autosaver.saveNow)、以後は印無し。
+    「準備ができた」は位置を当てる指示の後、ノードが実際にその位置になったのを見てから (onNodesChanged の awaitingLayout。指示の直後に当たる前の変化が 1 回届く)。
+    Autosaver は保存を 1 つずつ順に送る (走っている保存の戻りを待つ)。first_fill とは重ならない (update は source を非空にする)
   update: >-
     update_diagram の書き込み (spec 08 D1)。documents/ にある図だけ (uuid の形でない・ごみ箱は NotFound)。expected_updated_at をファイルの updated_at と時刻として比べ、違えば Conflict (今の値を載せる)。
     editor が Document.editor と違えば KindMismatch。書くのは source (届いた Mermaid そのまま。生成器を通さない・空にしない) / original_source (同じ文字列) / updated_at (今) / normalize_pending (true)。
