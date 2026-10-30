@@ -197,13 +197,17 @@ impl Store {
     /// updated_at を進めない書き込みは 2 つ — source が空だった図の最初の書き込み (first_fill: 新規作成の初期図・
     /// AI / インポートで届いた図がエディタに載った時) と、update の後の最初の書き込み (揃え書き。印が立っている) — で、
     /// どちらか 1 回だけ (update は source を非空にするので重ならない)。
-    /// base_updated_at はフロントが読んだ版 (spec 08 D2)。ファイルが進んでいれば STALE_BASE で拒む
+    /// base_updated_at はフロントが読んだ版 (spec 08 D2)。ファイルが進んでいれば STALE_BASE で拒む。
+    /// normalize はフロントが「図の準備ができてから最初の保存 (揃え書き)」に付ける印 (spec 33)。印の無い保存は人の編集なので、
+    /// normalize_pending が立っていても揃え書きにせず、中身が違えば updated_at を進めて印を消す
+    /// (揃え書きとして通すと AI の古い expected_updated_at が通り、人の編集が知らされずに上書きされる)
     pub fn save(
         &self,
         id: &str,
         source: String,
         layout: Layout,
         base_updated_at: &str,
+        normalize: bool,
     ) -> Result<DocumentSummary, String> {
         let _lock = lock();
         // ごみ箱へ移した・消えた図への書き込みは、書き直しても通らない。フロントが見分けて捨てる印を付ける
@@ -223,15 +227,16 @@ impl Store {
                 "{INITIAL_FIGURE_REJECTED}: AI やインポートで届いた図を、エディタの初期図で上書きしかけたので止めました"
             ));
         }
-        let normalizing = doc.normalize_pending;
-        if doc.source == source && doc.layout == layout && !normalizing {
+        let pending = doc.normalize_pending;
+        let unchanged = doc.source == source && doc.layout == layout;
+        if unchanged && !pending {
             return Ok((&doc).into());
         }
         doc.source = source;
         doc.layout = layout;
-        if normalizing {
-            doc.normalize_pending = false;
-        } else if !first_fill {
+        // 印は どの保存でも消す。進めないのは、揃え書き (印付き)・中身が同じ・最初の書き込みの時だけ
+        doc.normalize_pending = false;
+        if !(pending && normalize) && !unchanged && !first_fill {
             doc.updated_at = now();
         }
         self.write(&doc)?;
@@ -404,10 +409,11 @@ mod tests {
         Store::new(root)
     }
 
-    /// 自動保存の形: 今のファイルの updated_at を base に添える (spec 08 D2)。無い図は空の base
+    /// 自動保存の形: 今のファイルの updated_at を base に添える (spec 08 D2)。無い図は空の base。
+    /// 揃え書きの印を付ける (フロントの「準備ができてから最初の保存」と同じ。印の無い保存は spec 33 のテストで見る)
     fn sv(s: &Store, id: &str, source: &str, layout: Layout) -> Result<DocumentSummary, String> {
         let base = s.load(id).map(|d| d.updated_at).unwrap_or_default();
-        s.save(id, source.into(), layout, &base)
+        s.save(id, source.into(), layout, &base, true)
     }
 
     // spec 15 D4: 枠 (サブグラフ) は位置に加えて大きさを持つ。フロントから届いた width / height を保存し、読み戻す。
@@ -543,14 +549,14 @@ mod tests {
         sv(&s, &d.id, "flowchart TD\n    A[A]\n", BTreeMap::new()).unwrap();
         let cur = s.load(&d.id).unwrap().updated_at;
 
-        let err = s.save(&d.id, "flowchart TD\n    old[old]\n".into(), BTreeMap::new(), "2026-09-25T10:00:00+09:00").unwrap_err();
+        let err = s.save(&d.id, "flowchart TD\n    old[old]\n".into(), BTreeMap::new(), "2026-09-25T10:00:00+09:00", true).unwrap_err();
         assert!(err.starts_with(STALE_BASE), "{err}");
         assert!(err.ends_with(&cur), "今の値を載せる: {err}");
         assert_eq!(s.load(&d.id).unwrap().source, "flowchart TD\n    A[A]\n");
         // 時刻として同じ瞬間なら通る。読めない base は拒む
         let utc = chrono::DateTime::parse_from_rfc3339(&cur).unwrap().to_utc().to_rfc3339();
-        s.save(&d.id, "flowchart TD\n    B[B]\n".into(), BTreeMap::new(), &utc).unwrap();
-        assert!(s.save(&d.id, "flowchart TD\n    C[C]\n".into(), BTreeMap::new(), "").unwrap_err().starts_with(STALE_BASE));
+        s.save(&d.id, "flowchart TD\n    B[B]\n".into(), BTreeMap::new(), &utc, true).unwrap();
+        assert!(s.save(&d.id, "flowchart TD\n    C[C]\n".into(), BTreeMap::new(), "", true).unwrap_err().starts_with(STALE_BASE));
     }
 
     // spec 08 D1: update の後の最初の save (揃え書き) は updated_at を進めず印を消す。中身が同じでも印を消すために書く
@@ -588,6 +594,36 @@ mod tests {
         let cur = s.load(&ai.id).unwrap().updated_at;
         s.update(&ai.id, "flowchart TD\n  startNode[Start]\n".into(), Editor::Flowchart, &cur).unwrap();
         sv(&s, &ai.id, initial_source(Editor::Flowchart), BTreeMap::new()).unwrap();
+    }
+
+    // spec 33: 印の無い保存 (人の編集) は、update の後の印 (normalize_pending) が立っていても揃え書きにしない。
+    // 揃え書きとして updated_at を進めずに書くと、AI の古い expected_updated_at が通り、人の編集が知らされずに上書きされる
+    #[test]
+    fn an_unmarked_save_after_update_is_a_human_edit() {
+        let s = store();
+        let d = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
+        sv(&s, &d.id, "flowchart TD\n    A[A]\n", BTreeMap::new()).unwrap();
+        let cur = s.load(&d.id).unwrap().updated_at;
+        let updated = s.update(&d.id, "flowchart LR\n  A --> B\n".into(), Editor::Flowchart, &cur).unwrap();
+
+        // 中身の違う印の無い保存は進め、印を消す
+        let edit = "flowchart LR\n    A[A]\n    B[B]\n    C[C]\n";
+        let saved = s.save(&d.id, edit.into(), BTreeMap::new(), &updated.updated_at, false).unwrap();
+        assert!(saved.updated_at > updated.updated_at, "人の編集は AI の版に数えない");
+        assert!(!s.load(&d.id).unwrap().normalize_pending);
+        // AI が古い版のまま書き換えようとすると断られる
+        assert!(matches!(
+            s.update(&d.id, "flowchart LR\n  X\n".into(), Editor::Flowchart, &updated.updated_at),
+            Err(UpdateError::Conflict { .. })
+        ));
+
+        // 印の無い保存でも、中身がファイルと同じなら進めず、印だけ消す (開いただけで「変更あり」にしない)
+        let cur = saved.updated_at;
+        let updated = s.update(&d.id, "flowchart LR\n    A[A]\n".into(), Editor::Flowchart, &cur).unwrap();
+        let same = "flowchart LR\n    A[A]\n";
+        let saved = s.save(&d.id, same.into(), BTreeMap::new(), &updated.updated_at, false).unwrap();
+        assert_eq!(saved.updated_at, updated.updated_at);
+        assert!(!s.load(&d.id).unwrap().normalize_pending);
     }
 
     #[test]

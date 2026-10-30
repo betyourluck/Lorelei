@@ -116,6 +116,14 @@ export const layoutReady = ({
  * (遅れて効いたページ移動で、ER 図のノードがフローの図として保存された。spec 04 P0)。
  * settled は「エディタを見せてよい」: 準備済みで、位置を当て終えた (spec 05 D4。初期図と当てる前の配置を見せない)。
  */
+/** 当てた位置にノードが実際に居る (layout に無いキー・今に無いノードは見ない)。浮動小数点の往復のずれは許す */
+const layoutApplied = (editor: EditorKind, nodes: Node[], layout: Layout): boolean => {
+  const now = collectLayout(editor, nodes);
+  return Object.entries(layout).every(
+    ([k, p]) => !(k in now) || (Math.abs(now[k].x - p.x) <= 1e-6 && Math.abs(now[k].y - p.y) <= 1e-6)
+  );
+};
+
 export const onNodesChanged = ({
   ready,
   imported,
@@ -124,6 +132,7 @@ export const onNodesChanged = ({
   editor,
   nodes,
   layout,
+  awaitingLayout = false,
 }: {
   ready: boolean;
   imported: boolean;
@@ -134,9 +143,18 @@ export const onNodesChanged = ({
   editor: EditorKind;
   nodes: Node[];
   layout: Layout;
+  /**
+   * 位置を当てる指示 (applyLayout) を出した後で、まだ当たったのを見ていない (spec 33 P1)。
+   * 指示の直後に、位置がまだ当たっていないノードの変化 (xyflow の測り直し) が届くので、それで準備済みにしない
+   */
+  awaitingLayout?: boolean;
 }): { ready: boolean; applyLayout: boolean; save: boolean; settled: boolean } => {
   if (page !== editor) return { ready: false, applyLayout: false, save: false, settled: false };
-  if (ready) return { ready: true, applyLayout: false, save: true, settled: true };
+  if (ready) {
+    if (awaitingLayout && !layoutApplied(editor, nodes, layout))
+      return { ready: true, applyLayout: false, save: false, settled: false };
+    return { ready: true, applyLayout: false, save: true, settled: true };
+  }
   if (!expected || !layoutReady({ imported, expected, editor, nodes }))
     return { ready: false, applyLayout: false, save: false, settled: false };
   // 当てる位置が 1 つも無ければ (全ノードを改名した載せ替え) 当てる回を飛ばす — 当てても変化が起きず、保存と表示が止まる (spec 08 D3)
@@ -174,16 +192,25 @@ export const toSource = (
     ? generateMermaidCode({ nodes, edges }, direction, theme)
     : generateERDiagramMermaidCode(nodes as never, edges, direction, theme);
 
+type Job<T> = { id: string; produce: () => T };
+
 /**
  * 変化から `delay` ms 待って保存する。図を切り替える前・閉じる前は flush。
  * 保存する中身は保存する瞬間に作る (produce)。失敗した変更は捨てず、flush は失敗を投げる (閉じる時に止めるため)。
+ * 保存は 1 つずつ順に送る: 走っている保存の戻り (新しい updated_at) を待ってから次を送る (spec 33 D2。待たないと次が STALE_BASE になり、
+ * 図を離れる時に走っている保存が残る)。揃え書き (saveNow、印付き) は待っている人の編集 (touch) とは別に持ち、先に書く
  */
 export class Autosaver<T> {
-  private pending: { id: string; produce: () => T } | null = null;
+  private pending: Job<T> | null = null;
+  /** 揃え書き (印付き、spec 33 D1)。touch に上書きされない */
+  private urgent: Job<T> | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
+  /** 走っている保存の列の最後 (無ければ空いている) */
+  private tail: Promise<void> | null = null;
 
   constructor(
-    private readonly save: (id: string, payload: T) => Promise<unknown>,
+    /** normalize は揃え書きの印 (saveNow で積んだ保存だけ true) */
+    private readonly save: (id: string, payload: T, normalize: boolean) => Promise<unknown>,
     private readonly delay: number,
     /** 捨ててよい失敗 (書き直しても通らない)。変更を残さず、flush も失敗させない。知らせるのは save の側 */
     private readonly discardable: (e: unknown) => boolean = () => false
@@ -200,18 +227,42 @@ export class Autosaver<T> {
     }, this.delay);
   }
 
-  /** 変化が無ければ何もしない。失敗したら変更を残したまま投げる */
-  async flush(): Promise<void> {
+  /** 揃え書き: 待たずに印付きで保存する。待っている人の編集 (touch) はこの後に印の無い保存で書く */
+  saveNow(id: string, produce: () => T): void {
+    this.urgent = { id, produce };
+    this.flush().catch(() => {
+      // 失敗は save の側が知らせる
+    });
+  }
+
+  /** 変化が無ければ何もしない。走っている保存を待ってから、残っている変更を全部書く。失敗したら変更を残したまま投げる */
+  flush(): Promise<void> {
     this.clearTimer();
-    const job = this.pending;
-    if (!job) return;
-    this.pending = null;
-    try {
-      await this.save(job.id, job.produce());
-    } catch (e) {
-      if (this.discardable(e)) return;
-      if (!this.pending) this.pending = job;
-      throw e;
+    const run = () => this.drain();
+    const done = this.tail ? this.tail.then(run) : run();
+    const tail = done.catch(() => {});
+    this.tail = tail;
+    void tail.then(() => {
+      if (this.tail === tail) this.tail = null;
+    });
+    return done;
+  }
+
+  private async drain(): Promise<void> {
+    for (;;) {
+      const urgent = this.urgent !== null;
+      const job = this.urgent ?? this.pending;
+      if (!job) return;
+      if (urgent) this.urgent = null;
+      else this.pending = null;
+      try {
+        await this.save(job.id, job.produce(), urgent);
+      } catch (e) {
+        if (this.discardable(e)) return;
+        if (urgent) this.urgent ??= job;
+        else this.pending ??= job;
+        throw e;
+      }
     }
   }
 
@@ -219,10 +270,11 @@ export class Autosaver<T> {
   cancel(): void {
     this.clearTimer();
     this.pending = null;
+    this.urgent = null;
   }
 
   get dirty(): boolean {
-    return this.pending !== null;
+    return this.pending !== null || this.urgent !== null;
   }
 
   private clearTimer(): void {

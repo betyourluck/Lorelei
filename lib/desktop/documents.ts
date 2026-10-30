@@ -31,13 +31,18 @@ export const listDocuments = (): Promise<DocumentSummary[]> => invoke("list_docu
 export const createDocument = (editor: EditorKind, title?: string): Promise<DocumentFull> =>
   invoke("create_document", { editor, title: title ?? null });
 export const loadDocument = (id: string): Promise<DocumentFull> => invoke("load_document", { id });
-/** 自動保存 (D7)。並びは動かさない。baseUpdatedAt は読んだ版 — ファイルが進んでいれば STALE_BASE で拒まれる (spec 08 D2) */
+/**
+ * 自動保存 (D7)。並びは動かさない。baseUpdatedAt は読んだ版 — ファイルが進んでいれば STALE_BASE で拒まれる (spec 08 D2)。
+ * normalize は図の準備ができてから最初の保存 (揃え書き) の印 (spec 33)。印の無い保存は人の編集として updated_at を進める
+ */
 export const saveDocument = (
   id: string,
   source: string,
   layout: Layout,
-  baseUpdatedAt: string
-): Promise<DocumentSummary> => invoke("save_document", { id, source, layout, baseUpdatedAt });
+  baseUpdatedAt: string,
+  normalize = false
+): Promise<DocumentSummary> =>
+  invoke("save_document", { id, source, layout, baseUpdatedAt, normalize });
 /** 利用者の「確定」(D12。旧「保存」)。一覧の先頭へ動き、● が消える */
 export const markDocumentSaved = (id: string): Promise<DocumentSummary> =>
   invoke("mark_document_saved", { id });

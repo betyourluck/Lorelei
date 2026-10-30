@@ -175,6 +175,28 @@ describe("onNodesChanged — ストアのノードが変わった時にするこ
     ).toEqual({ ready: true, applyLayout: true, save: false, settled: false });
   });
 
+  // spec 33 P1 で見つけた: 位置を当てる指示の直後に、位置がまだ当たっていないノードの変化 (xyflow の測り直し) が 1 回届き、
+  // それで準備済み・保存・Undo の起点になっていた (1 秒の待ちに隠れていた)。当たったのを見てから準備済みにする
+  it("位置を当てる指示の後は、ノードが実際にその位置になるまで保存も見せもしない", () => {
+    const layout = { 会員: { x: 1, y: 2 } };
+    const base = { imported: true, expected: ["会員"], page: "erDiagram" as const, editor: "erDiagram" as const, layout };
+    expect(
+      onNodesChanged({ ...base, ready: true, awaitingLayout: true, nodes: [erNode("会員", "会員", 0, 0)] })
+    ).toEqual({ ready: true, applyLayout: false, save: false, settled: false });
+    expect(
+      onNodesChanged({ ...base, ready: true, awaitingLayout: true, nodes: [erNode("会員", "会員", 1, 2)] })
+    ).toEqual({ ready: true, applyLayout: false, save: true, settled: true });
+    // 位置の無いノード (layout に無いキー) は見ない
+    expect(
+      onNodesChanged({
+        ...base,
+        ready: true,
+        awaitingLayout: true,
+        nodes: [erNode("会員", "会員", 1, 2), erNode("注文", "注文", 9, 9)],
+      }).save
+    ).toBe(true);
+  });
+
   it("ページのエディタが今の図の種類と違えば、準備済みでも保存せず、準備前に戻す (spec 04 P0)", () => {
     // 実機で観測 (2026-09-25): フローの図を開いたまま、遅れて効いたページ移動で ER 図のエディタが載り、
     // ER 図のノードがフローの図として保存された (flowchart TD / node部署[] ...)
@@ -267,7 +289,7 @@ describe("Autosaver — 1 秒待って保存、切り替え・終了の前は fl
     expect(save).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
     expect(save).toHaveBeenCalledTimes(1);
-    expect(save).toHaveBeenCalledWith("doc-1", "v2");
+    expect(save).toHaveBeenCalledWith("doc-1", "v2", false);
   });
 
   it("flush は待たずに保存し、変化が無ければ何もしない", async () => {
@@ -277,7 +299,7 @@ describe("Autosaver — 1 秒待って保存、切り替え・終了の前は fl
     expect(save).not.toHaveBeenCalled();
     a.touch("doc-1", () => "v1");
     await a.flush();
-    expect(save).toHaveBeenCalledWith("doc-1", "v1");
+    expect(save).toHaveBeenCalledWith("doc-1", "v1", false);
     await vi.advanceTimersByTimeAsync(2000);
     expect(save).toHaveBeenCalledTimes(1);
   });
@@ -289,7 +311,7 @@ describe("Autosaver — 1 秒待って保存、切り替え・終了の前は fl
     await expect(a.flush()).rejects.toThrow("disk");
     await a.flush();
     expect(save).toHaveBeenCalledTimes(2);
-    expect(save).toHaveBeenLastCalledWith("doc-1", "v1");
+    expect(save).toHaveBeenLastCalledWith("doc-1", "v1", false);
   });
 
   it("捨ててよい失敗 (初期図での上書きを Rust が拒んだ) は、変更を捨てて flush を通す (spec 04 D4-2)", async () => {
@@ -314,6 +336,68 @@ describe("Autosaver — 1 秒待って保存、切り替え・終了の前は fl
     expect(isDocumentGone("DOCUMENT_GONE: 図が一覧にありません")).toBe(true);
     expect(isDocumentGone("図を読めません: disk")).toBe(false);
     expect(isInitialFigureRejected("DOCUMENT_GONE: 図が一覧にありません")).toBe(false);
+  });
+
+  // spec 33 D2: 走っている保存の戻り (新しい updated_at) を待たずに次を送ると、次が STALE_BASE になる・図を離れる時に保存が残る
+  it("flush は走っている保存の終わりを待ってから次を送り、全部を書き終えてから戻る", async () => {
+    let release!: () => void;
+    const save = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise<void>((r) => (release = r)))
+      .mockResolvedValue(undefined);
+    const a = new Autosaver(save, 1000);
+    a.touch("doc-1", () => "v1");
+    const first = a.flush();
+    expect(save).toHaveBeenCalledTimes(1);
+    a.touch("doc-1", () => "v2");
+    let done = false;
+    const second = a.flush().then(() => (done = true));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(done).toBe(false);
+
+    release();
+    await first;
+    await second;
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenLastCalledWith("doc-1", "v2", false);
+  });
+
+  // spec 33 D1: 揃え書き (印付き) は待たずにすぐ書き、その間の人の編集 (touch) に中身も印も上書きされない
+  it("saveNow は印付きですぐ保存し、後から来た touch は別の (印の無い) 保存になる", async () => {
+    let release!: () => void;
+    const save = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise<void>((r) => (release = r)))
+      .mockResolvedValue(undefined);
+    const a = new Autosaver(save, 1000);
+    // 走っている保存がある間に、揃え書きと人の編集が来る
+    a.touch("doc-1", () => "old");
+    void a.flush();
+    a.saveNow("doc-1", () => "ai");
+    a.touch("doc-1", () => "human");
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(save).toHaveBeenNthCalledWith(2, "doc-1", "ai", true);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(save).toHaveBeenNthCalledWith(3, "doc-1", "human", false);
+    expect(save).toHaveBeenCalledTimes(3);
+  });
+
+  it("cancel は揃え書きの待ちも捨てる", async () => {
+    let release!: () => void;
+    const save = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise<void>((r) => (release = r)))
+      .mockResolvedValue(undefined);
+    const a = new Autosaver(save, 1000);
+    a.touch("doc-1", () => "old");
+    void a.flush();
+    a.saveNow("doc-1", () => "ai");
+    a.cancel();
+    release();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(save).toHaveBeenCalledTimes(1);
   });
 
   it("別の図に切り替えた後に古い図の変更は保存しない (cancel)", async () => {

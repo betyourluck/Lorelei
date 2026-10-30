@@ -113,11 +113,16 @@ export function fakeBackend() {
         if (!d) throw "DOCUMENT_GONE: 図が一覧にありません";
         // src-tauri documents::STALE_BASE と同じ (spec 08 D2): 古い版を添えた書き込みは届かせず、今の値を載せる
         if (args.baseUpdatedAt !== d.updatedAt) throw `STALE_BASE: ${d.updatedAt}`;
+        // src-tauri documents::Store::save と同じ規則 (spec 33): 中身が同じなら書かない。印 (normalize_pending) はどの保存でも消し、
+        // 進めないのは揃え書き (normalize の印付き)・中身が同じ・最初の書き込みの時だけ
         const firstFill = d.source === "";
-        const normalizing = d.normalizePending;
+        const pending = d.normalizePending;
+        const unchanged =
+          d.source === args.source && JSON.stringify(d.layout) === JSON.stringify(args.layout);
+        if (unchanged && !pending) return summary(d);
         Object.assign(d, { source: args.source, layout: args.layout });
-        if (normalizing) d.normalizePending = false;
-        else if (!firstFill) d.updatedAt = now();
+        d.normalizePending = false;
+        if (!(pending && args.normalize === true) && !unchanged && !firstFill) d.updatedAt = now();
         return summary(d);
       }
       case "mark_document_saved": {

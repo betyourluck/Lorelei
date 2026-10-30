@@ -128,6 +128,10 @@ export function useDocSession(
 
   const currentRef = useRef<DocumentSummary | null>(null);
   const readyRef = useRef(false);
+  /** 次の保存が、準備ができてから最初の保存 (揃え書き) か (spec 33)。準備ができていない回を通るたびに立てる */
+  const firstSaveRef = useRef(true);
+  /** 位置を当てる指示を出し、当たったのをまだ見ていない (spec 33 P1。onNodesChanged の awaitingLayout) */
+  const awaitingLayoutRef = useRef(false);
   const importedRef = useRef(false);
   const expectedRef = useRef<string[] | null>(null);
   const layoutRef = useRef<Layout>({});
@@ -147,9 +151,9 @@ export function useDocSession(
 
   const autosaver = useMemo(
     () =>
-      new Autosaver<Snapshot>(async (id, s) => {
+      new Autosaver<Snapshot>(async (id, s, normalize) => {
         try {
-          const saved = await saveDocument(id, s.source, s.layout, baseRef.current);
+          const saved = await saveDocument(id, s.source, s.layout, baseRef.current, normalize);
           setSaveError(null);
           if (currentRef.current?.id === id) baseRef.current = saved.updatedAt;
           // 自動保存では並びを動かさない (D12)。● だけ更新する
@@ -187,6 +191,10 @@ export function useDocSession(
       }, AUTOSAVE_DELAY_MS, (e) => isInitialFigureRejected(e) || isDocumentGone(e) || isStaleBase(e)),
     []
   );
+
+  // 外枠が消える時は、待っている保存を捨てる (実物では閉じる時で、閉じる前の保存は onCloseRequested の flush が済ませている)。
+  // 捨てないと、消えた外枠の 1 秒の待ちが後から届く (テストでは次のテストの図に書き込んだ, spec 33 P1)
+  useEffect(() => () => autosaver.cancel(), [autosaver]);
 
   const refreshList = useCallback(async () => {
     const docs = await listDocuments();
@@ -385,21 +393,35 @@ export function useDocSession(
       editor: doc.editor,
       nodes,
       layout,
+      awaitingLayout: awaitingLayoutRef.current,
     });
+    if (next.applyLayout) awaitingLayoutRef.current = true;
+    if (next.save || !next.ready) awaitingLayoutRef.current = false;
     readyRef.current = next.ready;
     // 位置を当てる回 (settled でない) はまだ履歴を始めない。当てた後の回が起点 (当てたこと自体を 1 手にしない)
     setHistoryReady(next.ready && next.settled);
     if (next.settled) setSettled(true);
     if (next.applyLayout) rf.setNodes((ns) => withLayout(doc.editor, ns, layout));
-    if (!next.save) return;
+    if (!next.save) {
+      firstSaveRef.current = true;
+      return;
+    }
     const n = nodes;
     const e = edges;
     const d = direction;
     const t = theme;
-    autosaver.touch(doc.id, () => ({
+    const produce = () => ({
       source: toSource(doc.editor, n, e, d, t),
       layout: collectLayout(doc.editor, n),
-    }));
+    });
+    // 準備ができてから最初の保存は揃え書き: その時の中身 (届いた図に位置を当てたもの) だけを、待たずに印付きで書く。
+    // 1 秒待つと、その間の人の編集が揃え書きに混ざり、updated_at を進めずに書かれる (spec 33)
+    if (firstSaveRef.current) {
+      firstSaveRef.current = false;
+      autosaver.saveNow(doc.id, produce);
+    } else {
+      autosaver.touch(doc.id, produce);
+    }
   }, [nodes, edges, direction, theme, rf, autosaver]);
 
   // 今の図と違う種類のページに居て、これから取り込む図も無い = 遅れて効いたページ移動で迷い込んだ。

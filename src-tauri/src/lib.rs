@@ -227,15 +227,17 @@ fn load_document(id: String) -> Result<documents::Document, String> {
     store()?.load(&id)
 }
 
-/// 自動保存 (D7)。並びは動かさない。base_updated_at はフロントが読んだ版 (spec 08 D2、STALE_BASE)
+/// 自動保存 (D7)。並びは動かさない。base_updated_at はフロントが読んだ版 (spec 08 D2、STALE_BASE)。
+/// normalize は図の準備ができてから最初の保存 (揃え書き) の印 (spec 33)
 #[tauri::command]
 fn save_document(
     id: String,
     source: String,
     layout: documents::Layout,
     base_updated_at: String,
+    normalize: bool,
 ) -> Result<documents::DocumentSummary, String> {
-    store()?.save(&id, source, layout, &base_updated_at)
+    store()?.save(&id, source, layout, &base_updated_at, normalize)
 }
 
 /// 利用者の「保存」(D12)。一覧の先頭へ動く
@@ -478,7 +480,7 @@ mod tests {
         let opened = deliver(app.handle(), &store, "flowchart TD\n  A --> B\n".into(), Some("注文".into())).unwrap();
         let mut layout = documents::Layout::new();
         layout.insert("A".into(), documents::Pos { x: 10.0, y: 20.0, width: None, height: None });
-        store.save(&opened.id, "flowchart TD\n    A[A]\n    B[B]\n    A --> B\n".into(), layout, &opened.updated_at).unwrap();
+        store.save(&opened.id, "flowchart TD\n    A[A]\n    B[B]\n    A --> B\n".into(), layout, &opened.updated_at, true).unwrap();
         let cur = store.load(&opened.id).unwrap().updated_at;
         app.state::<PendingOpens>().0.lock().unwrap().clear();
         let req = |source: &str, expected: &str, open: bool| UpdateRequest {
