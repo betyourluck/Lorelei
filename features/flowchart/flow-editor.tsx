@@ -561,8 +561,9 @@ export function FlowEditor() {
     [getNodes, setNodes, confirmNodeDelete, askDelete]
   );
 
+  // adjust: 取り込んだノードを当てる前にかける (省略できる。デスクトップの「確定へ戻す」が保存した位置を当てるのに使う, spec 32 D4)
   const handleImportMermaid = useCallback(
-    (data: ParsedMermaidData) => {
+    (data: ParsedMermaidData, adjust?: (nodes: Node[]) => Node[]) => {
       // 取り込んだ図の向き (無ければ TD)。配置もこの向きに合わせる
       const importedDirection = normalizeDirection(data.direction);
       setDirection(importedDirection);
@@ -685,7 +686,8 @@ export function FlowEditor() {
         },
       }));
 
-      setNodes([...frameNodes, ...convertedNodes]);
+      const imported = [...frameNodes, ...convertedNodes];
+      setNodes(adjust ? adjust(imported) : imported);
       setEdges(convertedEdges);
 
       // インポートされたノード数を次のnodeIdに設定

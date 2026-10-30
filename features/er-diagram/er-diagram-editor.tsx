@@ -159,8 +159,9 @@ export const ERDiagramEditor: FC = () => {
   }, [nodeId, setNodes]);
 
   // Mermaidインポート処理
+  // adjust: 取り込んだノードを当てる前にかける (省略できる。デスクトップの「確定へ戻す」が保存した位置を当てるのに使う, spec 32 D4)
   const handleImportMermaid = useCallback(
-    (data: ParsedMermaidERData) => {
+    (data: ParsedMermaidERData, adjust?: (nodes: Node[]) => Node[]) => {
       // 取り込んだ図の向き (無ければ TD)。配置もこの向きに合わせる
       const importedDirection = normalizeDirection(data.direction);
       setDirection(importedDirection);
@@ -182,7 +183,7 @@ export const ERDiagramEditor: FC = () => {
         },
       }, importedDirection);
 
-      setNodes(importedNodes);
+      setNodes(adjust ? (adjust(importedNodes) as typeof importedNodes) : importedNodes);
       setEdges(data.edges);
 
       // 次のノードIDを更新（重複を避けるため）
