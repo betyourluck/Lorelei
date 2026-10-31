@@ -401,16 +401,16 @@ CanvasSelection:
 
 NodeShapeBadge:
   description: >-
-    フローチャートのノードの右上の、形のアイコンの札 (spec 29)。ノードは形にかかわらず四角で描くので、Mermaid のどの形になるかをこれで見せる。フォーク元の改善 (Web 版とデスクトップで同じ)
-  shapes: "MermaidShapeType の 6 つ (rectangle / diamond / rounded / circle / hexagon / stadium)。絵は 6 つとも自前の SVG (16px、線は currentColor、aria-hidden)。lucide の組では角丸と四角形・左右が尖る六角形を表せない"
-  position: "ノードの外枠の要素の最後の子。position absolute、bottom calc(100% + 2px)・right -2px (外枠の内側から測るので縁の 2px を足し、下端と右端をノードの外側の縁にそろえる)。26×19px (spec 29 P1 で測った)。⋮⋮ のメニュー (ノードの内側の右上 24px 四方) と重ならない。xyflow の測った大きさに入らない"
+    フローチャートのノードの左上、変数名の青い札の左の、形のアイコンの札 (spec 29。2026-10-31 に右上から移した)。ノードは形にかかわらず四角で描くので、Mermaid のどの形になるかをこれで見せる。フォーク元の改善 (Web 版とデスクトップで同じ)
+  shapes: "MermaidShapeType の 6 つ (rectangle / diamond / rounded / circle / hexagon / stadium)。絵は 6 つとも自前の SVG (札では 13px、メニューの項目では 16px。線は currentColor、aria-hidden)。lucide の組では角丸と四角形・左右が尖る六角形を表せない"
+  position: "ノードの外枠の要素の最後の子。position absolute、top -12px・left 0 (変数名の札と同じ基準)、21×17px (変数名の札と同じ高さ、四辺に縁・角 2px)。変数名の札はその右 (left 23px = 札の幅と隙間 2px)。xyflow の測った大きさに入らない"
   press: >-
     札は素のボタン (aria-label・title に形の名)。押すと形のメニュー (6 つの項目、⋮⋮ の「ノード形状」と同じ部品 ShapeMenuItems) を開く。
     メニューは押した時だけ差し込み (components/ui/use-deferred-menu.ts、spec 23 の矢印の切り替えと同じ仕組み)、リストは Portal で文書の直下に出す (failures #28)。
     札は nodrag (押してもノードのドラッグを始めない) で、ダブルクリックを外枠へ伝えない (ラベルの編集を始めない)
   colors: "地は surface、線と縁は nodeBorder (spec 27 の色の名)。青 (selectionRing・左の札) は使わない。選んだ輪 (CanvasSelection.mark) は札の所で札に覆われる (左の札と同じ)"
   routing: "線を回す処理 (spec 17〜22) は札を避けない (左の札と同じ)。回した線・線のボタンが札に重なることは許す"
-  variable_badge: "左上の変数名の札 (括弧で形を書く、今のまま) は幅に上限を持ち、はみ出す名は省略する (全文は title)。右上の札にぶつからない"
+  variable_badge: "左上の変数名の札 (括弧で形を書く、今のまま) は形の札の右に並び、幅に上限 (calc(100% - 55px)、右端はノードの内側の右上の ⋮⋮ の 8px 手前) を持ち、はみ出す名は省略する (全文は title)"
 
 EditorHistory:
   description: >-

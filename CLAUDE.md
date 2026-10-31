@@ -63,6 +63,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-31: [spec 29](specs/29_node-shape-icon.md) の札を**左上の変数名の青い札の左へ移した**（フォーク元 `5b9e6f9`。利用者の言「右上につけるとちょっと浮いてしまう」）。札は青い札と同じ高さ 17px・幅 21px、青い札は 23px 右へずれ右端は前と同じ（spec 29「P2 の後の改め」）。
+  開発サーバーの Web 版で寸法・メニュー・長い名の省略・ダークを確かめ、利用者が画面を見て「Good」。配布ビルドでの確かめは spec 34 P5 と一緒に
 - 2026-10-31: [spec 34](specs/34_desktop-ui-language.md) **P4 着地**（`7084939`、TS・Rust・fixture を 1 つのコミット）: ER 図の初期図のテーブルの名を言語ごとに（`initialERNodes(lng?)`、日本語「ユーザー」・英語「User」）、
   Rust の保険は `initial_sources(editor)` の全部の言語の初期図と比べる。**TS と Rust の初期図は fixture `src-tauri/tests/fixtures/initial_sources.json` で結んだ**（`doc-session.test.ts` が `LORELEI_UPDATE_FIXTURES=1` で書き、Rust のテストが比べる。片側だけ変えるとそれぞれ 2 件落ちる）。
   Web 版を英語で直に開くと、最初の描画が日本語なので初期図は「ユーザー」のまま（裁定の範囲、data_contract に書いた）。残りは P5（配布ビルドで利用者が確かめる。macOS・Linux の言語の判定は Actions の版で）
