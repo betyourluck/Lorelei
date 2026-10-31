@@ -460,7 +460,8 @@ FontBundle:
   description: PNG / PDF 変換で使うフォント。OS のフォントに依存しない
   fonts: [NotoSansJP-Regular, NotoSansJP-Bold, NotoSansSC-Regular, NotoSansSC-Bold, NotoSansKR-Regular, NotoSansKR-Bold]   # OFL-1.1。静的フォント (可変は fontdb が Thin で読む, P0-3)。About と THIRD_PARTY_LICENSES に表示。SC・KR は spec 35 D4
   source: >-
-    Noto Sans JP・SC・KR の可変フォント v2.004 (google/fonts の ofl/notosansjp・notosanssc・notosanskr) から scripts/build-fonts.py で wght=400 / 700 を切り出す (同じ入力から同じバイト列、3 つの入力の sha256 を出力に記録)。
+    Noto Sans JP・SC・KR の可変フォントから scripts/build-fonts.py で wght=400 / 700 を切り出す (同じ入力から同じバイト列、3 つの入力の sha256 は crates/lorelei_core/fonts/SOURCES.txt)。
+    入力: JP は Windows 11 の C:/Windows/Fonts/NotoSansJP-VF.ttf (sha256 5113756f…、今の 2 本がバイト単位で作り直せることを spec 35 P2 で確かめた)、SC・KR は google/fonts の main の NotoSansSC[wght].ttf・NotoSansKR[wght].ttf (v2.004)。
     JP は全部。SC は SC の cmap のうち JP に無い字 (14,811 字)、KR は KR の cmap のうち JP にも SC にも無い字 (11,587 字、ハングルの音節 11,172 字を含む)。
     大きさ (spec 35 P0): JP 各 5.8MB、SC 各 5.5MB、KR 各 2.7MB (SC・KR を足して +16.4MB。全部を同梱すると +33.6MB)
   fallback: >-
@@ -468,7 +469,7 @@ FontBundle:
     usvg の既定は太さを見ない (外す条件が斜体・太さ・幅の全部が違う時だけ) ので使わない。字を持つかは ttf-parser で引く。PNG・PDF・MCP の preview は同じ usvg::Options を通る
   han_glyphs: "JP にある漢字は JP の字形で描く (中国語のラベルでも。図のラベルの言語は分からないので並びを変えない。LORELEI.md の既知の制約)"
   loading: "fontdb::Source::Binary(Arc::new(&'static [u8])) で読み、include_bytes! のバイト列をヒープへ写さない"
-  license: "OFL.txt は 3 つのフォントで同じ文 (sha256 1c05c68c…、spec 35 P0 で確かめた)。licenses/ に 1 つ同梱し、About に 3 つのフォントを並べる"
+  license: "OFL.txt は 3 つのフォントで同じ文 (sha256 1c05c68c…、spec 35 P0 で確かめた)。配布物の licenses/NotoSans-OFL.txt に 1 つ同梱し (spec 35 で NotoSansJP-OFL.txt から改名)、About は「Noto Sans JP / SC / KR」の 1 行"
   reserved_font_name: "Source (Adobe)。改変版の名前に使えない — 切り出し後のファミリー名は Noto Sans JP・SC・KR で該当しない"
   sharing: "OnceLock<Arc<fontdb::Database>> (プロセスで 1 つ)"
   system_fonts: false   # システムフォントは読まない (端末ごとに出力が変わるのを防ぐ)

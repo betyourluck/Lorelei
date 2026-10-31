@@ -2,7 +2,7 @@
 
 **ID**: 35
 **Date**: 2026-10-31
-**Status**: **Draft** — rev2（[spec 31](31_ui-language.md) rev1 で分けた → rev1 で下調べを足した → 査読 1 本（「査読の採否」、17 件を全部採った）→ rev2 → 裁定（「裁定」、推奨どおり）→ P0（「P0 結果」、D4 は案 B）→ P1（「P1 結果」、D7 は実物で改めた）。次は P2（書き出しのフォント））
+**Status**: **Draft** — rev2（[spec 31](31_ui-language.md) rev1 で分けた → rev1 で下調べを足した → 査読 1 本（「査読の採否」、17 件を全部採った）→ rev2 → 裁定（「裁定」、推奨どおり）→ P0（「P0 結果」、D4 は案 B）→ P1（「P1 結果」、D7 は実物で改めた）→ P2（「P2 結果」、書き出しのフォント）。次は P3（配布ビルド・README・v0.1.6））
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。コミットの分け方は D6
 
 ## Goal
@@ -13,6 +13,20 @@ spec 31・34 の仕組みに、利用者の言（2026-10-30）「英語と中国
 ## 裁定（2026-10-31、利用者）
 
 利用者の言: 「推奨どおり」 — D1〜D9 を推奨どおりに決めた（D4 はこの spec で扱い、案 A〜C は P0 の測りで選ぶ。Noto Sans KR・SC の可変フォントを落とすことも許された）
+
+## P2 結果（2026-10-31）
+
+- **コミット**: `18e10f5`（D6 の 4。フォント・`build-fonts.py`・`fonts.rs`・`render.rs`・テスト・About・ライセンス・MCP の `render` の説明・README・LORELEI.md）
+- **フォント**: `scripts/build-fonts.py` を JP・SC・KR の 3 つの入力に（D4 案 B）。**JP の 2 本は今の台本で前とバイト単位で同じに作り直せた**（入力は Windows の `NotoSansJP-VF.ttf`、sha256 `5113756f…`。git の変更に出ない）。
+  SC・KR の 4 本は P0 の試作と同じバイト列。入力の sha256 は `crates/lorelei_core/fonts/SOURCES.txt`
+- **読み込みと代わりのフォント**: `fonts.rs` は 6 本を `Source::Binary(Arc::new(&'static [u8]))` で写さずに読み、`resolver()`（同じ太さを先に、JP → SC → KR）を `render.rs` の `svg_tree` の `usvg::Options` に渡す（PNG・PDF・MCP の preview の全部がここを通る）。字を持つかは `ttf-parser` 0.25.1 で引く
+- **テスト（先に書いて Red を見た）**: `render.rs` の単体のテスト（描いた字に .notdef が無い・ハングルは KR、太字のハングルは KR の Bold、JP に無い簡体字は SC、JP にある漢字は JP）と、`core.rs` の PDF のテスト（`/BaseFont` に KR・SC の Regular と Bold、同梱以外のフォントが無い）。
+  直す前は 2 件とも落ち、**太さを見ない形に壊すと 2 件とも落ちた**。日本語の図の PDF のテスト（JP だけで描く）は前のまま緑
+- **日本語の書き出しは前と同じ**: 日本語のフローチャート（Markdown の太字の枠を含む）・日本語の ER 図・英語のフローチャートの PNG と PDF を、直す前と後で書き出して比べ、**6 つともバイト単位で同じ**（受け入れ条件 6）
+- **フォントの名の grep**（受け入れ条件 7）: About（「Noto Sans JP / SC / KR」、テストにも足した）・`tauri.conf.json`（`licenses/NotoSans-OFL.txt` に改名）・MCP の `render` の説明（AI が読む）・README・README.ja・LORELEI.md（統合漢字の字形を既知の制約に）・CLAUDE.md・data_contract `FontBundle`
+- `cargo test --workspace`（core 65・mcp 13）・`src-tauri` 60 件が緑
+- **途中で踏んだこと**: rustfmt をファイルに渡すと `mod` の子のファイルまで整形し、触っていない 4 つのファイルが変わった（failures #59）。戻して変更を入れ直した
+- 実行ファイルの大きさの増え方は P3 の配布ビルドで測る
 
 ## P1 結果（2026-10-31）
 

@@ -644,3 +644,12 @@
 - **処方**: server component は client component のファイル（`@/components/i18n/document-title`）を直に読む（`ca41741`）
 - **一般化**: server component から `"use client"` の無い入口（束）を読まない。束の 1 つでも client 専用のライブラリを読むと、開発サーバーだけが落ちる。
   本番の組み立てで確かめても開発サーバーの道は確かめたことにならない — 依存の形を変えたら `tauri dev` か `web-dev` を一度開く（#56 の「入口を読まない」と同じ根）
+
+## #59 rustfmt をファイルにかけたら、その中の `mod` の子のファイルまで整形し、触っていない 4 つのファイルを書き換えた（2026-10-31, spec 35 P2）
+
+- **症状**: P2 で変えた 6 つの Rust のファイルに `rustfmt --edition 2024 <ファイル>` をかけると、触っていない `src-tauri/src/documents.rs`・`mcp_host.rs`・`readback.rs`・`crates/lorelei_mcp/src/http.rs` まで変わり、差分が 1,299 行になった。
+  1 行だけ変えた `src-tauri/src/lib.rs`・`crates/lorelei_mcp/src/lib.rs` も数百行が変わった
+- **真因**: rustfmt はファイルを渡すと、そのファイルの `mod x;` の子のファイルも辿って整形する（`lib.rs` を渡すとクレートの全部）。
+  前もって「HEAD で整形済みか」を `git show HEAD:<file> | rustfmt --check` で確かめたが、標準入力では子を辿らず、ファイルで渡した時と設定の読み方も違うので、当てにならなかった
+- **処方**: 触っていないファイルは `git checkout` で戻し、1 行だけ変えたファイルは HEAD に戻してから変更を入れ直した。整形は子を持たないファイル（`fonts.rs`・`render.rs`・`tests/core.rs`）にだけ残した
+- **一般化**: #23 の「整形は変えたファイルにだけ」は、ファイルを渡しても守れないことがある。rustfmt に `lib.rs`・`main.rs`・`mod` を持つファイルを渡さない（渡すなら `--config skip_children=true` は nightly 限定なので使えない前提で、後に `git diff --stat` で触っていないファイルが無いかを見る）

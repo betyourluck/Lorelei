@@ -69,7 +69,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   data_contract（UiLocale・UiMessages・FontBundle・initial_sources）を凍結。v0.1.5 のタグは `4343892`。
   **P1 着地**（`aca01e1` フォーク元・`fb43a19` デスクトップの訳・`50bba2b` 一覧へ足す）: 简体中文・한국어 を一覧に。**画面の字は Inter（latin だけ）で、漢字は `<html lang>` に合わせてブラウザが選ぶフォントに落ちる**ので、
   査読の「日本語の字形になる」は起きず、D7 はフォントの並びを入れず韓国語の `keep-all` だけにした。デスクトップの訳を一覧より先に入れると `default-titles.test.ts` が落ちた（i18next は一覧に無い言語を英語に落とす）。
-  Web 版と偽の Tauri の外枠を中国語・韓国語で見て、はみ出し 0。次は P2（書き出しのフォント）
+  Web 版と偽の Tauri の外枠を中国語・韓国語で見て、はみ出し 0。
+  **P2 着地**（`18e10f5`）: 書き出しに Noto Sans SC・KR（JP に無い字だけ、Regular・Bold）。`fonts.rs` の自前の `select_fallback`（同じ太さを先に、JP → SC → KR）。韓国語・簡体字・太字が豆腐にならず、日本語・英語の図の PNG・PDF はバイト単位で前と同じ。rustfmt をファイルに渡すと `mod` の子まで整形する（failures #59）。次は P3（配布ビルド・README・v0.1.6）
 - 2026-10-31: [spec 34](specs/34_desktop-ui-language.md) **Done**（P5: 配布ビルド `4343892` で利用者が英語の画面・題・初期図 `User`・保存ダイアログと About・AI の図の題・エラーの文・日本語へ戻すを確かめ「問題なし」）。
   **受け入れ条件 10 の macOS・Linux の言語の判定は未確認**（次のタグの Actions の版で。合わなければ Rust の `sys-locale` を優先）。
   同じビルドで [spec 29](specs/29_node-shape-icon.md) の札を**左上の変数名の青い札の左へ移した**直し（フォーク元 `5b9e6f9`。利用者の言「右上につけるとちょっと浮いてしまう」。札は青い札と同じ高さ 17px・幅 21px、青い札は 23px 右へずれ右端は前と同じ）も「問題なし」。
@@ -317,8 +318,8 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   ② ER 図の `many` / `one` / `to` を語の境界で取る（`tokens` などの名前を通す。spec 14。上流に **マージ済み**、[Latias94/merman#153](https://github.com/Latias94/merman/pull/153)、2026-09-29）。
   2026-09-30 時点で crates.io の最新は `0.8.0-alpha.6` で、どちらも入っていない。**両方を含む版が出たら `merman` の版を上げて写しと patch を消す**。
   写しの中では merman-core のテストをコンパイルできない（上流の `fixtures/` を読む）— 上流側のテストは上流の作業場所で回す。経緯は `vendor/merman-core/LORELEI_PATCH.md`
-- 同梱フォントのライセンス文は `crates/lorelei_core/fonts/OFL.txt`（google/fonts の ofl/notosansjp から取得）。
+- 同梱フォント（Noto Sans JP・SC・KR、spec 35 で SC・KR を足した）のライセンス文は `crates/lorelei_core/fonts/OFL.txt`（google/fonts の ofl/notosansjp から取得。SC・KR の OFL も同じ文）。
   配布物の `licenses/` に同梱し、About（タイトルバーの「?」。spec 02 でネイティブのメニューを撤去）に一覧を出す
 - vitest は 2026-09-29 から **「全件緑かつ exit 0（未処理のエラー 0）」を基準にできる**。この環境では全件を並列に走らせると 5 秒の際のテストが順に時間切れになるので、
   既定の上限を 15 秒にしてある（failures #3）。デスクトップのテストは境界 `@/lib/desktop/tauri` を静的に模擬する（`@tauri-apps/api/*` だけの模擬は未処理のエラーを出す, failures #14）
-- 同梱フォントは `scripts/build-fonts.py` で Noto Sans JP の可変フォントから切り出す（手順と理由はスクリプト冒頭）
+- 同梱フォントは `scripts/build-fonts.py` で Noto Sans JP・SC・KR の可変フォントから切り出す（SC・KR は JP に無い字だけ。手順と理由はスクリプト冒頭、入力の sha256 は `fonts/SOURCES.txt`）
