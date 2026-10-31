@@ -2,7 +2,7 @@
 
 **ID**: 31
 **Date**: 2026-10-30
-**Status**: **Draft** — rev1（rev0 を起票 → 査読 1 本（「査読の採否」）→ rev1 で 3 本に分けた。D1〜D10 の裁定待ち）
+**Status**: **Active** — rev1（rev0 を起票 → 査読 1 本（「査読の採否」）→ rev1 で 3 本に分けた → 裁定（「裁定」、推奨どおり）→ P0 着地（「P0 結果」）。次は P1）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。**この spec はフォーク元の改善だけ**（`app/`・`features/`・`components/`・`locales/`・テストの基盤）で、上流へ PR を出せる形にする（PR を出すかは利用者が決める, CLAUDE.md）
 
 ## Goal
@@ -21,6 +21,27 @@
 | [35](35_zh-ko-translations.md) | 中国語（簡体字）・韓国語の訳・4 つの言語で見た目を確かめる・README・書き出しのフォント |
 
 この spec が終わると、Web 版は日本語と英語で切り替えられ、デスクトップは日本語のまま（外枠の切り替えは spec 34）。**言語を足す時は、フォーク元の訳のファイル（D2）と言語の一覧の 1 行を足す**（デスクトップの訳は spec 34 で別のファイルに持つ）。
+
+## 裁定（2026-10-31、利用者）
+
+利用者の言: 「推奨どおりで進める」 — D1〜D10 を推奨どおりに決めた（組み立ての言語は日本語・Web 版にも出す・ノードの既定の名は今のまま・既存のテストは日本語で走らせる）
+
+## P0 結果（2026-10-31）
+
+- **言葉の数**（台本 `scratchpad/inventory.cjs`。TypeScript のコンパイラ API で文字列・テンプレート・JSX の文字だけを見る。D10 の直書きのテストの元）:
+  フォーク元（`lib/desktop/` を除く）は **47 ファイル・274 か所**、デスクトップを含めると 60 ファイル・376 か所（`lib/desktop/` の 102 か所は spec 34）。
+  多いのは `mermaid-completion.ts` 45・`editor-phrases.ts` 24・`mermaid-dropped.ts` 17・`er-table-content.tsx` 12・2 つの `import-modal.tsx` 11 と 10・2 つの `drop-warnings.ts` 11 と 8
+- **版**: `i18next` 26.4.7・`react-i18next` 17.0.21・`eslint-plugin-i18next` 6.1.5（2026-06-28）を `^` なしで入れた（pnpm 9）。`tsc` は 0 件
+- **水和**: 仕組み（`components/i18n/`: 同期の初期化・`lng` は組み立ての言語・マウントの後に覚えた言語かブラウザの言語を当てる `LocaleSync`）を入れ、パネルの「ノード追加」1 つだけを訳に通して、
+  本番と同じ組み立て（`build-web-demo.mjs`）を裏の Edge で 5 通り（ja-JP・en-US・ko-KR で覚えなし、言語と違う言語を覚えている 2 通り）開いた。**5 通りとも水和のエラーは 0**、ボタンの言葉と `<html lang>` は期待どおり、組み立ての HTML は日本語。
+  **わざと描画中に言語を決める形**（`lng` を `navigator.language` で決める）で組み立て直すと、en-US で React の #425・#418・#423 が出た（測りが食い違いを拾えることを確かめた。元の形に戻した）
+- **`no-literal-string`**（`mode: "jsx-only"`、属性 `aria-label`・`title`・`placeholder`・`label`・`alt`）: 88 か所に当たり、日本語の直書きのほか、英語の `Copied!`・`Delete edge` 2・`Select arrow type` 2 と、
+  **ER 図の線の空のラベルに出す `relation`**（`er-edge.tsx:49`・`er-editable-edge.tsx:83`）を拾った。`relation` は生成器が Mermaid に書く既定値（`generate-mermaid-code.ts:43`）なので、`Node {id}` と同じく訳さない例外にする。
+  複数行の JSX の文字は開きの行で報告される。テスト・stories は範囲から外す
+- **キーの名の付け方**: 名前空間は `common` 1 つ（`locales/<lng>/common.json`）、上の段は場所（`flowPanel`・`erPanel`・`node`・`frame`・`edge`・`shape`・`direction`・`theme`・`history`・`confirmDelete`・`importModal`・`codeModal`・`preview`・`codeEditor`・`completion`・`dropped`・`dropWarnings`・`erTable`・`erNames`・`minimap`・`contribution`・`copy`・`notFound`・`app`・`xyflow`）
+- **部品は `useTranslation` を `@/components/i18n` から読む**（instance に結んだ包み）。react-i18next から直に読むと、`components/i18n` を読み込まない描画（Provider の無いテスト・部品だけの描画）で instance が無く、キーがそのまま出る
+- **例外の一覧**: data_contract `UiMessages.not_translated`。ER 図の初期図の「ユーザー」は spec 34（この spec では触らない）。`NEXT_PUBLIC_SITE_TITLE` で題を差し替えた組み立て（ライブデモ）は、切り替えても題をその値のままにする
+- data_contract に `UiLocale`・`UiMessages` を足した（凍結）
 
 ## 現況（2026-10-30 にコードを読み、2026-10-31 に査読で補った）
 
@@ -66,7 +87,7 @@
 
 - **推奨**: 選んだ言語を覚えていればそれ → 無ければブラウザの言語（`navigator.languages` を上から見て、一覧にある言語に近いもの）→ 合わなければ英語
 - 近いものの表（spec 35 で中国語・韓国語を足した時の分も先に決める, 査読 21）: `ja*` → `ja`、`en*` → `en`、`zh-CN`・`zh-SG`・`zh-Hans*`・ただの `zh` → `zh-Hans`、`zh-TW`・`zh-HK`・`zh-MO`・`zh-Hant*` → **英語**（繁体字の利用者に簡体字を出さない。繁体字は要望があれば足す）、`ko*` → `ko`
-- 覚える場所は localStorage の `lorelei.locale.v1`。読み書きは try/catch で包む（使えない時は覚えないだけ）
+- 覚える場所は localStorage の `mermaid-editor.locale.v1`（P0 で改めた。フォーク元の改善のキーに Lorelei の名を入れない — spec 26 のミニマップと同じ）。読み書きは try/catch で包む（使えない時は覚えないだけ）
 - 切り替えたら開き直さずにすぐ全部の言葉が変わり、`document.documentElement.lang` も変わる
 
 ### D5. 組み立ての言語と水和（hydration）（rev1 で足した, 査読 13）
