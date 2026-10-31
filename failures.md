@@ -625,3 +625,11 @@
 - **真因**: `__tests__/setup.ts` は `@/components/i18n`（入口の `index.ts`）から `i18n` を読んでいた。入口に `LanguageMenu` を足したので、全部のテストファイル（114）の setup で yamada-ui の部品と `@yamada-ui/lucide`（アイコンの束）を読むようになった
 - **処方**: setup は `@/components/i18n/i18n`（instance だけのモジュール）から読む。setup の合計は 123 秒に戻った
 - **一般化**: setup・全部のファイルが読むモジュールは、入口（re-export の束）ではなく中身のモジュールを直に読む。入口に部品を足すと、知らないうちに全部の読み込みが重くなる。全体の時間が揺れた時は、vitest の内訳（setup・collect・tests）のどれが伸びたかを先に見る
+
+## #57 eslint --fix が JSX の中の抑止のコメントを消し、`{ }` を残した（2026-10-31, spec 34 P1）
+
+- **症状**: `i18next/no-literal-string` の例外にするため、JSX の文字の直前に `{/* eslint-disable-next-line i18next/no-literal-string -- … */}` を置いて `eslint --fix` を回すと、コメントが消えて `{ }` だけが残った（`document-list.tsx`・`title-bar.tsx`）。
+  同じ回で、要らなくなった `// eslint-disable-next-line` も消えて空行が残った（`components/i18n/resources.ts`）
+- **真因**: `no-literal-string` は JSX の文字ではなく、それを包む要素の開きの行で報告する。文字の直前の抑止は効かず「使われない抑止」になり、`--fix`（`reportUnusedDisableDirectives`）が消した。JSX の式の中身だけが消えて `{ }` が残った（推測を含む: どの規則の直しかは確かめていない）
+- **処方**: 抑止は要素の開きの行の直前に置く（JSX の子なら `{/* … */}`、`(` の中なら `//`）。`--fix` の後は `{ }` と空行を grep する
+- **一般化**: `eslint --fix` はコードも書き換える。JSX のコメントを含むファイルに `--fix` をかけたら差分を読む。抑止のコメントは、規則がどの行で報告するかを見てから置く

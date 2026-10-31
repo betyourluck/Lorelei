@@ -2,7 +2,7 @@
 
 **ID**: 34
 **Date**: 2026-10-31
-**Status**: **Active** — rev1（[spec 31](31_ui-language.md) rev1 で分けた → 査読 1 本（「査読の採否」）→ rev1 → 裁定（「裁定」、推奨どおり）→ P0 着地（「P0 結果」）。次は P1）
+**Status**: **Active** — rev1（[spec 31](31_ui-language.md) rev1 で分けた → 査読 1 本（「査読の採否」）→ rev1 → 裁定（「裁定」、推奨どおり）→ P0・P1 着地（「P0 結果」「P1 結果」）。次は P2（エラーのコード））
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。デスクトップ専用（`lib/desktop/`・`src-tauri/`・`crates/`）。フォーク元のファイルを触るのは、型の口（D1）・直書きのテストの走査の関数（D1）・言語のメニューの `buttonProps`（D2）・ER 図の初期図（D6）
 
 ## Goal
@@ -13,6 +13,29 @@ spec 31 の Goal（利用者の言「UI 言語の切り替え。英語と中国�
 ## 裁定（2026-10-31、利用者）
 
 利用者の言: 「推奨どおりで進める」 — D1〜D7 を推奨どおりに決めた（D5 の覚える所は案 A の `state.json`、D6 は案 B の言語ごとの初期図と集合での比べ）
+
+## P1 結果（2026-10-31）
+
+- **コミット**: フォーク元 `28e6412`（`LanguageMenu` の `buttonProps`・直書きを見つける道具を `__tests__/i18n/hardcoded-text.ts` に切り出した）、デスクトップ `ff5bc20`
+- **入れたもの**:
+  - 名前空間 `desktop`（`lib/desktop/locales/{ja,en}.json` の 95 キー、`lib/desktop/i18n.ts` の `useDesktopTranslation`・`desktopT`）。`lib/desktop` の 13 ファイルの言葉を移した。
+    部品の外（`mcp.ts` の `stateLabel`・`use-doc-session.ts` と `use-desktop-open.ts` の知らせ）は呼ばれた時に `desktopT`。閉じる時の失敗は文ではなく真偽を state に持ち、描く時に訳す。
+    Rust の文（`saveError`・`McpStatus.detail`・トーストの `description`）はそのまま出る（P2 で `code` に）
+  - インポートの placeholder の例は、フォーク元の例と同じ訳（`importModal.flowExample.*`）でラベルだけ訳す
+  - **日本語に留める処理を外した**（`desktop-shell.tsx`）。テスト「窓を出す時には、覚えた言語 (無ければ OS の言語) が当たっている」を先に書き、留める形で `ja` が出る赤を見てから外して緑（`LocaleSync` が外枠より前の兄弟の effect で先に当て、`changeLanguage` は同期）
+  - タイトルバーの画面の色のメニューの左に言語のメニュー（`LanguageMenu` に `BAR_BUTTON` の見た目）
+  - **ツールバーは入り切らない時だけアイコンだけにする**（`toolbar.tsx` の `useCompact`・`ToolButton`）: 全部のボタンを縮めず（`flexShrink: 0`）、中身の幅が見えている幅より広い時に縮め、縮めた時に要った幅まで窓が広がったら戻す。
+    **英語は窓の幅 1100 でも、日本語も 1000 で 7 つのボタンの文字が切れていた**（前からの不具合。窓の最小幅は 900）
+  - テスト: 窓を出す時の言語・`lib/desktop` の直書き 0・`desktop` の日本語と英語のキーと差し込みの一致（`__tests__/lib/desktop/hardcoded-text.test.ts`）・ツールバーの幅（`toolbar-compact.test.tsx`、幅を模擬）。eslint の `i18next/no-literal-string` を `lib/desktop/**/*.tsx` にも。
+    例外はアプリの名 `Lorelei`・未確定の印 `●`（理由を書いた `eslint-disable-next-line`）
+- **確かめたこと**:
+  - `tsc` 0 件、eslint 0 件。vitest は全部（116 ファイル 1276 件）を 3 回: 1 回目（ツールバーを直す前）は緑で終了コード 0、2・3 回目は 2 件ずつ時間切れ（`direction-save`・`update-diagram`・`revert-confirmed` のうち 2 つ、回すたびに違う）。
+    落ちたファイルは単独では前と同じか速い時間で通る（`revert-confirmed` 26.4 秒・`update-diagram` 13.6 秒。spec 31 の時は 27.2・18.4 秒）。spec 31 の時から、重い時に時間切れになる組（この PC は何も回していなくても CPU が 5 割ほど使われている）
+  - **`tauri dev` の窓は画面を操る許可が下りず見ていない**。代わりに本番と同じ組み立ての Web 版に spec 27 の台本の偽の Tauri の口を差し込み、裏の Edge（英語のブラウザ）でデスクトップの外枠を描いた:
+    英語で始まり（`<html lang>` が `en`、「About Lorelei」「Confirm」）、言語のメニューで日本語に替わり（「Lorelei について」「確定」「図の一覧」）、設定画面も英語で出た
+  - ツールバー: 日本語と英語の幅 900・1100・1280・1600 で、文字が切れるボタン 0。同じページで幅を 1600 → 900 → 1300 → 1600 → 1000 → 1600 と変えると縮めた形と元の形を行き来し、言語を切り替えた時も測り直した
+  - **日本語の外枠は前（HEAD `7ab709d`）と同じ**: spec 27 の台本の外枠の 6 場面で、画素の違いはどれも 294〜304 でタイトルバーに足した言語のボタンの所だけ。計算されたスタイルの違いはタイトルバーの空きが言語のボタンの分だけ狭まったのと、要素の並びの番号がずれた分（ツールバーの見た目は変わらない）
+- **途中で踏んだこと**: `eslint --fix` が JSX の中の `{/* eslint-disable-next-line … */}` を消して `{ }` を残した（failures #57）。要らなくなった抑止のコメントも消して空行を残した
 
 ## P0 結果（2026-10-31）
 
