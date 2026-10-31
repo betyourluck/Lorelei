@@ -757,6 +757,14 @@ DesktopMessages:
   tests: "LOCALES の全部の言語 (spec 35 で 4 つ) のキーの組・差し込みの一致 / lib/desktop の直書き (__tests__/lib/desktop/hardcoded-text.test.ts) / eslint の i18next/no-literal-string を lib/desktop/**/*.tsx にも"
   window_show: "言語は LocaleSync が当てる (外枠より前の兄弟の effect。changeLanguage は同期)。外枠は Tauri の時に日本語に留める処理を spec 34 P1 で外し、show の時に当てた言語になっていることをテストで固定する"
 
+DesktopContextMenu:
+  description: >-
+    デスクトップでは WebView の既定の右クリックのメニュー (WebView2 の「戻る」「再読み込み」「名前を付けて保存」「印刷」など) を出さない (2026-10-31 利用者の言、lib/desktop/context-menu.ts)。
+    外枠 (DesktopShell の Shell) が document の contextmenu の既定の動作を止める。Tauri 2 は WebView2 の既定のメニューを止める設定 (wry の with_default_context_menus) を出しておらず、それも Windows だけなので画面の側で止める
+  keep: "文字を入れる所は既定のメニュー (切り取り・コピー・貼り付け) を残す: input の type が 空・text・search・url・email・password・tel・number、textarea、contenteditable が false でない要素 (CodeMirror の .cm-content)"
+  web: "Web 版はブラウザのメニューのまま (外枠を描かないので止めない)"
+  keys: "キーの近道 (F5・Ctrl+R の再読み込み、Ctrl+P の印刷) は止めていない。Ctrl+S はアプリの「確定」が既定 (ページの保存) を止める"
+
 DesktopLayout:
   description: デスクトップの外枠の寸法と開閉 (spec 05 D1〜D3)。表示の都合なので図の一覧やアプリの状態とは分ける
   storage: "WebView の localStorage、キー lorelei.layout.v1 (利用者裁定 2026-09-26)。dev と配布版は起点が違うので別々に覚える"

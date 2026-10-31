@@ -63,6 +63,10 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-31: [spec 35](specs/35_zh-ko-translations.md) **Done**（P3: 配布ビルド `f469e50` で利用者が「問題なし」。実行ファイル 51.4 → 67.7MB）。
+  **デスクトップの右クリックで WebView の既定のメニュー（再読み込み・印刷・名前を付けて保存）を出さない**（`9612856`、`lib/desktop/context-menu.ts`、data_contract `DesktopContextMenu`。利用者の言）。
+  Tauri 2 は WebView2 の既定のメニューを止める設定を出していないので、外枠が `contextmenu` を止める。文字を入れる所（入力欄・テキスト欄・CodeMirror）は残す。F5・Ctrl+R・Ctrl+P は止めていない。
+  残り: 配布ビルドで右クリックを確かめる、push、ライブデモ（spec 31 P3）、v0.1.6 のタグ（利用者）
 - 2026-10-31: [spec 35](specs/35_zh-ko-translations.md)（中国語・韓国語、v0.1.6 の中身）**rev2 → 裁定（推奨どおり）→ P0 着地**。査読 1 本で、画面のフォントが日本語のフォントを名指しする（中国語の漢字が日本語の字形になる）・
   usvg の代わりのフォントの選び方が太さを見ない・`zh-Hans-HK` を繁体字として飛ばす、を見つけて D7〜D9 にした。P0: 今の書き出しはハングルと JP に無い簡体字が豆腐（glyph id 0、太字のラベルも）。
   Noto Sans KR・SC を落とし（OFL の文は JP と同じ）、**JP に無い字だけを切り出して Regular・Bold で +16.4MB**（全部なら +33.6MB）、自前の `select_fallback`（太さの合うものを先に、JP → SC → KR）で豆腐 0・PDF に 6 本、を試作で確かめた。
