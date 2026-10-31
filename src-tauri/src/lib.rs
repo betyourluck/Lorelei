@@ -689,6 +689,48 @@ flowchart TD
         assert!(r.payload.is_some());
     }
 
+    // spec 34 D3: エラーの型を変える前に、AI が読む文 (MCP の reason・readback のエラー) を全文で固定する。型を変えた後も同じ文であること
+    #[test]
+    fn mcp_reason_texts_are_pinned() {
+        let store = documents::Store::new(scratch());
+        let unsupported = incoming(&store, "sequenceDiagram
+  A->>B: hi
+".into(), documents::Origin::Ai, None);
+        assert_eq!(unsupported.error.as_deref(), Some("この図の種類は GUI エディタで開けません"));
+        let broken = incoming(&store, "flowchart TD
+  A --> 
+".into(), documents::Origin::Ai, None);
+        assert_eq!(broken.error.as_deref(), Some("unexpected end of input; expected node identifier, edge label"));
+    }
+
+    #[test]
+    fn readback_and_update_error_texts_are_pinned() {
+        let store = documents::Store::new(scratch());
+        let doc = store.create(documents::Editor::Flowchart, None, documents::Origin::New, None).unwrap();
+        assert_eq!(
+            readback::read(&store, Some("nope".into())).unwrap_err(),
+            "図が見つかりません（id: nope）"
+        );
+        assert_eq!(
+            readback::read(&store, None).unwrap_err(),
+            "今開いている図がありません。id を指定するか、GUI で図を開いてください"
+        );
+        std::fs::write(store.root.join("documents").join(format!("{}.json", doc.id)), "{").unwrap();
+        assert_eq!(
+            readback::read(&store, Some(doc.id.clone())).unwrap_err(),
+            "図のファイルが壊れています: EOF while parsing an object at line 1 column 1"
+        );
+        let err = store
+            .update(&doc.id, "flowchart TD
+  A
+".into(), documents::Editor::Flowchart, &doc.updated_at)
+            .unwrap_err();
+        assert_eq!(
+            err,
+            lorelei_mcp::UpdateError::Other("図のファイルが壊れています: EOF while parsing an object at line 1 column 1".into())
+        );
+    }
+
     #[test]
     fn incoming_source_that_cannot_open_creates_nothing() {
         let store = documents::Store::new(scratch());
