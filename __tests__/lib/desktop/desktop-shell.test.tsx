@@ -2,6 +2,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@/__tests__/test-utils";
+import { i18n } from "@/components/i18n";
 import { theme } from "@/components/providers/theme";
 import { DesktopShell as Shell } from "@/lib/desktop/desktop-shell";
 import { fakeBackend } from "./fake-backend";
@@ -47,6 +48,27 @@ const setTauri = (on: boolean) => {
 describe("DesktopShell", () => {
   beforeEach(() => invoke.mockClear());
   afterEach(() => setTauri(false));
+
+  it("デスクトップでは画面の言語を日本語に留め、Web 版では触らない (spec 31: 外枠の言葉は spec 34 まで日本語だけ)", async () => {
+    setTauri(false);
+    await i18n.changeLanguage("en");
+    const web = render(
+      <DesktopShell>
+        <p>editor</p>
+      </DesktopShell>
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    expect(i18n.language).toBe("en");
+    web.unmount();
+
+    setTauri(true);
+    render(
+      <DesktopShell>
+        <p>editor</p>
+      </DesktopShell>
+    );
+    await waitFor(() => expect(i18n.language).toBe("ja"));
+  });
 
   it("Web 版では children をそのまま返し、外枠を出さない (spec 02 D1)", () => {
     setTauri(false);

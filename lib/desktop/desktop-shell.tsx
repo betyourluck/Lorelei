@@ -4,6 +4,7 @@ import { Box, Center, Flex, Text } from "@yamada-ui/react";
 import type { FC, ReactNode } from "react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HistoryGateContext } from "@/components/editor-history/gate";
+import { BUILD_LOCALE, i18n } from "@/components/i18n";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
 import type { HistoryStatus, RegisteredActions } from "./desktop-actions";
 import { DesktopActionsProvider } from "./desktop-actions";
@@ -32,7 +33,13 @@ const HIDE_FORK_PANELS = `[data-lorelei-desktop] .react-flow__panel.top.left,
 export const DesktopShell: FC<{ children: ReactNode }> = ({ children }) => {
   // 静的書き出しの HTML と食い違わないよう、マウント後に判定する (ExportButtons と同じ)
   const [desktop, setDesktop] = useState(false);
-  useEffect(() => setDesktop(isTauri()), []);
+  useEffect(() => {
+    const tauri = isTauri();
+    setDesktop(tauri);
+    // 外枠の言葉はまだ日本語だけなので、エディタも日本語に留める (OS の言語で英語になり混ざらないように)。
+    // フォーク元の LocaleSync の後に走る。外枠の言葉と切り替えを入れる spec 34 で外す
+    if (tauri) void i18n.changeLanguage(BUILD_LOCALE);
+  }, []);
   if (!desktop) return <>{children}</>;
   return <Shell>{children}</Shell>;
 };

@@ -455,6 +455,8 @@ const context = await browser.newContext({
   viewport: { width: 1280, height: 800 },
   colorScheme: "light",
   reducedMotion: "reduce",
+  // 場面は日本語の名で要素を探す。ブラウザの言語で画面の言語が変わる (spec 31) ので日本語に固定する
+  locale: "ja-JP",
 });
 if (desktop) await context.addInitScript(FAKE_TAURI);
 if (dark) await context.addInitScript(() => localStorage.setItem("ui-color-mode", "dark"));
