@@ -2,7 +2,7 @@
 
 **ID**: 31
 **Date**: 2026-10-30
-**Status**: **Active** — rev1（rev0 を起票 → 査読 1 本（「査読の採否」）→ rev1 で 3 本に分けた → 裁定（「裁定」、推奨どおり）→ P0・P1・P2 着地（「P0 結果」〜「P2 結果」）。残りは P3（ライブデモを作り直すか、利用者が決める）
+**Status**: **Done** — rev1（rev0 を起票 → 査読 1 本（「査読の採否」）→ rev1 で 3 本に分けた → 裁定（「裁定」、推奨どおり）→ P0・P1・P2 着地（「P0 結果」〜「P2 結果」）→ P3（「P3 結果」、ライブデモを v0.1.6 で作り直した））
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。**この spec はフォーク元の改善だけ**（`app/`・`features/`・`components/`・`locales/`・テストの基盤）で、上流へ PR を出せる形にする（PR を出すかは利用者が決める, CLAUDE.md）
 
 ## Goal
@@ -25,6 +25,14 @@
 ## 裁定（2026-10-31、利用者）
 
 利用者の言: 「推奨どおりで進める」 — D1〜D10 を推奨どおりに決めた（組み立ての言語は日本語・Web 版にも出す・ノードの既定の名は今のまま・既存のテストは日本語で走らせる）
+
+## P3 結果（2026-10-31、ライブデモ）
+
+- 利用者の言「ライブデモを作り直そう」。spec 34・35 の後にまとめ、v0.1.6 のタグの後の main（`b1cd4ae`）を `node scripts/build-web-demo.mjs ../betyourluck.github.io/docs/lorelei-web` で組み立てて写した（betyourluck.github.io の `f46aec8`、`docs/lorelei-web` だけ）。
+  Lorelei の作業ツリーは clean のまま（`docs/` は書き換わらない）
+- 写したものを `python -m http.server` で `/lorelei-web/` に置き、裏の Edge でブラウザの言語を en-US・zh-CN・ko-KR・ja-JP にして開いた: `<html lang>` が en・zh-Hans・ko・ja で始まり、ページのエラー・コンソールのエラー・400 以上の応答は 0。中国語の画面を目でも見た
+- タブの題は組み立ての時の `NEXT_PUBLIC_SITE_TITLE`（「Lorelei Mermaid エディター (Web 版)」）のままで、どの言語でも日本語（D7 のとおり）
+- README・README.ja のデモの説明を、画面の言語がブラウザに合わせて 4 つから選べる形に。英語の README は、日本語の画面の名を引いていた所を英語の訳の名にし、「アプリの UI は今は日本語」の注を外した
 
 ## P2 結果（2026-10-31）
 

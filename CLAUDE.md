@@ -67,7 +67,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
   v0.1.5 = spec 29〜34（形の札・Undo/Redo・確定へ戻す・揃え書きの直し・英語の画面）、v0.1.6 = spec 35（中国語・韓国語・書き出しの SC・KR のフォント）と右クリックのメニューを止める直し。
   Build（spec 20）は 2 つとも 1 回で 3 OS が通った。Assets はどちらも 7 つ、v0.1.6 のインストーラーは v0.1.5 より 6〜9MB 大きい（setup.exe 15.9 → 22.1MB）。
   リリースノートは英語と日本語（v0.1.4 と同じ形）を利用者の指示で `gh release edit --draft=false`（v0.1.5 は `--latest=false`、v0.1.6 は `--latest`）で入れ、本文のリンク（節の印を含む）は publish の後に全部開くことを確かめた。
-  残り: macOS・Linux の版で OS の言語での始まりを確かめる（spec 34 受け入れ条件 10・spec 35 受け入れ条件 1）、ライブデモ（spec 31 P3、まだ古い版で README の英語版は「UI は日本語」のまま）
+  残り: macOS・Linux の版で OS の言語での始まりを確かめる（spec 34 受け入れ条件 10・spec 35 受け入れ条件 1）
+- 2026-10-31: [spec 31](specs/31_ui-language.md) **Done**（P3: ライブデモを v0.1.6 の main で作り直した。betyourluck.github.io の `f46aec8`、push は利用者。裏の Edge で 4 つの言語のブラウザから開いてエラー 0）。
+  README のデモの説明と、英語の README の画面の名を英語の訳に。ライブデモのタブの題は `NEXT_PUBLIC_SITE_TITLE` の日本語のまま
 - 2026-10-31: [spec 35](specs/35_zh-ko-translations.md) **Done**（P3: 配布ビルド `f469e50` で利用者が「問題なし」。実行ファイル 51.4 → 67.7MB）。
   **デスクトップの右クリックで WebView の既定のメニュー（再読み込み・印刷・名前を付けて保存）を出さない**（`9612856`、`lib/desktop/context-menu.ts`、data_contract `DesktopContextMenu`。利用者の言）。
   Tauri 2 は WebView2 の既定のメニューを止める設定を出していないので、外枠が `contextmenu` を止める。文字を入れる所（入力欄・テキスト欄・CodeMirror）は残す。F5・Ctrl+R・Ctrl+P は止めていない。

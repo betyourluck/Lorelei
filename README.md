@@ -29,7 +29,7 @@ Claude Code ──MCP over HTTP (127.0.0.1:39642, Bearer token)──▶ Lorelei
 
 **[Live demo → betyourluck.github.io/lorelei-web](https://betyourluck.github.io/lorelei-web/)**
 
-The demo is the editor alone: paste Mermaid with 「インポート」 (Import), edit flowcharts (with subgraphs) and ER diagrams, and copy the result from 「コード生成」 (Generate code). The UI is in Japanese.
+The demo is the editor alone: paste Mermaid with Import, edit flowcharts (with subgraphs) and ER diagrams, and copy the result from Generate code. The UI follows your browser language (English, Japanese, Simplified Chinese or Korean); switch it with the language button next to the editor switch.
 Nothing is saved, and the MCP server, the diagram list, and SVG / PNG / PDF export are available only in the desktop app.
 
 ## Install
@@ -47,10 +47,8 @@ Download an installer from [Releases](https://github.com/betyourluck/Lorelei/rel
 ## Use it from Claude Code
 
 The MCP server runs **inside the Lorelei window** and listens on `127.0.0.1:39642` only. It works while Lorelei is open.
-(The app's UI is in Japanese for now; the button names below are given with translations.)
-
 1. Start Lorelei. The dot next to "MCP" in the title bar turns green when the server is listening.
-2. Click "MCP" to open the settings, then press 「登録コマンドをコピー」 (copy the registration command).
+2. Click "MCP" to open the settings, then press "Copy the registration command".
 3. Run the copied command in the folder where you use Claude Code:
    ```bash
    claude mcp add --transport http lorelei http://127.0.0.1:39642/mcp --header "Authorization: Bearer <token>"
@@ -58,7 +56,7 @@ The MCP server runs **inside the Lorelei window** and listens on `127.0.0.1:3964
    Add `--scope user` to use it from every folder.
 4. Restart Claude Code, or reconnect with `/mcp`.
 
-Prefer a config file? The settings also have a 「JSON」 tab: 「JSON をコピー」 (copy JSON) gives a `.mcp.json` snippet (`mcpServers` → `lorelei` with `type: "http"`, `url` and the `Authorization` header) for clients that read `mcpServers`.
+Prefer a config file? The settings also have a "JSON" tab: "Copy the JSON" gives a `.mcp.json` snippet (`mcpServers` → `lorelei` with `type: "http"`, `url` and the `Authorization` header) for clients that read `mcpServers`.
 `.mcp.json` is meant to be committed to Git, so pasting it there commits your token too — use the command above if you don't want that.
 
 ### Tools
@@ -82,8 +80,8 @@ Things to ask:
 
 - **Language**: the language button (in the title bar of the desktop app, or next to the editor switch in the panel on the web) switches the UI between 日本語, English, 简体中文 and 한국어. On first start it follows your OS or browser language. The Chinese and Korean translations have not been reviewed by native speakers yet — corrections are welcome in [Issues](https://github.com/betyourluck/Lorelei/issues).
 - **Node shape**: the small icon to the left of a node's blue name tag shows its Mermaid shape (rectangle, diamond, rounded, circle, hexagon, stadium). Click it to change the shape.
-- **Undo / Redo**: Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z (⌘Z and ⌘⇧Z on macOS), or the ↶ ↷ buttons. In the desktop app, 「確定へ戻す」 (Revert to confirmed) goes back to the content you last confirmed with Ctrl+S, and the ● in the diagram list shows there are changes since then.
-- **Dark mode** (desktop app): the button left of "?" in the title bar switches between 「ライト」 (Light), 「ダーク」 (Dark) and 「OS に合わせる」 (System). It changes only the app's look — exports and generated code keep the theme you pick in 「コード生成」 (Generate code).
+- **Undo / Redo**: Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z (⌘Z and ⌘⇧Z on macOS), or the ↶ ↷ buttons. In the desktop app, "Revert to confirmed" goes back to the content you last confirmed with Ctrl+S, and the ● in the diagram list shows there are changes since then.
+- **Dark mode** (desktop app): the button left of "?" in the title bar switches between Light, Dark and "Match the OS". It changes only the app's look — exports and generated code keep the theme you pick in "Generate code".
 - **Selecting several items**: Ctrl+click (⌘+click on macOS) adds or removes a node, ER table or subgraph frame; Shift+drag on an empty area selects everything inside the box. Selected items get a blue ring, and dragging one of them moves them all.
 - **Minimap**: the map button at the bottom of the canvas controls (bottom-left) shows or hides the minimap.
 
