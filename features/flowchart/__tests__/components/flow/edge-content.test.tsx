@@ -120,7 +120,7 @@ describe("EdgeContent", () => {
       const user = userEvent.setup();
       render(<EdgeContent {...defaultProps} />);
 
-      const deleteButton = screen.getByLabelText("Delete edge");
+      const deleteButton = screen.getByLabelText("線を削除");
       await user.click(deleteButton);
 
       expect(defaultProps.data.onDelete).toHaveBeenCalledWith("edge1");

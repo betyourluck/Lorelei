@@ -41,7 +41,7 @@ describe("ErEditableEdge", () => {
 
   it("削除ボタンでonDeleteが呼ばれる", () => {
     render(<ErEditableEdge {...baseProps} />);
-    fireEvent.click(screen.getByLabelText("Delete edge"));
+    fireEvent.click(screen.getByLabelText("線を削除"));
     expect(baseProps.onDelete).toHaveBeenCalledWith("edge-1");
   });
 });

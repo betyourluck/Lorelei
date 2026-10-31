@@ -300,6 +300,10 @@
     "syntaxError": "Cannot import because of a Mermaid syntax error: {{message}}",
     "syntaxErrorAtLine": "Cannot import because of a Mermaid syntax error (line {{line}}): {{message}}"
   },
+  "language": {
+    "label": "Language: {{name}}",
+    "title": "Display language"
+  },
   "minimap": {
     "hide": "Hide the minimap",
     "label": "Minimap",

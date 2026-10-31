@@ -249,7 +249,7 @@ describe("EditableEdge", () => {
        * @description ArrowTypeSelectorコンポーネントが正しく表示されることを検証
        */
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: "Select arrow type" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "矢印の種類を選ぶ" })).toBeInTheDocument();
       });
     });
 
@@ -262,7 +262,7 @@ describe("EditableEdge", () => {
         </ReactFlowTestWrapper>
       );
 
-      const selectorButton = await screen.findByRole("button", { name: "Select arrow type" });
+      const selectorButton = await screen.findByRole("button", { name: "矢印の種類を選ぶ" });
       await user.click(selectorButton);
 
       const thickOption = await screen.findByText("太い矢印 (==>)");
@@ -289,7 +289,7 @@ describe("EditableEdge", () => {
        * @description 削除用のIconButtonが正しく表示されることを検証
        */
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: "Delete edge" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "線を削除" })).toBeInTheDocument();
       });
     });
 
@@ -302,7 +302,7 @@ describe("EditableEdge", () => {
         </ReactFlowTestWrapper>
       );
 
-      const deleteButton = await screen.findByRole("button", { name: "Delete edge" });
+      const deleteButton = await screen.findByRole("button", { name: "線を削除" });
       await user.click(deleteButton);
 
       /**

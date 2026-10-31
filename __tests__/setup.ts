@@ -1,7 +1,8 @@
 import "@testing-library/jest-dom/vitest";
 import { configure } from "@testing-library/react";
 import { beforeEach, vi } from "vitest";
-import { i18n, LOCALE_STORAGE_KEY } from "@/components/i18n";
+// 入口 (@/components/i18n) は部品 (言語のメニューなど) も読むので、全部のファイルの setup で重くならないよう instance だけを読む
+import { i18n, LOCALE_STORAGE_KEY } from "@/components/i18n/i18n";
 
 // waitFor / findBy の既定の待ち時間 (Testing Library の既定は 1 秒)。本物の mermaid.js で取り込むテストは、GitHub Actions のランナー
 // (特に Windows) では 1 秒でダイアログが閉じ切らず落ちた (spec 20 P2, failures #34)。テスト 1 件の上限 (vitest.config の 15 秒) より短くする

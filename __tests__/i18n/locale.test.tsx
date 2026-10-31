@@ -8,6 +8,7 @@ import {
   detectLocale,
   i18n,
   LOCALE_STORAGE_KEY,
+  LanguageMenu,
   LocaleSync,
   setLocale,
   storedLocale,
@@ -90,5 +91,21 @@ describe("切り替え (D6)", () => {
         { construct: "style", count: 1 },
       ])
     ).toBe("Subgraph ×2, style ×1");
+  });
+});
+
+describe("言語のメニュー (D9)", () => {
+  test("言語の名をその言語で並べ、選ぶとすぐ切り替わって覚える", async () => {
+    const { user } = render(<LanguageMenu />);
+    await user.click(screen.getByRole("button", { name: "画面の言語: 日本語" }));
+    // メニューは開いてから項目に menuitem が付く (閉じた yamada-ui の Menu は文字だけ持つ)。重い時は遅れるので待つ
+    expect(await screen.findByRole("menuitem", { name: "日本語" })).toHaveAttribute("lang", "ja");
+    await user.click(screen.getByRole("menuitem", { name: "English" }));
+    expect(i18n.language).toBe("en");
+    expect(localStorage.getItem(LOCALE_STORAGE_KEY)).toBe("en");
+    expect(await screen.findByRole("button", { name: "Language: English" })).toHaveAttribute(
+      "title",
+      "Display language"
+    );
   });
 });

@@ -4,7 +4,7 @@ import { PlusIcon, DownloadIcon, UploadIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import { VStack, HStack, Text, Button, useBoolean } from "@yamada-ui/react";
 import type { EditorHistoryActions } from "@/components/editor-history/use-editor-history";
-import { useTranslation } from "@/components/i18n";
+import { LanguageMenu, useTranslation } from "@/components/i18n";
 import { NavigationMenu } from "@/components/ui";
 import { HistoryButtons } from "@/components/ui/history-buttons";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
@@ -84,7 +84,10 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
           <Text fontSize="lg" fontWeight="bold">
             {t("erPanel.title")}
           </Text>
-          <NavigationMenu />
+          <HStack gap={2} ml={{ base: 0, sm: "auto" }}>
+            <NavigationMenu />
+            <LanguageMenu />
+          </HStack>
         </HStack>
         <VStack gap={2} align="start">
           <Text fontSize="sm" color="textHint">

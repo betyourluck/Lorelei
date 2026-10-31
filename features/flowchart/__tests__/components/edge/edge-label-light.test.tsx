@@ -34,7 +34,7 @@ describe("線のラベルを軽くした形 (spec 23)", () => {
       render(<EdgeContent id="e1" labelX={0} labelY={0} data={data} />);
 
       for (const name of itemNames) expect(document.body.textContent).not.toContain(name);
-      expect(screen.getByRole("button", { name: "Select arrow type" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "矢印の種類を選ぶ" })).toBeInTheDocument();
     });
 
     test("閉じた矢印の種類の切り替えは、メニューの項目を DOM に描かない", () => {
@@ -46,7 +46,7 @@ describe("線のラベルを軽くした形 (spec 23)", () => {
     test("外枠は枠の面の上でも押せる (pointer-events: all、渡した zIndex)", () => {
       render(<EdgeContent id="e1" labelX={0} labelY={0} data={data} zIndex={5} />);
 
-      const wrap = screen.getByRole("button", { name: "Delete edge" }).closest(".nodrag");
+      const wrap = screen.getByRole("button", { name: "線を削除" }).closest(".nodrag");
       expect(wrap).toHaveClass("nopan");
       expect(wrap).toHaveStyle({ pointerEvents: "all", zIndex: "5" });
     });
@@ -55,9 +55,9 @@ describe("線のラベルを軽くした形 (spec 23)", () => {
   test("開いたメニューは、ラベルの外 (文書の直下) に出る", async () => {
     const user = userEvent.setup();
     render(<EdgeContent id="e1" labelX={0} labelY={0} data={data} zIndex={5} />);
-    const wrap = screen.getByRole("button", { name: "Delete edge" }).closest(".nodrag");
+    const wrap = screen.getByRole("button", { name: "線を削除" }).closest(".nodrag");
 
-    await user.click(screen.getByRole("button", { name: "Select arrow type" }));
+    await user.click(screen.getByRole("button", { name: "矢印の種類を選ぶ" }));
 
     const menu = await screen.findByRole("menu");
     await waitFor(() => expect(screen.queryAllByRole("menuitem")).toHaveLength(ARROW_TYPES.length));
@@ -76,7 +76,7 @@ describe("線のラベルを軽くした形 (spec 23)", () => {
         <EdgeContent id="e1" labelX={0} labelY={0} data={{ ...data, onArrowTypeChange }} />
       </div>
     );
-    const arrow = () => screen.getByRole("button", { name: "Select arrow type" });
+    const arrow = () => screen.getByRole("button", { name: "矢印の種類を選ぶ" });
     const items = () => screen.queryAllByRole("menuitem");
     const opened = () => waitFor(() => expect(items()).toHaveLength(ARROW_TYPES.length));
     const closed = () => waitFor(() => expect(items()).toHaveLength(0));

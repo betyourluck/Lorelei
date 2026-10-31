@@ -297,7 +297,7 @@ describe("ErEdge", () => {
        * ErEditableEdgeコンポーネント内でonDeleteが利用可能
        * 削除ボタンの存在確認
        */
-      expect(screen.getByLabelText("Delete edge")).toBeInTheDocument();
+      expect(screen.getByLabelText("線を削除")).toBeInTheDocument();
       expect(baseProps.data.onDelete).toBeDefined();
       expect(typeof baseProps.data.onDelete).toBe("function");
     });

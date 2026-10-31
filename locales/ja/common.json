@@ -124,7 +124,7 @@
     "repository": "リポジトリを見る"
   },
   "copy": {
-    "copied": "Copied!",
+    "copied": "コピーしました",
     "copyCode": "コードをコピーする"
   },
   "defaults": {
@@ -187,8 +187,8 @@
       "invisible": "非表示 (~~~)",
       "thick": "太い矢印 (==>)"
     },
-    "arrowType": "Select arrow type",
-    "delete": "Delete edge"
+    "arrowType": "矢印の種類を選ぶ",
+    "delete": "線を削除"
   },
   "erNames": {
     "bothEmpty": "名前と型が空",
@@ -300,6 +300,10 @@
     "syntaxError": "Mermaid の文法の誤りで取り込めません: {{message}}",
     "syntaxErrorAtLine": "Mermaid の文法の誤りで取り込めません（{{line}} 行目）: {{message}}"
   },
+  "language": {
+    "label": "画面の言語: {{name}}",
+    "title": "画面の言語"
+  },
   "minimap": {
     "hide": "ミニマップを隠す",
     "label": "ミニマップ",
@@ -346,15 +350,15 @@
     "title": "出力のテーマ (コード・プレビュー・書き出し)"
   },
   "xyflow": {
-    "controls": "Control Panel",
-    "edgeDescription": "Press enter or space to select an edge. You can then press delete to remove it or escape to cancel.",
-    "fitView": "Fit View",
-    "handle": "Handle",
-    "interactive": "Toggle Interactivity",
-    "minimap": "Mini Map",
-    "nodeDescription": "Press enter or space to select a node. Press delete to remove it and escape to cancel.",
-    "nodeDescriptionKeyboardDisabled": "Press enter or space to select a node. You can then use the arrow keys to move the node around. Press delete to remove it and escape to cancel.",
-    "zoomIn": "Zoom In",
-    "zoomOut": "Zoom Out"
+    "controls": "操作パネル",
+    "edgeDescription": "Enter かスペースで線を選びます。Delete で消し、Esc でやめます。",
+    "fitView": "全体を表示",
+    "handle": "接続点",
+    "interactive": "編集の固定を切り替え",
+    "minimap": "ミニマップ",
+    "nodeDescription": "Enter かスペースでノードを選びます。Delete で消し、Esc でやめます。",
+    "nodeDescriptionKeyboardDisabled": "Enter かスペースでノードを選び、矢印キーで動かせます。Delete で消し、Esc でやめます。",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小"
   }
 }

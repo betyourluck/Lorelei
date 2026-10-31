@@ -6,7 +6,7 @@ import { PlusIcon, CodeIcon, UploadIcon, SquareDashedIcon } from "@yamada-ui/luc
 import type { FC } from "@yamada-ui/react";
 import { VStack, HStack, Text, Button, useDisclosure } from "@yamada-ui/react";
 import type { EditorHistoryActions } from "@/components/editor-history/use-editor-history";
-import { useTranslation } from "@/components/i18n";
+import { LanguageMenu, useTranslation } from "@/components/i18n";
 import { NavigationMenu } from "@/components/ui";
 import { HistoryButtons } from "@/components/ui/history-buttons";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
@@ -82,7 +82,10 @@ export const PanelContent: FC<PanelContentProps> = ({
         <Text fontSize="lg" fontWeight="bold">
           {t("flowPanel.title")}
         </Text>
-        <NavigationMenu />
+        <HStack gap={2} ml={{ base: 0, sm: "auto" }}>
+          <NavigationMenu />
+          <LanguageMenu />
+        </HStack>
       </HStack>
       <VStack gap={2} align="start">
         <Text fontSize="sm" color="textHint">

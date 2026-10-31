@@ -20,7 +20,7 @@ describe("ArrowTypeSelector", () => {
     test("セレクターボタンが正しく表示される", () => {
       render(<ArrowTypeSelector {...defaultProps} />);
 
-      const button = screen.getByRole("button", { name: "Select arrow type" });
+      const button = screen.getByRole("button", { name: "矢印の種類を選ぶ" });
       expect(button).toBeInTheDocument();
     });
 
@@ -28,7 +28,7 @@ describe("ArrowTypeSelector", () => {
       const user = userEvent.setup();
       render(<ArrowTypeSelector {...defaultProps} currentArrowType="thick" />);
 
-      const button = screen.getByRole("button", { name: "Select arrow type" });
+      const button = screen.getByRole("button", { name: "矢印の種類を選ぶ" });
       await user.click(button);
 
       // "太い矢印 (==>)"が現在選択されている項目として表示される
@@ -42,7 +42,7 @@ describe("ArrowTypeSelector", () => {
       const user = userEvent.setup();
       render(<ArrowTypeSelector {...defaultProps} />);
 
-      const button = screen.getByRole("button", { name: "Select arrow type" });
+      const button = screen.getByRole("button", { name: "矢印の種類を選ぶ" });
       await user.click(button);
 
       // 全ての矢印タイプが表示される
@@ -58,7 +58,7 @@ describe("ArrowTypeSelector", () => {
       const user = userEvent.setup();
       render(<ArrowTypeSelector {...defaultProps} />);
 
-      const button = screen.getByRole("button", { name: "Select arrow type" });
+      const button = screen.getByRole("button", { name: "矢印の種類を選ぶ" });
       await user.click(button);
 
       const thickOption = screen.getByText("太い矢印 (==>)");
@@ -78,7 +78,7 @@ describe("ArrowTypeSelector", () => {
           />
         );
 
-        const button = screen.getByRole("button", { name: "Select arrow type" });
+        const button = screen.getByRole("button", { name: "矢印の種類を選ぶ" });
         await user.click(button);
 
         // 矢印タイプに対応する表示名を取得
@@ -106,15 +106,15 @@ describe("ArrowTypeSelector", () => {
     test("ボタンに適切なaria-labelが設定されている", () => {
       render(<ArrowTypeSelector {...defaultProps} />);
 
-      const button = screen.getByRole("button", { name: "Select arrow type" });
-      expect(button).toHaveAttribute("aria-label", "Select arrow type");
+      const button = screen.getByRole("button", { name: "矢印の種類を選ぶ" });
+      expect(button).toHaveAttribute("aria-label", "矢印の種類を選ぶ");
     });
 
     test("キーボード操作でメニューを開ける", async () => {
       const user = userEvent.setup();
       render(<ArrowTypeSelector {...defaultProps} />);
 
-      const button = screen.getByRole("button", { name: "Select arrow type" });
+      const button = screen.getByRole("button", { name: "矢印の種類を選ぶ" });
       button.focus();
       await user.keyboard("{Enter}");
 
@@ -130,7 +130,7 @@ describe("ArrowTypeSelector", () => {
 
       // プロパティの変更が反映されることを確認
       // （実際の表示の違いは内部的な状態変更なので、ここでは再レンダリングが成功することを確認）
-      expect(screen.getByRole("button", { name: "Select arrow type" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "矢印の種類を選ぶ" })).toBeInTheDocument();
     });
   });
 
@@ -139,7 +139,7 @@ describe("ArrowTypeSelector", () => {
       const user = userEvent.setup();
       render(<ArrowTypeSelector {...defaultProps} />);
 
-      const button = screen.getByRole("button", { name: "Select arrow type" });
+      const button = screen.getByRole("button", { name: "矢印の種類を選ぶ" });
       await user.click(button);
 
       // ARROW_TYPESの数と表示される項目数が一致する（非同期で待つ）

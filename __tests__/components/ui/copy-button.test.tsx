@@ -112,7 +112,7 @@ describe("CopyButton", () => {
   });
 
   describe("ツールチップ表示", () => {
-    test("コピー成功時に「Copied!」ツールチップが表示される", async () => {
+    test("コピー成功時に「コピーしました」ツールチップが表示される", async () => {
       const user = userEvent.setup();
       render(<CopyButton {...defaultProps} />);
 
@@ -121,7 +121,7 @@ describe("CopyButton", () => {
 
       // ツールチップが表示されることを確認（UI上での視覚的フィードバック）
       await waitFor(() => {
-        expect(screen.getByText("Copied!")).toBeInTheDocument();
+        expect(screen.getByText("コピーしました")).toBeInTheDocument();
       });
     });
 
@@ -134,12 +134,12 @@ describe("CopyButton", () => {
 
       // 短時間でツールチップが表示される
       await waitFor(() => {
-        expect(screen.getByText("Copied!")).toBeInTheDocument();
+        expect(screen.getByText("コピーしました")).toBeInTheDocument();
       });
 
       // 一定時間後にツールチップが消えることを確認（実際のUIでは数秒で消える）
       // テスト環境では即座には消えないことを受け入れる
-      expect(screen.getByText("Copied!")).toBeInTheDocument();
+      expect(screen.getByText("コピーしました")).toBeInTheDocument();
     });
   });
 
