@@ -1,6 +1,8 @@
 /**
  * Rust のエラーの読み手 (spec 34 D3)。新しい形 ({ code, params, detail }) と、前の版の頭に印の付いた文字列の両方を読む
  */
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { act } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 import { setLocale } from "@/components/i18n";
@@ -11,6 +13,7 @@ import {
   staleBaseCurrent,
 } from "@/lib/desktop/doc-session";
 import { describeError, errorCode, readError } from "@/lib/desktop/errors";
+import { desktopResources } from "@/lib/desktop/i18n";
 
 const stale = { code: "STALE_BASE", params: { currentUpdatedAt: "2026-10-31T10:00:00+09:00" } };
 
@@ -55,5 +58,25 @@ describe("読み手 (spec 34 D3)", () => {
     expect(describeError("保存できません: disk full")).toBe("保存できません: disk full");
     expect(describeError(new Error("boom"))).toBe("boom");
     expect(describeError(null)).toBe("");
+  });
+});
+
+describe("コードの訳 (spec 34 D3)", () => {
+  // Rust の ALL_CODES を書いた fixture (src-tauri の error.rs のテストが LORELEI_UPDATE_FIXTURES=1 で書き直す)
+  const codes: string[] = JSON.parse(
+    readFileSync(
+      path.resolve(__dirname, "../../../src-tauri/tests/fixtures/desktop_error_codes.json"),
+      "utf8"
+    )
+  );
+
+  test.each(Object.keys(desktopResources))("%s は Rust の全部の code の訳を持つ", (lng) => {
+    expect(codes.length).toBeGreaterThan(15);
+    const errors = (
+      desktopResources as unknown as Record<string, { error: Record<string, string> }>
+    )[lng].error;
+    expect(codes.filter((c) => !errors[c])).toEqual([]);
+    // Rust に無い code の訳を抱えない (withDetail は文の組み立て)
+    expect(Object.keys(errors).filter((k) => k !== "withDetail" && !codes.includes(k))).toEqual([]);
   });
 });

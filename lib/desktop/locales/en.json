@@ -7,7 +7,6 @@
   },
   "error": {
     "ADD_FAILED": "Could not add it to the diagram list",
-    "BACKUP_FAILED": "Cannot keep the diagram before rewriting",
     "CONVERT_FAILED": "Cannot read the Mermaid code",
     "DOCUMENT_GONE": "The diagram is not in the list (it was moved to the trash or removed)",
     "DOC_CORRUPT": "The diagram file is broken",

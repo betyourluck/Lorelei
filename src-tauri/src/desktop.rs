@@ -7,6 +7,8 @@ use lorelei_core::output::{write_file, write_output};
 use lorelei_core::{RenderFormat, RenderOptions, render};
 use tauri::{AppHandle, Manager};
 
+use crate::error::{self, DesktopError};
+
 /// 書き出しの種類 (data_contract `GuiCommands.export_diagram`)。描く 3 形式と、描かずにそのまま書く .mmd (spec 25 D2)。
 /// RenderFormat は MCP の render の enum なので .mmd は足さない
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,7 +33,7 @@ pub async fn export_diagram(
     source: String,
     format: String,
     file_stem: String,
-) -> Result<Option<String>, String> {
+) -> Result<Option<String>, DesktopError> {
     let kind = parse_kind(&format)?;
     let ext = kind.extension();
     let picked = tauri::async_runtime::spawn_blocking(move || {
@@ -43,37 +45,42 @@ pub async fn export_diagram(
             .save_file()
     })
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| DesktopError::new(error::TASK_FAILED, e.to_string()).detail(&e))?;
     let Some(path) = picked else { return Ok(None) };
     tauri::async_runtime::spawn_blocking(move || match kind {
         ExportKind::Render(format) => export_to(&path, &source, format),
         ExportKind::Mmd => save_mmd(&path, &source),
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| DesktopError::new(error::TASK_FAILED, e.to_string()).detail(&e))?
     .map(|p| Some(p.display().to_string()))
 }
 
 /// 描画して書き出す。上書きの確認は OS の保存ダイアログが済ませているので上書きを許す。
-pub fn export_to(path: &Path, source: &str, format: RenderFormat) -> Result<PathBuf, String> {
-    let rendered = render(source, format, &RenderOptions::default()).map_err(|e| e.to_string())?;
-    write_output(path, format, &rendered.bytes, true).map_err(|e| e.to_string())
+/// lorelei_core (render・output) の文は訳さない。detail に入れ、画面は題だけ訳す (spec 34 D3)
+pub fn export_to(path: &Path, source: &str, format: RenderFormat) -> Result<PathBuf, DesktopError> {
+    let rendered = render(source, format, &RenderOptions::default()).map_err(export_failed)?;
+    write_output(path, format, &rendered.bytes, true).map_err(export_failed)
+}
+
+fn export_failed(e: impl ToString) -> DesktopError {
+    let text = e.to_string();
+    DesktopError::new(error::EXPORT_FAILED, text.clone()).detail(text)
 }
 
 /// コード生成のコードを .mmd としてそのまま書く (spec 25 D2)。描かず、検査もしない (描けないコードでも保存できる。Web 版の Blob と同じ)。
 /// 上書きの確認は OS の保存ダイアログが済ませているので上書きを許す
-pub fn save_mmd(path: &Path, source: &str) -> Result<PathBuf, String> {
-    write_file(path, ExportKind::Mmd.extension(), source.as_bytes(), true)
-        .map_err(|e| e.to_string())
+pub fn save_mmd(path: &Path, source: &str) -> Result<PathBuf, DesktopError> {
+    write_file(path, ExportKind::Mmd.extension(), source.as_bytes(), true).map_err(export_failed)
 }
 
-pub fn parse_kind(format: &str) -> Result<ExportKind, String> {
+pub fn parse_kind(format: &str) -> Result<ExportKind, DesktopError> {
     match format {
         "svg" => Ok(ExportKind::Render(RenderFormat::Svg)),
         "png" => Ok(ExportKind::Render(RenderFormat::Png)),
         "pdf" => Ok(ExportKind::Render(RenderFormat::Pdf)),
         "mmd" => Ok(ExportKind::Mmd),
-        other => Err(format!("未対応の形式です: {other}")),
+        other => Err(DesktopError::new(error::UNSUPPORTED_FORMAT, format!("未対応の形式です: {other}")).param("format", other)),
     }
 }
 

@@ -8,6 +8,8 @@ use std::sync::Arc;
 use lorelei_mcp::{EditorPort, RunningHttp, start_http};
 use serde::{Deserialize, Serialize};
 
+use crate::error::{self, DesktopError};
+
 pub const CONFIG_FILE: &str = "mcp_server.json";
 pub const DEFAULT_PORT: u16 = 39642;
 const MIN_PORT: u16 = 1024;
@@ -51,7 +53,7 @@ fn new_token() -> String {
 #[derive(Debug)]
 pub struct ConfigStore {
     path: PathBuf,
-    blocked: Option<String>,
+    blocked: Option<DesktopError>,
     config: McpServerConfig,
 }
 
@@ -64,17 +66,28 @@ impl ConfigStore {
                 // 中身は載せない (トークンが入っているファイル)。行と列だけ
                 Err(e) => (
                     McpServerConfig::default(),
-                    Some(format!(
-                        "{CONFIG_FILE} を読めません ({} 行 {} 列)。手で直すか消してください",
-                        e.line(),
-                        e.column()
-                    )),
+                    Some(
+                        DesktopError::new(
+                            error::MCP_CONFIG_UNREADABLE,
+                            format!(
+                                "{CONFIG_FILE} を読めません ({} 行 {} 列)。手で直すか消してください",
+                                e.line(),
+                                e.column()
+                            ),
+                        )
+                        .param("line", e.line())
+                        .param("column", e.column())
+                        .detail(format!("{CONFIG_FILE} ({}:{})", e.line(), e.column())),
+                    ),
                 ),
             },
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => (McpServerConfig::default(), None),
             Err(e) => (
                 McpServerConfig::default(),
-                Some(format!("{CONFIG_FILE} を読めません ({})", e.kind())),
+                Some(
+                    DesktopError::new(error::MCP_CONFIG_UNREADABLE, format!("{CONFIG_FILE} を読めません ({})", e.kind()))
+                        .detail(format!("{CONFIG_FILE} ({})", e.kind())),
+                ),
             ),
         };
         Self {
@@ -90,7 +103,7 @@ impl ConfigStore {
             Some(dir) => Self::load(&dir),
             None => Self {
                 path: PathBuf::new(),
-                blocked: Some("アプリのデータフォルダを決められません".into()),
+                blocked: Some(DesktopError::new(error::NO_DATA_DIR, "アプリのデータフォルダを決められません")),
                 config: McpServerConfig::default(),
             },
         }
@@ -100,18 +113,18 @@ impl ConfigStore {
         &self.config
     }
 
-    pub fn blocked(&self) -> Option<&str> {
-        self.blocked.as_deref()
+    pub fn blocked(&self) -> Option<&DesktopError> {
+        self.blocked.as_ref()
     }
 
     /// 変えてから書く。読めなかったファイルには書かない
-    fn update(&mut self, change: impl FnOnce(&mut McpServerConfig)) -> Result<(), String> {
+    fn update(&mut self, change: impl FnOnce(&mut McpServerConfig)) -> Result<(), DesktopError> {
         if let Some(reason) = &self.blocked {
             return Err(reason.clone());
         }
         let mut next = self.config.clone();
         change(&mut next);
-        let json = serde_json::to_vec_pretty(&next).map_err(|e| e.to_string())?;
+        let json = serde_json::to_vec_pretty(&next).map_err(|e| DesktopError::from(e.to_string()))?;
         crate::documents::write_atomic(&self.path, &json)?;
         self.config = next;
         Ok(())
@@ -123,7 +136,7 @@ pub struct McpHost {
     store: ConfigStore,
     editor: Arc<dyn EditorPort>,
     running: Option<RunningHttp>,
-    failure: Option<String>,
+    failure: Option<DesktopError>,
 }
 
 /// data_contract `McpStatus`
@@ -134,7 +147,8 @@ pub struct McpStatus {
     pub port: u16,
     pub token: Option<String>,
     pub state: &'static str,
-    pub detail: Option<String>,
+    /// failed / blocked の理由 (spec 34 D3: DesktopError。画面は code を訳す)
+    pub detail: Option<DesktopError>,
 }
 
 impl McpHost {
@@ -150,7 +164,7 @@ impl McpHost {
     pub fn status(&self) -> McpStatus {
         let c = self.store.config();
         let (state, detail) = if let Some(reason) = self.store.blocked() {
-            ("blocked", Some(reason.to_owned()))
+            ("blocked", Some(reason.clone()))
         } else if self.running.is_some() {
             ("listening", None)
         } else if let Some(f) = &self.failure {
@@ -191,7 +205,9 @@ impl McpHost {
                 let t = new_token();
                 let saved = t.clone();
                 if let Err(e) = self.store.update(|c| c.token = Some(saved)) {
-                    self.failure = Some(format!("トークンを保存できません: {e}"));
+                    self.failure = Some(
+                        DesktopError::new(error::MCP_TOKEN_SAVE_FAILED, format!("トークンを保存できません: {e}")).detail(&e),
+                    );
                     return;
                 }
                 t
@@ -200,19 +216,27 @@ impl McpHost {
         let port = self.store.config().port;
         match start_http(port, token, Arc::clone(&self.editor)).await {
             Ok(r) => self.running = Some(r),
-            Err(e) => self.failure = Some(format!("127.0.0.1:{port} で待ち受けられません ({e})")),
+            Err(e) => {
+                self.failure = Some(
+                    DesktopError::new(error::MCP_LISTEN_FAILED, format!("127.0.0.1:{port} で待ち受けられません ({e})"))
+                        .param("port", port)
+                        .detail(&e),
+                )
+            }
         }
     }
 
-    pub async fn set_enabled(&mut self, enabled: bool) -> Result<McpStatus, String> {
+    pub async fn set_enabled(&mut self, enabled: bool) -> Result<McpStatus, DesktopError> {
         self.store.update(|c| c.enabled = enabled)?;
         self.apply().await;
         Ok(self.status())
     }
 
-    pub async fn set_port(&mut self, port: u16) -> Result<McpStatus, String> {
+    pub async fn set_port(&mut self, port: u16) -> Result<McpStatus, DesktopError> {
         if port < MIN_PORT {
-            return Err(format!("ポートは {MIN_PORT}〜65535 で指定してください"));
+            return Err(DesktopError::new(error::MCP_PORT_RANGE, format!("ポートは {MIN_PORT}〜65535 で指定してください"))
+                .param("min", MIN_PORT)
+                .param("max", 65535));
         }
         self.store.update(|c| c.port = port)?;
         self.apply().await;
@@ -220,7 +244,7 @@ impl McpHost {
     }
 
     /// 今のトークンで開いている接続は次の要求から弾かれる (待ち受け直す)
-    pub async fn regenerate_token(&mut self) -> Result<McpStatus, String> {
+    pub async fn regenerate_token(&mut self) -> Result<McpStatus, DesktopError> {
         let t = new_token();
         self.store.update(|c| c.token = Some(t))?;
         self.apply().await;
@@ -406,7 +430,10 @@ mod tests {
         let s = h.status();
         assert_eq!(s.state, "blocked");
         let detail = s.detail.unwrap();
-        assert!(!detail.contains(secret), "エラーにトークンが出ている: {detail}");
+        // 画面へ渡す形 (直列化した全部) にもトークンを出さない
+        let shown = serde_json::to_string(&detail).unwrap() + &detail.to_string();
+        assert!(!shown.contains(secret), "エラーにトークンが出ている: {shown}");
+        assert_eq!(detail.code, error::MCP_CONFIG_UNREADABLE);
         // 保存を拒む (手で直せば戻るはずの値を既定値で潰さない)
         assert!(h.set_enabled(false).await.is_err());
         assert!(std::fs::read_to_string(d.join(CONFIG_FILE)).unwrap().contains(secret));

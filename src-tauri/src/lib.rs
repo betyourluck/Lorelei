@@ -3,6 +3,9 @@
 
 mod desktop;
 mod documents;
+mod error;
+
+use error::DesktopError;
 mod mcp_host;
 mod readback;
 
@@ -29,7 +32,8 @@ pub struct OpenRequest {
     /// 変換結果。None なら error に理由。
     pub payload: Option<EditorPayload>,
     pub dropped: Vec<DroppedItem>,
-    pub error: Option<String>,
+    /// spec 34 D3: 画面には DesktopError の形で渡す。MCP の reason には Display の文 (前と同じ文)
+    pub error: Option<DesktopError>,
     /// AI / インポートで届いた図のために作った新しい 1 件 (spec 02 D8・D10)、update_diagram では書き換え後のその 1 件。変換に失敗した時は作らない
     pub document: Option<documents::DocumentSummary>,
     /// update_diagram が開いている図を載せ替える要求 (spec 08 D3)。フロントは partitionOpens に入れず別に扱う
@@ -118,14 +122,15 @@ fn incoming(
         Ok(doc) => request.document = Some((&doc).into()),
         Err(e) => {
             request.payload = None;
-            request.error = Some(format!("図の一覧に足せませんでした: {e}"));
+            request.error = Some(DesktopError::new(error::ADD_FAILED, format!("図の一覧に足せませんでした: {e}")).detail(&e));
         }
     }
     request
 }
 
-fn store() -> Result<documents::Store, String> {
-    documents::Store::open_default().ok_or_else(|| "アプリのデータフォルダを決められません".into())
+fn store() -> Result<documents::Store, DesktopError> {
+    documents::Store::open_default()
+        .ok_or_else(|| DesktopError::new(error::NO_DATA_DIR, "アプリのデータフォルダを決められません"))
 }
 
 pub fn run_gui() {
@@ -198,7 +203,7 @@ fn take_pending_open(state: tauri::State<'_, PendingOpens>) -> Vec<OpenRequest> 
 /// ツールバーのインポート (spec 02 D10)。新しい 1 件を作って「開く図」として溜め、AI から届いた図と同じ経路で開く —
 /// 失敗や省いた要素の通知もそちらに揃う。
 #[tauri::command]
-fn import_source(app: AppHandle, source: String) -> Result<(), String> {
+fn import_source(app: AppHandle, source: String) -> Result<(), DesktopError> {
     push_open(&app, incoming(&store()?, source, documents::Origin::Import, None));
     Ok(())
 }
@@ -210,7 +215,7 @@ fn convert_source(source: String) -> OpenRequest {
 }
 
 #[tauri::command]
-fn list_documents() -> Result<Vec<documents::DocumentSummary>, String> {
+fn list_documents() -> Result<Vec<documents::DocumentSummary>, DesktopError> {
     store()?.list()
 }
 
@@ -218,12 +223,12 @@ fn list_documents() -> Result<Vec<documents::DocumentSummary>, String> {
 fn create_document(
     editor: documents::Editor,
     title: Option<String>,
-) -> Result<documents::Document, String> {
+) -> Result<documents::Document, DesktopError> {
     store()?.create(editor, title, documents::Origin::New, None)
 }
 
 #[tauri::command]
-fn load_document(id: String) -> Result<documents::Document, String> {
+fn load_document(id: String) -> Result<documents::Document, DesktopError> {
     store()?.load(&id)
 }
 
@@ -236,7 +241,7 @@ fn save_document(
     layout: documents::Layout,
     base_updated_at: String,
     normalize: bool,
-) -> Result<documents::DocumentSummary, String> {
+) -> Result<documents::DocumentSummary, DesktopError> {
     store()?.save(&id, source, layout, &base_updated_at, normalize)
 }
 
@@ -247,27 +252,27 @@ fn confirm_document(
     source: String,
     layout: documents::Layout,
     base_updated_at: String,
-) -> Result<documents::DocumentSummary, String> {
+) -> Result<documents::DocumentSummary, DesktopError> {
     store()?.confirm(&id, source, layout, &base_updated_at)
 }
 
 #[tauri::command]
-fn rename_document(id: String, title: String) -> Result<(), String> {
+fn rename_document(id: String, title: String) -> Result<(), DesktopError> {
     store()?.rename(&id, title)
 }
 
 #[tauri::command]
-fn trash_document(id: String) -> Result<(), String> {
+fn trash_document(id: String) -> Result<(), DesktopError> {
     store()?.trash(&id)
 }
 
 #[tauri::command]
-fn last_opened() -> Result<Option<String>, String> {
+fn last_opened() -> Result<Option<String>, DesktopError> {
     Ok(store()?.last_opened())
 }
 
 #[tauri::command]
-fn set_last_opened(id: String) -> Result<(), String> {
+fn set_last_opened(id: String) -> Result<(), DesktopError> {
     store()?.set_last_opened(&id)
 }
 
@@ -291,8 +296,10 @@ fn deliver<R: tauri::Runtime>(
         id: d.id.clone(),
         updated_at: d.updated_at.clone(),
     }) else {
+        // AI が読む reason は前の版と同じ文 (DesktopError の Display, spec 34 D3)
         return Err(request
             .error
+            .map(|e| e.to_string())
             .unwrap_or_else(|| "図の一覧に足せませんでした".into()));
     };
     push_open(app, request);
@@ -318,19 +325,19 @@ struct GuiEditor(AppHandle);
 
 impl lorelei_mcp::EditorPort for GuiEditor {
     fn open(&self, source: String, title: Option<String>) -> Result<lorelei_mcp::Opened, String> {
-        deliver(&self.0, &store()?, source, title)
+        deliver(&self.0, &store().map_err(|e| e.to_string())?, source, title)
     }
     // 書き換え (spec 08 D3): Store::update で書き、開いている図なら載せ替えの要求を積む
     fn update(&self, req: lorelei_mcp::UpdateRequest) -> Result<lorelei_mcp::UpdateOutcome, lorelei_mcp::UpdateError> {
-        let store = store().map_err(lorelei_mcp::UpdateError::Other)?;
+        let store = store().map_err(|e| lorelei_mcp::UpdateError::Other(e.to_string()))?;
         deliver_update(&self.0, &store, req)
     }
     // 読み戻し (spec 04): documents/ と state.json を読む。画面には問い合わせない (D1)
     fn list(&self) -> Result<Vec<lorelei_mcp::DiagramSummary>, String> {
-        readback::list(&store()?)
+        readback::list(&store().map_err(|e| e.to_string())?)
     }
     fn read(&self, id: Option<String>) -> Result<lorelei_mcp::Diagram, String> {
-        readback::read(&store()?, id)
+        readback::read(&store().map_err(|e| e.to_string())?, id)
     }
 }
 
@@ -344,7 +351,7 @@ fn emit_status(app: &AppHandle, status: &mcp_host::McpStatus) {
 }
 
 #[tauri::command]
-async fn mcp_status(state: tauri::State<'_, McpState>) -> Result<mcp_host::McpStatus, String> {
+async fn mcp_status(state: tauri::State<'_, McpState>) -> Result<mcp_host::McpStatus, DesktopError> {
     Ok(state.0.lock().await.status())
 }
 
@@ -353,7 +360,7 @@ async fn set_mcp_enabled(
     app: AppHandle,
     state: tauri::State<'_, McpState>,
     enabled: bool,
-) -> Result<mcp_host::McpStatus, String> {
+) -> Result<mcp_host::McpStatus, DesktopError> {
     let status = state.0.lock().await.set_enabled(enabled).await?;
     emit_status(&app, &status);
     Ok(status)
@@ -364,7 +371,7 @@ async fn set_mcp_port(
     app: AppHandle,
     state: tauri::State<'_, McpState>,
     port: u16,
-) -> Result<mcp_host::McpStatus, String> {
+) -> Result<mcp_host::McpStatus, DesktopError> {
     let status = state.0.lock().await.set_port(port).await?;
     emit_status(&app, &status);
     Ok(status)
@@ -374,14 +381,14 @@ async fn set_mcp_port(
 async fn regenerate_mcp_token(
     app: AppHandle,
     state: tauri::State<'_, McpState>,
-) -> Result<mcp_host::McpStatus, String> {
+) -> Result<mcp_host::McpStatus, DesktopError> {
     let status = state.0.lock().await.regenerate_token().await?;
     emit_status(&app, &status);
     Ok(status)
 }
 
 impl OpenRequest {
-    fn failed(source: String, error: String) -> Self {
+    fn failed(source: String, error: DesktopError) -> Self {
         Self {
             source,
             payload: None,
@@ -407,8 +414,12 @@ pub fn request_from_source(source: String) -> OpenRequest {
             reload: false,
             layout: None,
         },
-        Ok(None) => OpenRequest::failed(source, "この図の種類は GUI エディタで開けません".into()),
-        Err(e) => OpenRequest::failed(source, e.to_string()),
+        Ok(None) => OpenRequest::failed(
+            source,
+            DesktopError::new(error::UNSUPPORTED_DIAGRAM, "この図の種類は GUI エディタで開けません"),
+        ),
+        // lorelei_core (merman) の文は訳さない。detail に入れ、画面は題だけ訳す (spec 34 D3)
+        Err(e) => OpenRequest::failed(source, DesktopError::new(error::CONVERT_FAILED, e.to_string()).detail(&e)),
     }
 }
 
@@ -668,7 +679,9 @@ flowchart TD
         assert_eq!(desktop::parse_kind("png"), Ok(ExportKind::Render(RenderFormat::Png)));
         assert_eq!(desktop::parse_kind("pdf"), Ok(ExportKind::Render(RenderFormat::Pdf)));
         assert_eq!(desktop::parse_kind("mmd"), Ok(ExportKind::Mmd));
-        assert_eq!(desktop::parse_kind("gif"), Err("未対応の形式です: gif".to_string()));
+        let gif = desktop::parse_kind("gif").unwrap_err();
+        assert_eq!(gif.to_string(), "未対応の形式です: gif");
+        assert_eq!(gif.code, error::UNSUPPORTED_FORMAT);
         assert_eq!(ExportKind::Mmd.extension(), "mmd");
         assert_eq!(ExportKind::Render(RenderFormat::Pdf).extension(), "pdf");
     }
@@ -696,11 +709,17 @@ flowchart TD
         let unsupported = incoming(&store, "sequenceDiagram
   A->>B: hi
 ".into(), documents::Origin::Ai, None);
-        assert_eq!(unsupported.error.as_deref(), Some("この図の種類は GUI エディタで開けません"));
+        assert_eq!(unsupported.error.as_ref().map(ToString::to_string).as_deref(), Some("この図の種類は GUI エディタで開けません"));
         let broken = incoming(&store, "flowchart TD
   A --> 
 ".into(), documents::Origin::Ai, None);
-        assert_eq!(broken.error.as_deref(), Some("unexpected end of input; expected node identifier, edge label"));
+        assert_eq!(
+            broken.error.as_ref().map(ToString::to_string).as_deref(),
+            Some("unexpected end of input; expected node identifier, edge label")
+        );
+        // 画面には code で渡す
+        assert_eq!(unsupported.error.as_ref().map(|e| e.code), Some(error::UNSUPPORTED_DIAGRAM));
+        assert_eq!(broken.error.as_ref().map(|e| e.code), Some(error::CONVERT_FAILED));
     }
 
     #[test]
@@ -759,7 +778,7 @@ flowchart TD
     fn request_from_source_keeps_source_when_it_cannot_open() {
         let r = request_from_source("sequenceDiagram\n  A->>B: hi\n".into());
         assert!(r.payload.is_none());
-        assert!(r.error.as_deref().unwrap().contains("開けません"));
+        assert!(r.error.as_ref().unwrap().to_string().contains("開けません"));
         assert!(r.source.starts_with("sequenceDiagram"));
 
         let broken = request_from_source("flowchart TD\n  A[a --> B\n".into());

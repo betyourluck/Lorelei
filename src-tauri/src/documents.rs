@@ -11,6 +11,8 @@ use chrono::{DateTime, Local, SecondsFormat};
 use lorelei_mcp::{EditorKind, UpdateError};
 use serde::{Deserialize, Serialize};
 
+use crate::error::{self, DesktopError};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Editor {
@@ -171,17 +173,17 @@ impl Store {
         self.root.join("documents")
     }
 
-    fn doc_path(&self, id: &str) -> Result<PathBuf, String> {
+    fn doc_path(&self, id: &str) -> Result<PathBuf, DesktopError> {
         check_id(id)?;
         Ok(self.documents().join(format!("{id}.json")))
     }
 
     /// documents/ 直下の *.json だけを読む。壊れたファイルは飛ばす (一覧ごと失敗させない)
-    pub fn list(&self) -> Result<Vec<DocumentSummary>, String> {
+    pub fn list(&self) -> Result<Vec<DocumentSummary>, DesktopError> {
         let entries = match std::fs::read_dir(self.documents()) {
             Ok(e) => e,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-            Err(e) => return Err(format!("図の一覧を読めません: {e}")),
+            Err(e) => return Err(DesktopError::new(error::DOC_LIST_FAILED, format!("図の一覧を読めません: {e}")).detail(&e)),
         };
         let mut docs: Vec<Document> = entries
             .flatten()
@@ -200,7 +202,7 @@ impl Store {
         title: Option<String>,
         origin: Origin,
         original_source: Option<String>,
-    ) -> Result<Document, String> {
+    ) -> Result<Document, DesktopError> {
         let now = now();
         let doc = Document {
             id: uuid::Uuid::new_v4().to_string(),
@@ -225,7 +227,7 @@ impl Store {
         self.doc_path(id).is_ok_and(|p| p.is_file())
     }
 
-    pub fn load(&self, id: &str) -> Result<Document, String> {
+    pub fn load(&self, id: &str) -> Result<Document, DesktopError> {
         read_doc(&self.doc_path(id)?)
     }
 
@@ -245,7 +247,7 @@ impl Store {
         layout: Layout,
         base_updated_at: &str,
         normalize: bool,
-    ) -> Result<DocumentSummary, String> {
+    ) -> Result<DocumentSummary, DesktopError> {
         let _lock = lock();
         let doc = self.save_unlocked(id, source, layout, base_updated_at, normalize)?;
         Ok((&doc).into())
@@ -254,10 +256,10 @@ impl Store {
     /// 利用者の「確定」(spec 02 D12、spec 32 D1)。今の中身を自動保存と同じ規則で書き (印の無い保存 = 人の操作)、
     /// 同じ鍵の中で saved_at と confirmed を書く。一覧の先頭へ動き、● が消える。
     /// STALE_BASE・INITIAL_FIGURE_REJECTED・DOCUMENT_GONE は save と同じく拒み、何も書かない。空の中身は確定しない
-    pub fn confirm(&self, id: &str, source: String, layout: Layout, base_updated_at: &str) -> Result<DocumentSummary, String> {
+    pub fn confirm(&self, id: &str, source: String, layout: Layout, base_updated_at: &str) -> Result<DocumentSummary, DesktopError> {
         let _lock = lock();
         if source.trim().is_empty() {
-            return Err("確定する中身がありません".into());
+            return Err(DesktopError::new(error::NOTHING_TO_CONFIRM, "確定する中身がありません"));
         }
         let mut doc = self.save_unlocked(id, source, layout, base_updated_at, false)?;
         doc.saved_at = Some(now());
@@ -274,22 +276,30 @@ impl Store {
         layout: Layout,
         base_updated_at: &str,
         normalize: bool,
-    ) -> Result<Document, String> {
+    ) -> Result<Document, DesktopError> {
         // ごみ箱へ移した・消えた図への書き込みは、書き直しても通らない。フロントが見分けて捨てる印を付ける
         if !self.contains(id) {
-            return Err(format!("{DOCUMENT_GONE}: 図が一覧にありません（ごみ箱へ移したか、消えました）"));
+            return Err(DesktopError::new(
+                error::DOCUMENT_GONE,
+                format!("{}: 図が一覧にありません（ごみ箱へ移したか、消えました）", error::DOCUMENT_GONE),
+            ));
         }
         let mut doc = self.load(id)?;
         // 古い版を添えた書き込み (走り出した古い保存・別の図を開く途中に来た update の後の保存) は届かせない。今の値を載せる
         if !same_instant(base_updated_at, &doc.updated_at) {
-            return Err(format!("{STALE_BASE}: {}", doc.updated_at));
+            return Err(DesktopError::new(error::STALE_BASE, format!("{}: {}", error::STALE_BASE, doc.updated_at))
+                .param("currentUpdatedAt", doc.updated_at.clone()));
         }
         let first_fill = doc.source.is_empty();
         // 保険 (spec 04 D4-2、spec 08 D1 で first_fill の時だけに絞った): AI / インポートの図を、空への最初の書き込みで
         // エディタの初期図で潰さない (現況 4 の 1 件目の形)。中身のある図の上書きは保険の外 (門が受け持つ)
         if first_fill && doc.origin != Origin::New && source == initial_source(doc.editor) {
-            return Err(format!(
-                "{INITIAL_FIGURE_REJECTED}: AI やインポートで届いた図を、エディタの初期図で上書きしかけたので止めました"
+            return Err(DesktopError::new(
+                error::INITIAL_FIGURE_REJECTED,
+                format!(
+                    "{}: AI やインポートで届いた図を、エディタの初期図で上書きしかけたので止めました",
+                    error::INITIAL_FIGURE_REJECTED
+                ),
             ));
         }
         let pending = doc.normalize_pending;
@@ -322,7 +332,7 @@ impl Store {
         if !self.contains(id) {
             return Err(UpdateError::NotFound);
         }
-        let mut doc = self.load(id).map_err(UpdateError::Other)?;
+        let mut doc = self.load(id).map_err(|e| UpdateError::Other(e.to_string()))?;
         if doc.editor != editor {
             return Err(UpdateError::KindMismatch {
                 actual: editor_kind(doc.editor),
@@ -340,12 +350,12 @@ impl Store {
         doc.source = source;
         doc.updated_at = now();
         doc.normalize_pending = true;
-        self.write(&doc).map_err(UpdateError::Other)?;
+        self.write(&doc).map_err(|e| UpdateError::Other(e.to_string()))?;
         Ok(doc)
     }
 
     /// 名前を変える。並びも ● も動かさない
-    pub fn rename(&self, id: &str, title: String) -> Result<(), String> {
+    pub fn rename(&self, id: &str, title: String) -> Result<(), DesktopError> {
         let _lock = lock();
         let mut doc = self.load(id)?;
         doc.title = title;
@@ -353,13 +363,14 @@ impl Store {
     }
 
     /// 物理削除しない。documents/ の外 (trash/) へ移すので一覧に出なくなる。history/ は動かさない
-    pub fn trash(&self, id: &str) -> Result<(), String> {
+    pub fn trash(&self, id: &str) -> Result<(), DesktopError> {
         let _lock = lock();
         let from = self.doc_path(id)?;
         let dir = self.root.join("trash");
-        std::fs::create_dir_all(&dir).map_err(|e| format!("ごみ箱を作れません: {e}"))?;
+        std::fs::create_dir_all(&dir)
+            .map_err(|e| DesktopError::new(error::TRASH_FAILED, format!("ごみ箱を作れません: {e}")).detail(&e))?;
         std::fs::rename(&from, dir.join(format!("{id}.json")))
-            .map_err(|e| format!("ごみ箱へ移せません: {e}"))
+            .map_err(|e| DesktopError::new(error::TRASH_FAILED, format!("ごみ箱へ移せません: {e}")).detail(&e))
     }
 
     pub fn last_opened(&self) -> Option<String> {
@@ -368,30 +379,32 @@ impl Store {
         state.last_opened.filter(|id| check_id(id).is_ok())
     }
 
-    pub fn set_last_opened(&self, id: &str) -> Result<(), String> {
+    pub fn set_last_opened(&self, id: &str) -> Result<(), DesktopError> {
         check_id(id)?;
         let state = DocumentState {
             last_opened: Some(id.to_string()),
         };
-        let json = serde_json::to_vec_pretty(&state).map_err(|e| e.to_string())?;
+        let json = serde_json::to_vec_pretty(&state).map_err(|e| DesktopError::from(e.to_string()))?;
         write_atomic(&self.root.join("state.json"), &json)
     }
 
-    fn write(&self, doc: &Document) -> Result<(), String> {
-        let json = serde_json::to_vec_pretty(doc).map_err(|e| e.to_string())?;
+    fn write(&self, doc: &Document) -> Result<(), DesktopError> {
+        let json = serde_json::to_vec_pretty(doc).map_err(|e| DesktopError::from(e.to_string()))?;
         write_atomic(&self.doc_path(&doc.id)?, &json)
     }
 }
 
-fn check_id(id: &str) -> Result<(), String> {
+fn check_id(id: &str) -> Result<(), DesktopError> {
     uuid::Uuid::parse_str(id)
         .map(|_| ())
-        .map_err(|_| format!("図の id が不正です: {id:?}"))
+        .map_err(|_| DesktopError::new(error::INVALID_ID, format!("図の id が不正です: {id:?}")).param("id", id))
 }
 
-fn read_doc(path: &Path) -> Result<Document, String> {
-    let text = std::fs::read_to_string(path).map_err(|e| format!("図を読めません: {e}"))?;
-    let mut doc: Document = serde_json::from_str(&text).map_err(|e| format!("図のファイルが壊れています: {e}"))?;
+fn read_doc(path: &Path) -> Result<Document, DesktopError> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| DesktopError::new(error::DOC_READ_FAILED, format!("図を読めません: {e}")).detail(&e))?;
+    let mut doc: Document = serde_json::from_str(&text)
+        .map_err(|e| DesktopError::new(error::DOC_CORRUPT, format!("図のファイルが壊れています: {e}")).detail(&e))?;
     migrate_confirmed(&mut doc);
     Ok(doc)
 }
@@ -410,15 +423,19 @@ fn migrate_confirmed(doc: &mut Document) {
 }
 
 /// 同じフォルダの一時ファイルへ書いてから rename する (途中で切れた壊れファイルを残さない。OutputPathPolicy と同じ)
-pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    let dir = path.parent().ok_or("保存先のフォルダがありません")?;
-    std::fs::create_dir_all(dir).map_err(|e| format!("フォルダを作れません: {e}"))?;
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), DesktopError> {
+    let dir = path
+        .parent()
+        .ok_or_else(|| DesktopError::new(error::DOC_WRITE_FAILED, "保存先のフォルダがありません"))?;
+    std::fs::create_dir_all(dir)
+        .map_err(|e| DesktopError::new(error::DOC_WRITE_FAILED, format!("フォルダを作れません: {e}")).detail(&e))?;
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("doc");
     let tmp = dir.join(format!(".{name}.tmp.{}", uuid::Uuid::new_v4()));
-    std::fs::write(&tmp, bytes).map_err(|e| format!("保存できません: {e}"))?;
+    std::fs::write(&tmp, bytes)
+        .map_err(|e| DesktopError::new(error::DOC_WRITE_FAILED, format!("保存できません: {e}")).detail(&e))?;
     std::fs::rename(&tmp, path).map_err(|e| {
         let _ = std::fs::remove_file(&tmp);
-        format!("保存できません: {e}")
+        DesktopError::new(error::DOC_WRITE_FAILED, format!("保存できません: {e}")).detail(&e)
     })
 }
 
@@ -442,14 +459,6 @@ pub fn editor_kind(e: Editor) -> EditorKind {
     }
 }
 
-/// `save` の base_updated_at がファイルの updated_at と違う時のエラーの頭。後ろに今の updated_at を載せる (spec 08 D2)
-pub const STALE_BASE: &str = "STALE_BASE";
-
-/// `save` の相手の図が一覧に無い時のエラーの頭 (フロントはこれで見分けて、その書き込みを捨てる)
-pub const DOCUMENT_GONE: &str = "DOCUMENT_GONE";
-
-/// `save` が初期図での上書きを拒んだ時のエラーの頭 (フロントはこれで見分けて、その書き込みを捨てる)
-pub const INITIAL_FIGURE_REJECTED: &str = "INITIAL_FIGURE_REJECTED";
 
 /// data_contract `Document.initial_sources`。フォーク元のエディタの初期図を生成器にかけた出力 (vitest で突き合わせる)
 pub fn initial_source(editor: Editor) -> &'static str {
@@ -473,6 +482,7 @@ pub fn default_title(editor: Editor, origin: Origin) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::{DOCUMENT_GONE, INITIAL_FIGURE_REJECTED, STALE_BASE};
     use std::collections::BTreeMap;
 
     fn store() -> Store {
@@ -482,7 +492,7 @@ mod tests {
 
     /// 自動保存の形: 今のファイルの updated_at を base に添える (spec 08 D2)。無い図は空の base。
     /// 揃え書きの印を付ける (フロントの「準備ができてから最初の保存」と同じ。印の無い保存は spec 33 のテストで見る)
-    fn sv(s: &Store, id: &str, source: &str, layout: Layout) -> Result<DocumentSummary, String> {
+    fn sv(s: &Store, id: &str, source: &str, layout: Layout) -> Result<DocumentSummary, DesktopError> {
         let base = s.load(id).map(|d| d.updated_at).unwrap_or_default();
         s.save(id, source.into(), layout, &base, true)
     }
@@ -531,7 +541,7 @@ mod tests {
         // 空の source への最初の書き込み (1 件目の形) だけを拒む (spec 08 D1 で絞った)。中身のある source の上書きは、
         // 人が手で初期図と同じ図を作った場合や update_diagram の後の揃え書きで、拒まない
         let err = sv(&s, &ai.id, flow, BTreeMap::new()).unwrap_err();
-        assert!(err.starts_with("INITIAL_FIGURE_REJECTED"), "{err}");
+        assert!(err.code == "INITIAL_FIGURE_REJECTED", "{err}");
         sv(&s, &ai.id, "flowchart TD\n    受付[受付]\n", BTreeMap::new()).unwrap();
         sv(&s, &ai.id, flow, BTreeMap::new()).unwrap();
         assert_eq!(s.load(&ai.id).unwrap().source, flow);
@@ -627,13 +637,15 @@ mod tests {
         let cur = s.load(&d.id).unwrap().updated_at;
 
         let err = s.save(&d.id, "flowchart TD\n    old[old]\n".into(), BTreeMap::new(), "2026-09-25T10:00:00+09:00", true).unwrap_err();
-        assert!(err.starts_with(STALE_BASE), "{err}");
-        assert!(err.ends_with(&cur), "今の値を載せる: {err}");
+        assert!(err.code == STALE_BASE, "{err}");
+        assert!(err.to_string().ends_with(&cur), "今の値を載せる (MCP・ログの文): {err}");
+        // 画面へは params で (spec 34 D3)
+        assert_eq!(err.params.as_ref().and_then(|p| p.get("currentUpdatedAt")), Some(&serde_json::json!(cur)));
         assert_eq!(s.load(&d.id).unwrap().source, "flowchart TD\n    A[A]\n");
         // 時刻として同じ瞬間なら通る。読めない base は拒む
         let utc = chrono::DateTime::parse_from_rfc3339(&cur).unwrap().to_utc().to_rfc3339();
         s.save(&d.id, "flowchart TD\n    B[B]\n".into(), BTreeMap::new(), &utc, true).unwrap();
-        assert!(s.save(&d.id, "flowchart TD\n    C[C]\n".into(), BTreeMap::new(), "", true).unwrap_err().starts_with(STALE_BASE));
+        assert!(s.save(&d.id, "flowchart TD\n    C[C]\n".into(), BTreeMap::new(), "", true).unwrap_err().code == STALE_BASE);
     }
 
     // spec 08 D1: update の後の最初の save (揃え書き) は updated_at を進めず印を消す。中身が同じでも印を消すために書く
@@ -709,8 +721,8 @@ mod tests {
         let d = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
         s.trash(&d.id).unwrap();
         let err = sv(&s, &d.id, "flowchart TD\n    a[a]\n", BTreeMap::new()).unwrap_err();
-        assert!(err.starts_with("DOCUMENT_GONE"), "{err}");
-        assert!(!err.contains(&*s.root.to_string_lossy()), "パスを載せない: {err}");
+        assert!(err.code == "DOCUMENT_GONE", "{err}");
+        assert!(!err.to_string().contains(&*s.root.to_string_lossy()), "パスを載せない: {err}");
     }
 
     #[test]
@@ -909,7 +921,7 @@ mod tests {
         let d = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
         sv(&s, &d.id, "flowchart TD\n    A[A]\n", BTreeMap::new()).unwrap();
         let err = s.confirm(&d.id, "flowchart TD\n    B[B]\n".into(), BTreeMap::new(), "2026-01-01T00:00:00+09:00").unwrap_err();
-        assert!(err.starts_with(STALE_BASE), "{err}");
+        assert!(err.code == STALE_BASE, "{err}");
         let doc = s.load(&d.id).unwrap();
         assert!(doc.confirmed.is_none() && doc.saved_at.is_none());
         assert_eq!(doc.source, "flowchart TD\n    A[A]\n");
@@ -919,7 +931,7 @@ mod tests {
 
         let ai = s.create(Editor::Flowchart, None, Origin::Ai, Some("flowchart LR\n  A --> B\n".into())).unwrap();
         let err = s.confirm(&ai.id, initial_source(Editor::Flowchart).into(), BTreeMap::new(), &ai.updated_at).unwrap_err();
-        assert!(err.starts_with(INITIAL_FIGURE_REJECTED), "{err}");
+        assert!(err.code == INITIAL_FIGURE_REJECTED, "{err}");
 
         let cur = s.load(&d.id).unwrap().updated_at;
         let updated = s.update(&d.id, "flowchart LR\n  A --> B\n".into(), Editor::Flowchart, &cur).unwrap();
@@ -931,7 +943,7 @@ mod tests {
 
         s.trash(&d.id).unwrap();
         let err = s.confirm(&d.id, "flowchart TD\n    x[x]\n".into(), BTreeMap::new(), &confirmed.updated_at).unwrap_err();
-        assert!(err.starts_with(DOCUMENT_GONE), "{err}");
+        assert!(err.code == DOCUMENT_GONE, "{err}");
     }
 
     // spec 32 D1: この版より前に確定した図。確定の後に中身が変わっていなければ今の中身を確定した中身として埋める

@@ -33,6 +33,20 @@ export type PendingOpen = {
   layout: Record<string, { x: number; y: number }> | null;
 };
 
+/**
+ * src-tauri の DesktopError を直列化した形 (spec 34 D3、error.rs のテストが同じ形を確かめる)。
+ * Display の文は画面へ渡らないので持たない
+ */
+export const desktopError = (
+  code: string,
+  params?: Record<string, string | number>,
+  detail?: string
+): { code: string; params?: Record<string, string | number>; detail?: string } => ({
+  code,
+  ...(params ? { params } : {}),
+  ...(detail !== undefined ? { detail } : {}),
+});
+
 export function fakeBackend() {
   let clock = 0;
   const now = () => `2026-09-24T12:00:${String(clock++).padStart(2, "0")}.000000+09:00`;
@@ -120,10 +134,11 @@ export function fakeBackend() {
       }
       case "save_document": {
         const d = docs.get(args.id as string);
-        // src-tauri documents::DOCUMENT_GONE と同じ (ごみ箱へ移した図への書き込み)
-        if (!d) throw "DOCUMENT_GONE: 図が一覧にありません";
-        // src-tauri documents::STALE_BASE と同じ (spec 08 D2): 古い版を添えた書き込みは届かせず、今の値を載せる
-        if (args.baseUpdatedAt !== d.updatedAt) throw `STALE_BASE: ${d.updatedAt}`;
+        // src-tauri の DesktopError DOCUMENT_GONE と同じ形 (ごみ箱へ移した図への書き込み。spec 34 D3)
+        if (!d) throw desktopError("DOCUMENT_GONE");
+        // src-tauri の DesktopError STALE_BASE と同じ (spec 08 D2): 古い版を添えた書き込みは届かせず、今の値を params に載せる
+        if (args.baseUpdatedAt !== d.updatedAt)
+          throw desktopError("STALE_BASE", { currentUpdatedAt: d.updatedAt });
         // src-tauri documents::Store::save と同じ規則 (spec 33): 中身が同じなら書かない。印 (normalize_pending) はどの保存でも消し、
         // 進めないのは揃え書き (normalize の印付き)・中身が同じ・最初の書き込みの時だけ
         const firstFill = d.source === "";
@@ -138,7 +153,7 @@ export function fakeBackend() {
       }
       case "confirm_document": {
         // src-tauri documents::Store::confirm と同じ (spec 32 D1): 自動保存と同じ規則 (印無し) で書き、確定した中身を残す
-        if (String(args.source ?? "").trim() === "") throw "確定する中身がありません";
+        if (String(args.source ?? "").trim() === "") throw desktopError("NOTHING_TO_CONFIRM");
         await invoke("save_document", { ...args, normalize: false });
         const d = docs.get(args.id as string)!;
         d.savedAt = now();
@@ -160,7 +175,13 @@ export function fakeBackend() {
       case "take_pending_open":
         return pending.splice(0);
       case "convert_source":
-        return { source: args.source, payload: null, dropped: [], error: "fake", document: null };
+        return {
+          source: args.source,
+          payload: null,
+          dropped: [],
+          error: desktopError("CONVERT_FAILED", undefined, "fake"),
+          document: null,
+        };
       default:
         return undefined;
     }

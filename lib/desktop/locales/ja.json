@@ -7,7 +7,6 @@
   },
   "error": {
     "ADD_FAILED": "図の一覧に足せませんでした",
-    "BACKUP_FAILED": "書き換え前の図を残せません",
     "CONVERT_FAILED": "Mermaid を読めません",
     "DOCUMENT_GONE": "図が一覧にありません（ごみ箱へ移したか、消えました）",
     "DOC_CORRUPT": "図のファイルが壊れています",

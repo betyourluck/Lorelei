@@ -11,7 +11,8 @@ use crate::documents::{Document, DocumentSummary, Editor, Origin, Store};
 pub fn list(store: &Store) -> Result<Vec<DiagramSummary>, String> {
     let open = store.last_opened();
     Ok(store
-        .list()?
+        .list()
+        .map_err(|e| e.to_string())?
         .iter()
         .map(|d| summary(d, open.as_deref()))
         .collect())
@@ -26,7 +27,7 @@ pub fn read(store: &Store, id: Option<String>) -> Result<Diagram, String> {
             "今開いている図がありません。id を指定するか、GUI で図を開いてください".to_string()
         })?,
     };
-    let doc: Document = store.load(&id)?;
+    let doc: Document = store.load(&id).map_err(|e| e.to_string())?;
     let open = store.last_opened();
     Ok(Diagram {
         summary: summary(&DocumentSummary::from(&doc), open.as_deref()),
