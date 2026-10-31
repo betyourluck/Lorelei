@@ -335,7 +335,9 @@ UiLocale:
     zh-TW・zh-HK・zh-MO・zh-Hant* は簡体字に寄せない、ko* → ko (一覧にある時)) → 英語。決まったら i18n.changeLanguage
   html_lang: "<html lang> は組み立ての時は ja のまま。言語が決まる・切り替わるたびに document.documentElement.lang を書く"
   control:
-    web: "フォーク元の見出しの並び (NavigationMenu の隣) に地球のアイコンのメニュー (D9)。デスクトップでは見出しごと隠れる"
+    web: >-
+      2 つのパネルの見出しの NavigationMenu の右に components/i18n/language-menu.tsx の LanguageMenu (D9)。地球のアイコン (LanguagesIcon)、aria-label「画面の言語: <今の言語の名>」、
+      title「画面の言語」。項目は LOCALES の名 (その言語で書く、lang 付き)、今の言語は色の名 selected の地。選ぶと setLocale (すぐ切り替わり、覚える)。デスクトップでは見出しごと隠れる"
     desktop: "spec 34。それまでは DesktopShell が Tauri の時に日本語へ戻す (外枠の言葉が日本語だけなので、エディタだけ英語になって混ざらないように。spec 31 P1)"
   switch: "開き直さずに全部の言葉が変わる (表と state はキーを持ち、描く時に訳す, D6)"
 

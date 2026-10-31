@@ -16,6 +16,8 @@ import {
 import { deleteTitle } from "@/components/ui/confirm-delete";
 import { HistoryButtons } from "@/components/ui/history-buttons";
 import { describeDropped } from "@/components/ui/mermaid-dropped";
+import { createNewERTableNode } from "@/features/er-diagram/hooks/er-diagram-helpers";
+import { nextFrameName } from "@/features/flowchart/utils/frame-edit";
 
 const noop = () => {};
 
@@ -107,5 +109,16 @@ describe("言語のメニュー (D9)", () => {
       "title",
       "Display language"
     );
+  });
+});
+
+describe("新しい要素の既定の名 (D8)", () => {
+  test("テーブルと枠の名は作った時の言語で付き、枠の ID は言語に依らない", () => {
+    const handlers = { onNameChange: noop, onColumnsChange: noop };
+    expect(createNewERTableNode(3, { x: 0, y: 0 }, handlers).data.name).toBe("テーブル3");
+    expect(nextFrameName([])).toEqual({ variableName: "group1", title: "グループ1" });
+    act(() => setLocale("en"));
+    expect(createNewERTableNode(3, { x: 0, y: 0 }, handlers).data.name).toBe("Table3");
+    expect(nextFrameName([])).toEqual({ variableName: "group1", title: "Group1" });
   });
 });
