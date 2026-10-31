@@ -2,13 +2,66 @@
 
 **ID**: 35
 **Date**: 2026-10-31
-**Status**: **Draft** — rev2（[spec 31](31_ui-language.md) rev1 で分けた → rev1 で下調べを足した → 査読 1 本（「査読の採否」、17 件を全部採った）→ rev2。D1〜D9 の裁定待ち）
+**Status**: **Draft** — rev2（[spec 31](31_ui-language.md) rev1 で分けた → rev1 で下調べを足した → 査読 1 本（「査読の採否」、17 件を全部採った）→ rev2 → 裁定（「裁定」、推奨どおり）→ P0（「P0 結果」、D4 は案 B）。次は P1）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。コミットの分け方は D6
 
 ## Goal
 
 spec 31・34 の仕組みに、利用者の言（2026-10-30）「英語と中国語と韓国語と日本語」の残りの 2 つを載せる。訳を作り、4 つの言語で画面がはみ出さず重ならないことを確かめる。
 利用者の言（2026-10-31）: 「v0.1.5 でタグ付けしましたが、中国語と韓国語をつけてすぐ v0.1.6 にします」 — この spec の着地が v0.1.6 の中身
+
+## 裁定（2026-10-31、利用者）
+
+利用者の言: 「推奨どおり」 — D1〜D9 を推奨どおりに決めた（D4 はこの spec で扱い、案 A〜C は P0 の測りで選ぶ。Noto Sans KR・SC の可変フォントを落とすことも許された）
+
+## P0 結果（2026-10-31）
+
+- **data_contract を凍結**: `UiLocale`（値 4 つ・名と並び・D9 の判定）・`UiMessages`（複数形の誤りを直し、`value_forms`（D1・D3）と `fonts`（D7）を足した）・`FontBundle`（6 本・切り出しの規則・`fallback`・`han_glyphs`・`loading`・`license`）・
+  `Document.initial_sources`（4 つの言語の ER 図の初期図の見込み）・`Document.default_titles`・`DesktopMessages.tests`
+- **今の書き出しの字の欠け（Red）**: 使い捨てのテスト（`render.rs` の中、`svg_tree` の木を歩いて字ごとの glyph id とフォントを出す）に「사용자 목록」「这是简体说们」と Markdown の太字（`**굵은 한글** **简体们**`）を通すと、
+  **ハングルと JP に無い簡体字は全部 glyph id 0（.notdef）で豆腐**になり、太字は `NotoSansJP-Bold` の .notdef だった（PNG で目でも見た）。JP にある「是」「体」だけが描かれる。**太字のラベルが書き出しにある**ので、案 C（Regular だけ）は太字のハングルを細字で描く
+- **フォントを落とした**（google/fonts の main、`raw.githubusercontent.com` から）: `NotoSansKR[wght].ttf` 10,414,588 バイト（sha256 `194018e6…`）・`NotoSansSC[wght].ttf` 17,772,300 バイト（`a3041811…`）、どちらも Version 2.004。
+  **OFL の文は JP・KR・SC と同梱の `OFL.txt` の 4 つがバイト単位で同じ**（sha256 `1c05c68c…`）。ライセンスの文は 1 つで足りる
+- **大きさ**（静的 Regular・Bold、fontTools の instancer → subset、レイアウトの機能は全部残す）:
+
+  | | KR Regular | KR Bold | SC Regular | SC Bold | 増える分 |
+  | --- | --- | --- | --- | --- | --- |
+  | 案 A（全部） | 6,224,868 | 6,222,712 | 10,595,932 | 10,585,456 | **+33.6MB** |
+  | 案 B（切り出し） | 2,709,904 | 2,709,528 | 5,484,684 | 5,478,004 | **+16.4MB** |
+  | 案 C（B の Regular だけ） | 2,709,904 | — | 5,484,684 | — | +8.2MB |
+
+  案 B の字: SC = SC の cmap 30,890 字のうち JP（16,732 字）に無い 14,811 字、KR = KR の cmap 23,174 字のうち JP にも SC にも無い 11,587 字（ハングルの音節 11,172 字を全部含む）。
+  **案 B を採る**（裁定の推奨のとおり。案 C は上の太字で外れ、案 A は B の倍で得るものは JP・SC にある字の韓国の字形だけ）。実行ファイルは 51.4MB → 約 68MB の見込み
+- **自前の代わりのフォントの選び方で直るか（試作）**: 使い捨てのテストで fontdb に切り出した 4 本を JP の後に SC → KR の順で足し、`select_fallback` を「字を持つフォントのうち元と太さが同じものを先に、無ければ字を持つ最初のもの」にすると、
+  ハングルは `NotoSansKR-Regular`・太字は `NotoSansKR-Bold`、JP に無い簡体字は `NotoSansSC-Regular` / `-Bold`、JP にある「是」「体」「直」「骨」は `NotoSansJP-*`（JP の字形）、空白は JP。PNG で目でも見て、豆腐 0。
+  **PDF の `/BaseFont` は `NotoSansJP-Regular`・`-Bold`・`NotoSansSC-Regular`・`-Bold`・`NotoSansKR-Regular`・`-Bold` の 6 つ**（krilla が切り出して埋め込む）。
+  usvg は字を持つかの判定（`DatabaseExt::has_char`）を `pub(crate)` にしているので、`ttf-parser` 0.25.1（Cargo.lock にもう入っている版）を直に使う。試作のテストと依存は P2 で入れ直すので戻した
+- merman のラベルの幅の見積もりは査読 13 のとおりで、P0 では測らなかった
+
+### 用語と値の形の表（D1）
+
+| 日本語 | English | 简体中文 | 한국어 |
+| --- | --- | --- | --- |
+| フローチャート | flowchart | 流程图 | 플로차트 |
+| ER 図 | ER diagram | ER 图 | ER 다이어그램 |
+| 図 | diagram | 图表 | 다이어그램 |
+| ノード | node | 节点 | 노드 |
+| 線 | line / edge | 连线 | 연결선 |
+| 枠 | group | 分组 | 그룹 |
+| テーブル・列 | table・column | 表・列 | 테이블・컬럼 |
+| 確定・確定へ戻す | Confirm・Revert to confirmed | 确定・恢复到已确定版本 | 확정・확정본으로 되돌리기 |
+| 図の一覧 | Diagrams | 图表列表 | 다이어그램 목록 |
+| インポート・書き出し・コード生成 | Import・Export・Generate code | 导入・导出・生成代码 | 가져오기・내보내기・코드 생성 |
+| 形・向き・テーマ | shape・direction・theme | 形状・方向・主题 | 모양・방향・테마 |
+| 形の名（四角形・菱形・角丸・円・六角形・スタジアム） | rectangle・diamond・rounded・circle・hexagon・stadium | 矩形・菱形・圆角矩形・圆形・六边形・体育场形 | 사각형・마름모・둥근 사각형・원・육각형・스타디움 |
+| 元に戻す・やり直す | Undo・Redo | 撤销・重做 | 실행 취소・다시 실행 |
+| ごみ箱・設定 | Trash・Settings | 回收站・设置 | 휴지통・설정 |
+| 画面の言語・画面の色（ライト・ダーク・OS に合わせる） | Language・Color mode | 界面语言・界面颜色（浅色・深色・跟随系统） | 화면 언어・화면 색상（라이트・다크・시스템 설정） |
+| ミニマップ | minimap | 小地图 | 미니맵 |
+| ER 図の初期図のテーブル名 | User | 用户 | 사용자 |
+
+値の形（data_contract `UiMessages.value_forms`）: `frame.sentenceJoin` は 中国語 `""`・韓国語 `" "`、列挙の区切り（`dropped.separator`・`codeModal.listSeparator`）は 中国語 `、`・韓国語 `", "`、
+文の切れ目（`dropWarnings.separator`、日本語 `。`・英語 `"; "`）は 中国語 `；`・韓国語 `"; "`。韓国語の名前の後は D3（항목・테이블・그룹 を挟む）
 
 ## 現況（2026-10-31、rev1・rev2 でコードと実物で確かめた）
 

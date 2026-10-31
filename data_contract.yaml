@@ -326,13 +326,15 @@ UiColorMode:
 UiLocale:
   description: >-
     画面の言葉の言語 (spec 31)。フォーク元の改善 (Web 版でも動く。キーに Lorelei の名を入れない)。図の中身 (Mermaid) の言葉とは別 — 切り替えても図は変わらない
-  values: [ja, en]   # spec 35 で zh-Hans・ko を足す (訳が揃った時に一覧へ)。一覧は components/i18n/i18n.ts の LOCALES (名はその言語で書く)
+  values: [ja, en, zh-Hans, ko]   # spec 35 で zh-Hans・ko を足す (D2。訳が揃った時に同じコミットで一覧へ)。一覧は components/i18n/i18n.ts の LOCALES (名はその言語で書く)
+  names: { ja: 日本語, en: English, zh-Hans: 简体中文, ko: 한국어 }   # この順で並べる。简体中文 の行は直書きのテストに当たるので i18n-allow
   build_locale: ja   # 静的書き出しの HTML とブラウザの最初の描画の言語 (D5)。描画の中で navigator・localStorage に触らない
   fallback: en       # 一覧に合う言語が無い時・訳の無いキー
   storage: "localStorage、キー mermaid-editor.locale.v1、値 = values のどれか。利用者が選んだ時だけ書く。読めない・知らない値は覚えていない扱い"
   detect: >-
-    マウントの後に (D5): 覚えた言語 → navigator.languages を上から見て近いもの (ja* → ja、en* → en、zh・zh-CN・zh-SG・zh-Hans* → zh-Hans (一覧にある時)、
-    zh-TW・zh-HK・zh-MO・zh-Hant* は簡体字に寄せない、ko* → ko (一覧にある時)) → 英語。決まったら i18n.changeLanguage
+    マウントの後に (D5): 覚えた言語 → navigator.languages を上から見て近いもの (ja* → ja、en* → en、ko* → ko (一覧にある時)、
+    zh は文字体系の部分を地域より先に見る (spec 35 D9): zh-Hans* は地域を問わず zh-Hans、zh-Hant* は飛ばす、文字体系の無い zh-TW・zh-HK・zh-MO は飛ばす、それ以外の zh・zh-CN・zh-SG は zh-Hans (一覧にある時))
+    → 英語。決まったら i18n.changeLanguage
   html_lang: "<html lang> は組み立ての時は ja のまま。言語が決まる・切り替わるたびに document.documentElement.lang を書く"
   control:
     web: >-
@@ -345,7 +347,14 @@ UiMessages:
   description: >-
     画面の言葉の訳 (spec 31 D2・D6・D7)。i18next の 1 つの instance (components/i18n/i18n.ts の i18n。資源は同梱し同期で初期化、useSuspense: false)
   files: "locales/<lng>/common.json (名前空間 common)。デスクトップの訳はここに入れない (spec 34 で lib/desktop/locales/ を addResourceBundle で足す)"
-  keys: "場所ごとの入れ子 (flowPanel.addNode・confirmDelete.title など)。数は count で、英語は _one・_other を持つ"
+  keys: "場所ごとの入れ子 (flowPanel.addNode・confirmDelete.title など)。数は count を差し込むだけで、複数形の接尾辞 (_one・_other) のキーは持たない (中国語・韓国語の複数形の分類は other だけ, spec 35)"
+  value_forms: >-
+    テストが値の形を見ないキー (spec 35 D1): frame.sentenceJoin (文をつなぐ字。ja・zh-Hans は ""、en・ko は " ")、dropped.separator・codeModal.listSeparator (列挙の区切り。ja・zh-Hans は 、、en・ko は ", ")、dropWarnings.separator (文の切れ目。ja は 。、zh-Hans は ；、en・ko は "; ")、
+    importModal.flowHelp の {{label}} は差し込みではなく Mermaid の六角形の書き方 (どの言語もそのまま)。
+    韓国語は名前を差し込んだ直後の助詞を避ける並びにし (名前の後に 항목・테이블・그룹 を置く)、避けられない文だけ 을(를) の形 (spec 35 D3)
+  fonts: >-
+    画面のフォント (spec 35 D7、components/providers/theme.ts。フォーク元の改善): yamada-ui の既定の並びは日本語のフォントを名指しするので、:lang(zh-Hans) は "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Noto Sans SC"、
+    :lang(ko) は "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", "Noto Sans KR" を CJK の先頭にした並び (英字の -apple-system・"Segoe UI" は前に残す)。:lang(ko) は word-break: keep-all (語で折り返す)。ja・en の画面は前と同じ
   title: "タブの題は組み立ての時は metadata の日本語。言語が決まったら DocumentTitle が document.title を書く (NEXT_PUBLIC_SITE_TITLE で差し替えた組み立てでは触らない)"
   aria: "xyflow の部品の言葉は components/layout/use-flow-aria-labels.ts を 2 つの <ReactFlow> の ariaLabelConfig に。CodeMirror の文言は editor-phrases.ts (ライブラリのキー → 訳のキー) を Compartment で差し替える"
   use:
@@ -448,9 +457,18 @@ RenderConfigOverrides:
 
 FontBundle:
   description: PNG / PDF 変換で使うフォント。OS のフォントに依存しない
-  fonts: [NotoSansJP-Regular, NotoSansJP-Bold]   # OFL-1.1。静的フォント (可変は fontdb が Thin で読む, P0-3)。About と THIRD_PARTY_LICENSES に表示
-  source: "Noto Sans JP 可変フォント v2.004 から scripts/build-fonts.py で wght=400 / 700 を切り出す (同じ入力から同じバイト列)"
-  reserved_font_name: "Source (Adobe)。改変版の名前に使えない — 切り出し後のファミリー名は Noto Sans JP で該当しない"
+  fonts: [NotoSansJP-Regular, NotoSansJP-Bold, NotoSansSC-Regular, NotoSansSC-Bold, NotoSansKR-Regular, NotoSansKR-Bold]   # OFL-1.1。静的フォント (可変は fontdb が Thin で読む, P0-3)。About と THIRD_PARTY_LICENSES に表示。SC・KR は spec 35 D4
+  source: >-
+    Noto Sans JP・SC・KR の可変フォント v2.004 (google/fonts の ofl/notosansjp・notosanssc・notosanskr) から scripts/build-fonts.py で wght=400 / 700 を切り出す (同じ入力から同じバイト列、3 つの入力の sha256 を出力に記録)。
+    JP は全部。SC は SC の cmap のうち JP に無い字 (14,811 字)、KR は KR の cmap のうち JP にも SC にも無い字 (11,587 字、ハングルの音節 11,172 字を含む)。
+    大きさ (spec 35 P0): JP 各 5.8MB、SC 各 5.5MB、KR 各 2.7MB (SC・KR を足して +16.4MB。全部を同梱すると +33.6MB)
+  fallback: >-
+    字の無い時の代わり (spec 35 D4、fonts.rs の usvg::FontResolver の select_fallback): 読み込んだ順 (JP → SC → KR) に字を持つフォントを見て、元のフォントと太さが同じものを先に選び、無ければ字を持つ最初のもの。
+    usvg の既定は太さを見ない (外す条件が斜体・太さ・幅の全部が違う時だけ) ので使わない。字を持つかは ttf-parser で引く。PNG・PDF・MCP の preview は同じ usvg::Options を通る
+  han_glyphs: "JP にある漢字は JP の字形で描く (中国語のラベルでも。図のラベルの言語は分からないので並びを変えない。LORELEI.md の既知の制約)"
+  loading: "fontdb::Source::Binary(Arc::new(&'static [u8])) で読み、include_bytes! のバイト列をヒープへ写さない"
+  license: "OFL.txt は 3 つのフォントで同じ文 (sha256 1c05c68c…、spec 35 P0 で確かめた)。licenses/ に 1 つ同梱し、About に 3 つのフォントを並べる"
+  reserved_font_name: "Source (Adobe)。改変版の名前に使えない — 切り出し後のファミリー名は Noto Sans JP・SC・KR で該当しない"
   sharing: "OnceLock<Arc<fontdb::Database>> (プロセスで 1 つ)"
   system_fonts: false   # システムフォントは読まない (端末ごとに出力が変わるのを防ぐ)
 
@@ -660,7 +678,7 @@ Document:
     normalize_pending: { type: bool, default: false }  # update_diagram が立てる印 (spec 08 D1)。次の save で消える (source / layout が同じでも印を消すために書く)。updated_at を進めないのは、その save が揃え書きの印 (normalize) を持つ時だけ (spec 33)。古いファイルに無ければ false
   json_keys: camelCase   # ファイルと GUI の受け渡しはどちらも camelCase (originalSource / createdAt / normalizePending ...)
   default_titles:   # spec 34 D5: new と import はフロントが画面の言語で付けて渡す (desktop.defaultTitle.*)。ai は Rust が DocumentState.ai_title_template で付ける
-    new: { flowchart: 無題のフローチャート, erDiagram: 無題の ER 図 }   # 日本語の画面の値。英語は Untitled flowchart / Untitled ER diagram
+    new: { flowchart: 無題のフローチャート, erDiagram: 無題の ER 図 }   # 日本語の画面の値。英語は Untitled flowchart / Untitled ER diagram、中国語・韓国語は desktop.defaultTitle.* の訳
     ai: "AI の図 HH:MM:SS"          # ひな形を一度も知らされていない時 (今の日本語)。MCP の title が来たらそれを使う
     import: "インポート HH:MM:SS"
   trash: "{app_data_dir}/trash/{id}.json"   # 削除は移動だけ。documents/ の外なので一覧に出ない。空にする操作は無い
@@ -668,7 +686,7 @@ Document:
     fixture: "src-tauri/tests/fixtures/initial_sources.json ({ erDiagram: [...], flowchart: [...] }。__tests__/lib/desktop/doc-session.test.ts が LORELEI_UPDATE_FIXTURES=1 で LOCALES の全部の言語の初期図を重複を除いて書き、src-tauri の documents.rs のテストが initial_sources(editor) と比べる)"
     ts: "features/er-diagram/er-diagram-editor.tsx の initialERNodes(lng?) (テーブルの名は common の defaults.initialTable、省くと今の言語)・features/flowchart/flow-editor.tsx の initialFlowNodes。エディタはマウントした時の言語で作る (Web 版を英語で直に開くと、最初の描画が組み立ての日本語なので「ユーザー」。デスクトップは外枠がエディタを作り直すので覚えた言語)"
     flowchart: ["flowchart TD\n    startNode[Start]\n"]   # どの言語でも同じ
-    erDiagram: ["erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }", "erDiagram\n  User {\n    int id PK\n    varchar(255) name UK\n  }"]   # ja / en
+    erDiagram: ["erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }", "erDiagram\n  User {\n    int id PK\n    varchar(255) name UK\n  }", "erDiagram\n  用户 {\n    int id PK\n    varchar(255) name UK\n  }", "erDiagram\n  사용자 {\n    int id PK\n    varchar(255) name UK\n  }"]   # ja / en / zh-Hans / ko (spec 35。囲まずに書かれる見込みで、P1 で生成器の出力を fixture にして確かめる)
   save_guard: >-
     origin が ai / import の図の「空の source への最初の書き込み」(first_fill) が initial_sources と同じなら save_document が拒む。new の図は対象外。拒んだ時のエラーは INITIAL_FIGURE_REJECTED で始まる。
     spec 08 D1 で first_fill の時だけに絞った (旧: 前の source に依らず拒む)。守るのは spec 04 現況 4 の 1 件目の形だけで、update_diagram の後の揃え書き (source は非空) は掛からない —
@@ -734,7 +752,7 @@ DesktopMessages:
   description: >-
     デスクトップの外枠の画面の言葉 (spec 34 D1)。名前空間 desktop。lib/desktop/locales/<lng>.json を lib/desktop/i18n.ts が addResourceBundle で足す (フォーク元の locales/ には入れない)。
     部品は lib/desktop/i18n.ts の useDesktopTranslation、部品の外は desktopT (呼ばれた時の言語)。キーの型は components/i18n/resources.ts の I18nResources を declare module で広げる
-  tests: "日本語と英語のキーの組・差し込みの一致 / lib/desktop の直書き (__tests__/lib/desktop/hardcoded-text.test.ts) / eslint の i18next/no-literal-string を lib/desktop/**/*.tsx にも"
+  tests: "LOCALES の全部の言語 (spec 35 で 4 つ) のキーの組・差し込みの一致 / lib/desktop の直書き (__tests__/lib/desktop/hardcoded-text.test.ts) / eslint の i18next/no-literal-string を lib/desktop/**/*.tsx にも"
   window_show: "言語は LocaleSync が当てる (外枠より前の兄弟の effect。changeLanguage は同期)。外枠は Tauri の時に日本語に留める処理を spec 34 P1 で外し、show の時に当てた言語になっていることをテストで固定する"
 
 DesktopLayout:
