@@ -338,7 +338,7 @@ UiLocale:
     web: >-
       2 つのパネルの見出しの NavigationMenu の右に components/i18n/language-menu.tsx の LanguageMenu (D9)。地球のアイコン (LanguagesIcon)、aria-label「画面の言語: <今の言語の名>」、
       title「画面の言語」。項目は LOCALES の名 (その言語で書く、lang 付き)、今の言語は色の名 selected の地。選ぶと setLocale (すぐ切り替わり、覚える)。デスクトップでは見出しごと隠れる"
-    desktop: "spec 34。それまでは DesktopShell が Tauri の時に日本語へ戻す (外枠の言葉が日本語だけなので、エディタだけ英語になって混ざらないように。spec 31 P1)"
+    desktop: "タイトルバーの画面の色のメニューの左に同じ LanguageMenu (spec 34 P1、BAR_BUTTON の見た目)。spec 31 P1 の「Tauri の時は日本語へ戻す」処理は spec 34 P1 で外した (窓を出す時には覚えた言語、無ければ OS の言語)"
   switch: "開き直さずに全部の言葉が変わる (表と state はキーを持ち、描く時に訳す, D6)"
 
 UiMessages:
