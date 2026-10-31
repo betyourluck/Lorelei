@@ -29,7 +29,7 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 - **`lib/desktop/`**: フロント側の Tauri 依存はここだけ（Web 版では何もしない）。フォーク元への差し込みは spec 01 の 4 ファイル・8 行 + spec 02 の 5 ファイル・12 行（`app/layout.tsx` の外枠、エディタ 2 つの高さ、パネル 2 つの `useDesktopActions`。重なりを除いて計 7 ファイル）+ spec 04 P0 でエディタ 2 つの初期図を export（`initialFlowNodes` / `initialERNodes`。初期図の突き合わせ用。ファイルは既存の 7 つに含まれる）+ spec 07 P2 でパネル 2 つの `useDesktopActions` に向き（`direction` / `setDirection`）を足した（同じ 2 ファイル）+ spec 15 P3 でフローチャートのパネルの `useDesktopActions` に `addFrame` を足した（同じファイル）
   + spec 24 P2 でパネル 2 つの `useDesktopActions` に `theme` を足した（同じ 2 ファイル）+ spec 32 P2 でエディタ 2 つの `handleImportMermaid` に省略できる `adjust` を足し（フォーク元の改善）、パネル 2 つの `useDesktopActions` に `importMermaid` を足した（同じ 2 ファイル）+ spec 30 P2 でパネル 2 つの `useDesktopActions` に `history` を足した（同じ 2 ファイル。エディタ側の履歴の口 `HistoryGateContext` は `lib/desktop` を参照しないフォーク元の改善で、外枠が Provider で包む）+ spec 25 P1 でコード生成のダイアログ 2 つ（`download-modal.tsx`・`er-diagram-mermaid-modal.tsx`。spec 01 から `ExportButtons` を差し込んである）の「ダウンロード」を `useMmdDownload` に通した（各 2 行 + import）
 - **フロント（`app/` `features/` `components/`）**: フォーク元のコード。直してよい（下の掟の「フォーク元は必要なら直してよい」）。
-  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」「P4 結果」、spec 15（フローチャートのサブグラフ）の「P1 結果」「P3 結果」、spec 16（枠を指す線・枠の中の向き）の「P1 結果」〜「P3 結果」「P5 結果」、spec 23（線のラベル）の「P1 結果」、spec 24（テーマ）の「P1 結果」、spec 26（ミニマップの出し入れ）の「P2 結果」、spec 27（画面のダークテーマの色の名）の「P1 結果」、spec 28（選んだノードの印）の「P1 結果」に一覧がある。PR を出すかは利用者が決める。
+  **フォーク元の改善**（上流へ返せる。`lib/desktop/` と台帳を含まないコミット）は spec 06（削除の確認・ER 図のテーブル削除）と spec 07（FK・図の向き）の「P1 結果」「P2 結果」、spec 09（コード生成のプレビュー）の「P1 結果」、spec 10（CodeMirror のエディタ）の「P1〜P3 結果」、spec 11（mermaid.js での取り込み）の「P1〜P3 結果」、spec 12（古いパーサーの撤去）の「P1・P2 結果」、spec 13（ER 図の名前）の「P1 結果」「P2 結果」「P4 結果」、spec 15（フローチャートのサブグラフ）の「P1 結果」「P3 結果」、spec 16（枠を指す線・枠の中の向き）の「P1 結果」〜「P3 結果」「P5 結果」、spec 23（線のラベル）の「P1 結果」、spec 24（テーマ）の「P1 結果」、spec 26（ミニマップの出し入れ）の「P2 結果」、spec 27（画面のダークテーマの色の名）の「P1 結果」、spec 28（選んだノードの印）の「P1 結果」、spec 31（画面の言語）の「P1 結果」に一覧がある。PR を出すかは利用者が決める。
   **フォーク元へ出した PR**: [illionillion/mermaid-editor#74](https://github.com/illionillion/mermaid-editor/pull/74)（spec 13 の生成器の直しだけを移植。Lorelei のコミットはデスクトップの差し込みの上で作ったので cherry-pick では載らない — spec 13「フォーク元への PR」）。
   **デスクトップではフォーク元のパネル（インポートを含む）を隠し、ツールバーから `lib/desktop/` のダイアログを開く** — フォーク元の部品を直したら、デスクトップのどの操作がどの部品を開くかを確かめる（failures #17）
 
@@ -63,6 +63,13 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-31: [spec 31](specs/31_ui-language.md) **裁定（推奨どおり）・P0・P1 着地**。P0: 版（`i18next` 26.4.7・`react-i18next` 17.0.21・`eslint-plugin-i18next` 6.1.5）・
+  本番の組み立てで水和のエラー 0（わざと描画中に言語を決めると #425・#418 が出ることも確かめた）・言語を覚えるキーは `mermaid-editor.locale.v1`（フォーク元の流儀）。
+  P1（フォーク元 `0842ff4`・デスクトップ `13f59e1`）: `components/i18n/` と `locales/{ja,en}/common.json`（268 キー、英語も P1 で入れた）、フォーク元の 47 ファイルの言葉を移した。
+  **部品は `useTranslation` を `@/components/i18n` から読み、部品の外の関数は呼ばれた時に `i18n.t`**（読み込み時に訳さない）。テストは日本語で走る（`__tests__/setup.ts`）。
+  直書きの日本語は `__tests__/i18n/hardcoded-text.test.ts`、英語は eslint の `i18next/no-literal-string` が止める（例外は行に `i18n-allow` / `eslint-disable-next-line` と理由）。
+  日本語の画面は前と同じ（11 場面の計算されたスタイル・5 画面の属性と文字で違い 0）。**デスクトップは spec 34 まで日本語に留める**。
+  画面の切り替えのメニューはまだ無い（P2）。日本語の画面で前から英語の所（`Zoom In`・`Delete edge` など）は日本語の訳も英語のまま — P2 で決める
 - 2026-10-31: [spec 31](specs/31_ui-language.md) **rev1**（査読 1 本を採った）・[spec 34](specs/34_desktop-ui-language.md)・[spec 35](specs/35_zh-ko-translations.md) **起票**（rev0）。画面の言語を 3 本に分けた:
   31 = 仕組み（i18next 26.4.7・react-i18next 17.0.21 を推す）・フォーク元の言葉・日本語と英語・Web 版の切り替え・テストの基盤 / 34 = デスクトップの言葉・Rust のエラーをコードで返す（MCP の文はそのまま）・新しい図の題・ER 図の初期図を `User` に / 35 = 中国語・韓国語の訳・4 つの言語の見た目・書き出しのフォント。
   査読で、英語の直書き・xyflow と CodeMirror の言葉・新しい要素の既定の名前・server component の `metadata`・水和（組み立ての言語は日本語を推す）・既存のテストは日本語で走らせる、を足した。

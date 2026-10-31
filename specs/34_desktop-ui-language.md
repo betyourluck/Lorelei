@@ -27,6 +27,8 @@ spec 31 の Goal（利用者の言「UI 言語の切り替え。英語と中国�
   `first_fill`（ファイルの source が空）の時だけ、AI・インポートの図を初期図で潰す書き込みを断る（`documents.rs:286-293`、spec 04 D4-2・spec 08 D1）
 - **窓を出す所**: `desktop-shell.tsx:47-50` の子の部品の effect（`windowAction("show")`）。spec 31 D5 の「マウントの後に言語を当てる」より先に走りうる
 
+- **今のデスクトップは日本語に留めている**（spec 31 P1 `13f59e1`）: `DesktopShell` が Tauri の時に `i18n.changeLanguage("ja")`。外枠の言葉と切り替えを入れる時に外す（D2 の「言語を当ててから窓を出す」と置き換える）
+
 ## 決めること
 
 ### D1. デスクトップの訳のファイルと型

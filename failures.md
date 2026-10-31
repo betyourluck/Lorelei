@@ -611,3 +611,10 @@
 - **真因**: `Autosaver` の待ち（`touch` の `setTimeout`）は、外枠（`useDocSession`）が消えても止まらない。テストは `beforeEach` で偽のバックエンドを作り直すが、図の id は同じ連番から始まるので、前のテストの保存が次のテストの図に届いた
 - **処方**: 外枠が消える時に `autosaver.cancel()`（実物で外枠が消えるのは閉じる時で、閉じる前の保存は `onCloseRequested` の flush が済ませている）
 - **一般化**: タイマーや購読を持つ部品は、消える時に止める。テストでモジュールの変数（`backend`）を差し替える形は、前のテストの非同期の後片付けが次のテストに届く
+
+## #55 C: の作業場所に D: の node_modules をつなぐと、Next の組み立てが「Can't resolve './D:/…/next/dist/client/next.js'」で落ちた（2026-10-31, spec 31 P1）
+
+- **症状**: 前の版を組み立てて今の版と見た目を比べるため、scratchpad（C:）に `git worktree add` で HEAD を出し、`node_modules` を D: のリポジトリの `node_modules` へジャンクションでつないで `build-web-demo.mjs` を走らせると、webpack が `Module not found: Can't resolve './D:/Github/Lorelei/node_modules/.pnpm/next@…/next/dist/client/next.js'` で落ちた
+- **真因**: 確かめていない（推測: Next は道筋を実体へ解いてから作業場所からの相対の道筋を作り、別のドライブの実体だと相対の道筋が作れず `./D:/…` になる）
+- **処方**: 作業場所を同じドライブ（D: のリポジトリの `.claude/` の下。git の対象外）に作り、そこでつないだ。比べが終わったら `node_modules` のジャンクションを `rmdir` で外してから `git worktree remove --force`（ジャンクションを残したまま消すと、つないだ先まで消すおそれがある）
+- **一般化**: 前の版を組み立てる作業場所は、`node_modules` の実体と同じドライブに置く

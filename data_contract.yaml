@@ -336,7 +336,7 @@ UiLocale:
   html_lang: "<html lang> は組み立ての時は ja のまま。言語が決まる・切り替わるたびに document.documentElement.lang を書く"
   control:
     web: "フォーク元の見出しの並び (NavigationMenu の隣) に地球のアイコンのメニュー (D9)。デスクトップでは見出しごと隠れる"
-    desktop: "spec 34"
+    desktop: "spec 34。それまでは DesktopShell が Tauri の時に日本語へ戻す (外枠の言葉が日本語だけなので、エディタだけ英語になって混ざらないように。spec 31 P1)"
   switch: "開き直さずに全部の言葉が変わる (表と state はキーを持ち、描く時に訳す, D6)"
 
 UiMessages:
@@ -344,6 +344,8 @@ UiMessages:
     画面の言葉の訳 (spec 31 D2・D6・D7)。i18next の 1 つの instance (components/i18n/i18n.ts の i18n。資源は同梱し同期で初期化、useSuspense: false)
   files: "locales/<lng>/common.json (名前空間 common)。デスクトップの訳はここに入れない (spec 34 で lib/desktop/locales/ を addResourceBundle で足す)"
   keys: "場所ごとの入れ子 (flowPanel.addNode・confirmDelete.title など)。数は count で、英語は _one・_other を持つ"
+  title: "タブの題は組み立ての時は metadata の日本語。言語が決まったら DocumentTitle が document.title を書く (NEXT_PUBLIC_SITE_TITLE で差し替えた組み立てでは触らない)"
+  aria: "xyflow の部品の言葉は components/layout/use-flow-aria-labels.ts を 2 つの <ReactFlow> の ariaLabelConfig に。CodeMirror の文言は editor-phrases.ts (ライブラリのキー → 訳のキー) を Compartment で差し替える"
   use:
     component: "useTranslation は @/components/i18n から読む (instance に結んだ包み。Provider の無い描画・テストでも同じ instance を使う)"
     function: "部品の外 (純粋な関数) は呼ばれた時に i18n.t で訳して返す。読み込み時 (モジュールの表) に t を呼ばない"
