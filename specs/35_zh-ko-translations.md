@@ -2,7 +2,7 @@
 
 **ID**: 35
 **Date**: 2026-10-31
-**Status**: **Draft** — rev2（[spec 31](31_ui-language.md) rev1 で分けた → rev1 で下調べを足した → 査読 1 本（「査読の採否」、17 件を全部採った）→ rev2 → 裁定（「裁定」、推奨どおり）→ P0（「P0 結果」、D4 は案 B）。次は P1）
+**Status**: **Draft** — rev2（[spec 31](31_ui-language.md) rev1 で分けた → rev1 で下調べを足した → 査読 1 本（「査読の採否」、17 件を全部採った）→ rev2 → 裁定（「裁定」、推奨どおり）→ P0（「P0 結果」、D4 は案 B）→ P1（「P1 結果」、D7 は実物で改めた）。次は P2（書き出しのフォント））
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。コミットの分け方は D6
 
 ## Goal
@@ -13,6 +13,28 @@ spec 31・34 の仕組みに、利用者の言（2026-10-30）「英語と中国
 ## 裁定（2026-10-31、利用者）
 
 利用者の言: 「推奨どおり」 — D1〜D9 を推奨どおりに決めた（D4 はこの spec で扱い、案 A〜C は P0 の測りで選ぶ。Noto Sans KR・SC の可変フォントを落とすことも許された）
+
+## P1 結果（2026-10-31）
+
+- **コミット**（D6 の 1〜3）: フォーク元の改善 `aca01e1`（D9 の判定・`:lang(ko)` の `keep-all`）→ デスクトップの訳 `fb43a19` → 一覧へ足す `50bba2b`（common の訳・`LOCALES`・Rust の保険と fixture・ER 図の名前のテスト・AI が読む文）
+- **D9**: `detectLocale` に選べる言語を渡せるようにし（既定は `LOCALES`）、文字体系を地域より先に見る。`zh-Hans-HK`・`zh-Hans-TW` は簡体字、`zh-Hant-CN` は繁体字。簡体字が一覧にある時の 11 通りを先に書き、6 件の赤を見てから直した
+- **D7 は実物で改めた**（上の D7 の注）: フォントの並びは入れず、`:lang(ko) { word-break: keep-all }` だけ。テストは先に書いて赤を見た
+- **デスクトップの訳を先に入れても緑、は外れた**（査読 7 の根拠の 1 つ）: `default-titles.test.ts` は `desktopResources` の言語へ切り替えて比べるが、i18next は一覧に無い言語を英語に落とすので 2 件が落ちた。
+  訳の値の形（`{time}` が素のまま 1 つ）は `desktopResources` の全部、画面が送るひな形は選べる言語（`LOCALES`）で見る形に分けた。
+  `hardcoded-text.test.ts` のキーの組も `desktopResources` の全部を回し、`LOCALES` の言語が全部そろっていることを別に見る
+- **訳**: common 271・desktop 128 キーを P0 の用語の表で訳した。韓国語の名前の後は 항목・테이블・그룹・다이어그램・형식 を挟んだ（D3）。
+  括弧の前の英語の語に助詞が付く 3 つ（`classDef(…)는` など、どちらの音に合わせるかが曖昧）は「지정」を前に出した。`을(를)` の形は使っていない
+- **ER 図の初期図**: fixture は data_contract に凍結した 4 つの見込みと一字一句同じ（`用户`・`사용자` は囲まずに書かれる）。Rust の `initial_sources` を足す前は fixture との突き合わせが落ちた（Red）。
+  保険のテストは英語・中国語・韓国語の初期図を拒む。ER 図の名前の往復（`er-names.test.ts`・`round-trip-mermaid.test.ts`・`er_names.json` を Rust の `editor.rs`）に 用户・表3・사용자・테이블3 を足し、TS・Rust とも緑
+- **テスト**: vitest の全部（119 ファイル 1332 件）で 3 件が時間切れ（`direction-save`・`update-diagram`・`revert-confirmed`。開発サーバーと裏の Edge を同時に回していた。単独では 10〜29 秒で通る、spec 31 から続く重い時の組）。
+  `src-tauri` 60 件・`lorelei_core` の `editor` 42 件・`lorelei_mcp` が緑。`tsc`・eslint 0 件
+- **画面**（D5。開発サーバーの Web 版、Browser pane と裏の Edge。はみ出しは「文字を持つ要素で中身が箱より広い・窓の右へ出る」を数える使い捨ての関数）:
+  - Web 版を中国語で: キャンバス・インポートのダイアログ（中国語の図を入れて取り込み）・取り込んだ図（枠・線のラベル・形の札）・ノードのメニュー・形のメニュー・枠の向きのメニュー・言語のメニュー（4 つの言語、各項目に `lang`）で、はみ出し 0
+  - 韓国語で: キャンバス・コード生成のダイアログ・ER 図のページ（テーブルを足すと `테이블2`）ではみ出し 0。`<html lang="ko">`・タブの題も韓国語。ER 図のページを直に開いた初期図は「ユーザー」（受け入れ条件 4 の範囲）
+  - デスクトップの外枠（spec 27 の台本の偽の Tauri の口を写した使い捨ての台本、裏の Edge）: **覚えた言語が無くブラウザの言語が `zh-CN`・`ko-KR` なら、`<html lang>` が `zh-Hans`・`ko` で始まった**（D8 の Chromium の側。WebView2 の `--lang` は試していない）。
+    幅 1280・1100・900 の外枠・設定画面（コマンドと JSON のタブ）・画面の色のメニューではみ出し 0、幅 900 のツールバーはアイコンだけの形。ページのエラー 0
+  - 撮った画面は scratchpad の `p1-shots/`（中国語・韓国語の外枠 3 つの幅・設定・色のメニュー）
+- **途中で見つけた前からの穴**: 日本語の `app.erTitle` が「Mermmaid ER図エディター」（m が 1 つ多い。ER 図のページのタブの題）。この spec では直していない
 
 ## P0 結果（2026-10-31）
 
@@ -169,6 +191,11 @@ spec 31・34 の仕組みに、利用者の言（2026-10-30）「英語と中国
   4. **フォント**（`crates/`・`scripts/build-fonts.py`・ライセンス・About・MCP の説明）
 
 ### D7. 画面のフォントの並び（新、査読 1・16）
+
+> **P1 で改めた（2026-10-31）**: 実物（開発サーバーの Web 版）で、画面の字は全部 `app/layout.tsx` の next/font の **Inter**（latin だけ）と等幅で描かれ、yamada-ui のフォントの並び（`--ui-fonts-body`）を使う要素は 0 だった（文字を持つ 49 要素を数えた）。
+> Inter に無い漢字はブラウザが `<html lang>` に合わせて選ぶフォントに落ち、`lang="zh-Hans"` の行は「直骨角 这们」が一続きの中国語のフォント、`ja` の行は日本語のフォント（JP に無い「这们」だけ別の書体）で描かれた（字形で見分けた）。
+> 査読 1 の「中国語の漢字が日本語の字形になる」は、yamada-ui の並びを使う前提で、この画面では起きない。**フォントの並びの差し替えは入れず（効き目の無いコードになる）、韓国語の `word-break: keep-all` だけを入れた**。
+> 下の推奨は rev2 の時のもの
 
 - **推奨**: `components/providers/theme.ts` で、`:lang(zh-Hans)` に `"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Noto Sans SC", sans-serif` を、`:lang(ko)` に `"Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", "Noto Sans KR", sans-serif` を先頭にした並びを当てる
   （英字は今の並びの先頭の `-apple-system`・`"Segoe UI"` を残す）。`:lang(ko)` には `word-break: keep-all`（語で折り返す）。フォーク元の改善で、Web 版にも効く。

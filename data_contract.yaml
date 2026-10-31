@@ -353,8 +353,9 @@ UiMessages:
     importModal.flowHelp の {{label}} は差し込みではなく Mermaid の六角形の書き方 (どの言語もそのまま)。
     韓国語は名前を差し込んだ直後の助詞を避ける並びにし (名前の後に 항목・테이블・그룹 を置く)、避けられない文だけ 을(를) の形 (spec 35 D3)
   fonts: >-
-    画面のフォント (spec 35 D7、components/providers/theme.ts。フォーク元の改善): yamada-ui の既定の並びは日本語のフォントを名指しするので、:lang(zh-Hans) は "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Noto Sans SC"、
-    :lang(ko) は "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", "Noto Sans KR" を CJK の先頭にした並び (英字の -apple-system・"Segoe UI" は前に残す)。:lang(ko) は word-break: keep-all (語で折り返す)。ja・en の画面は前と同じ
+    画面の字 (spec 35 D7)。字は app/layout.tsx の next/font の Inter (latin だけ) で描き、Inter に無い字 (漢字・仮名・ハングル) はブラウザが <html lang> に合わせて選ぶフォントに落ちる
+    (Windows の Chromium・WebView2 で、lang=zh-Hans は漢字を中国語のフォント、ja は日本語のフォントで描くことを字形で確かめた)。yamada-ui の既定のフォントの並び (日本語のフォントを名指し) を使う要素は無いので、言語ごとのフォントの並びは足さない。
+    :lang(ko) は word-break: keep-all (語で折り返す。components/providers/theme.ts の globalStyle、フォーク元の改善)
   title: "タブの題は組み立ての時は metadata の日本語。言語が決まったら DocumentTitle が document.title を書く (NEXT_PUBLIC_SITE_TITLE で差し替えた組み立てでは触らない)"
   aria: "xyflow の部品の言葉は components/layout/use-flow-aria-labels.ts を 2 つの <ReactFlow> の ariaLabelConfig に。CodeMirror の文言は editor-phrases.ts (ライブラリのキー → 訳のキー) を Compartment で差し替える"
   use:

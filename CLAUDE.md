@@ -66,7 +66,10 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 - 2026-10-31: [spec 35](specs/35_zh-ko-translations.md)（中国語・韓国語、v0.1.6 の中身）**rev2 → 裁定（推奨どおり）→ P0 着地**。査読 1 本で、画面のフォントが日本語のフォントを名指しする（中国語の漢字が日本語の字形になる）・
   usvg の代わりのフォントの選び方が太さを見ない・`zh-Hans-HK` を繁体字として飛ばす、を見つけて D7〜D9 にした。P0: 今の書き出しはハングルと JP に無い簡体字が豆腐（glyph id 0、太字のラベルも）。
   Noto Sans KR・SC を落とし（OFL の文は JP と同じ）、**JP に無い字だけを切り出して Regular・Bold で +16.4MB**（全部なら +33.6MB）、自前の `select_fallback`（太さの合うものを先に、JP → SC → KR）で豆腐 0・PDF に 6 本、を試作で確かめた。
-  data_contract（UiLocale・UiMessages・FontBundle・initial_sources）を凍結。次は P1（訳）。v0.1.5 のタグは `4343892`
+  data_contract（UiLocale・UiMessages・FontBundle・initial_sources）を凍結。v0.1.5 のタグは `4343892`。
+  **P1 着地**（`aca01e1` フォーク元・`fb43a19` デスクトップの訳・`50bba2b` 一覧へ足す）: 简体中文・한국어 を一覧に。**画面の字は Inter（latin だけ）で、漢字は `<html lang>` に合わせてブラウザが選ぶフォントに落ちる**ので、
+  査読の「日本語の字形になる」は起きず、D7 はフォントの並びを入れず韓国語の `keep-all` だけにした。デスクトップの訳を一覧より先に入れると `default-titles.test.ts` が落ちた（i18next は一覧に無い言語を英語に落とす）。
+  Web 版と偽の Tauri の外枠を中国語・韓国語で見て、はみ出し 0。次は P2（書き出しのフォント）
 - 2026-10-31: [spec 34](specs/34_desktop-ui-language.md) **Done**（P5: 配布ビルド `4343892` で利用者が英語の画面・題・初期図 `User`・保存ダイアログと About・AI の図の題・エラーの文・日本語へ戻すを確かめ「問題なし」）。
   **受け入れ条件 10 の macOS・Linux の言語の判定は未確認**（次のタグの Actions の版で。合わなければ Rust の `sys-locale` を優先）。
   同じビルドで [spec 29](specs/29_node-shape-icon.md) の札を**左上の変数名の青い札の左へ移した**直し（フォーク元 `5b9e6f9`。利用者の言「右上につけるとちょっと浮いてしまう」。札は青い札と同じ高さ 17px・幅 21px、青い札は 23px 右へずれ右端は前と同じ）も「問題なし」。
