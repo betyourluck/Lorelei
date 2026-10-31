@@ -42,4 +42,12 @@ export const COLOR_TOKENS: Record<string, [string, string]> = {
   selectionRing: ["blue.500", "blue.400"],
 };
 
-export const theme = extendTheme({ semantics: { colors: COLOR_TOKENS } })();
+export const theme = extendTheme({
+  semantics: { colors: COLOR_TOKENS },
+  styles: {
+    globalStyle: {
+      // 韓国語は語 (어절) で折り返す。既定は音節の間でも折る (spec 35 D7、data_contract UiMessages.fonts)
+      ":lang(ko)": { wordBreak: "keep-all" },
+    },
+  },
+})();

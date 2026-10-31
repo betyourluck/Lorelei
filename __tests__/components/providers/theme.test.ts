@@ -61,3 +61,18 @@ describe("画面の色の名 (spec 27 D4)", () => {
     expect(theme.components?.Button).toBeDefined();
   });
 });
+
+// spec 35 D7 (data_contract UiMessages.fonts): 韓国語は語で折り返す。
+// 画面の字は app/layout.tsx の Inter (Latin だけ) で描き、無い字 (漢字・ハングル) はブラウザが <html lang> に合わせて選ぶので、フォントの並びは足さない
+describe("言語ごとの画面の字 (spec 35 D7)", () => {
+  const globalStyle = theme.styles?.globalStyle as Record<string, Record<string, string>>;
+
+  it("韓国語は語で折り返す。日本語・英語は上書きしない", () => {
+    expect(globalStyle[":lang(ko)"]).toEqual({ wordBreak: "keep-all" });
+    for (const key of Object.keys(globalStyle)) expect(key).not.toMatch(/lang\((ja|en)\)/);
+  });
+
+  it("yamada-ui の既定の全体の style (body のフォント) は残る", () => {
+    expect(globalStyle.body).toMatchObject({ fontFamily: "body" });
+  });
+});

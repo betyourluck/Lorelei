@@ -40,21 +40,32 @@ void i18n.use(initReactI18next).init({
 
 const isLocale = (v: string): v is Locale => LOCALES.some((l) => l.code === v);
 
+/** 文字体系の無い中国語の地域のうち、繁体字を使う所 */
+const TRADITIONAL_REGIONS = ["tw", "hk", "mo"];
+
 /**
- * ブラウザの言語の並び (navigator.languages) から、一覧にある近い言語を選ぶ (spec 31 D4)。
- * 繁体字 (zh-TW・zh-HK・zh-MO・zh-Hant) は簡体字に寄せない。合うものが無ければ英語
+ * ブラウザの言語の並び (navigator.languages) から、選べる言語 (既定は一覧) にある近い言語を選ぶ (spec 31 D4)。
+ * 中国語は文字体系 (Hans・Hant) を地域より先に見る (spec 35 D9): zh-Hans-HK は簡体字、zh-Hant-CN は繁体字。
+ * 繁体字 (zh-Hant・文字体系の無い zh-TW・zh-HK・zh-MO) は簡体字に寄せない。合うものが無ければ英語
  */
-export const detectLocale = (languages: readonly string[]): Locale => {
+export const detectLocale = (
+  languages: readonly string[],
+  available: readonly string[] = LOCALES.map((l) => l.code)
+): Locale => {
+  const pick = (code: string): code is Locale => available.includes(code);
   for (const raw of languages) {
-    const tag = raw.toLowerCase();
-    const [lang] = tag.split("-");
+    const [lang, ...rest] = raw.toLowerCase().split("-");
     if (lang === "zh") {
-      // 繁体字の利用者に簡体字を出さない。簡体字は一覧にある時だけ (spec 35 で足す)
+      const script = rest.find((part) => part === "hans" || part === "hant");
+      const traditional = script
+        ? script === "hant"
+        : rest.some((part) => TRADITIONAL_REGIONS.includes(part));
+      // 繁体字の利用者に簡体字を出さない。簡体字は選べる時だけ
       const simplified = "zh-Hans";
-      if (!/-(tw|hk|mo|hant)\b/.test(tag) && isLocale(simplified)) return simplified;
+      if (!traditional && pick(simplified)) return simplified;
       continue;
     }
-    if (isLocale(lang)) return lang;
+    if (pick(lang)) return lang;
   }
   return FALLBACK_LOCALE;
 };

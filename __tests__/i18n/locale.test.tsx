@@ -35,6 +35,24 @@ describe("detectLocale (D4)", () => {
   ])("%j → %s", (languages, expected) => {
     expect(detectLocale(languages)).toBe(expected);
   });
+
+  // 中国語は文字体系 (Hans・Hant) を地域より先に見る (spec 35 D9)。簡体字が一覧にある時の振る舞いは、選べる言語を渡して見る
+  const withSimplified = ["ja", "en", "zh-Hans"] as const;
+  test.each([
+    [["zh-CN"], "zh-Hans"],
+    [["zh"], "zh-Hans"],
+    [["zh-SG"], "zh-Hans"],
+    [["zh-Hans"], "zh-Hans"],
+    [["zh-Hans-HK"], "zh-Hans"], // 地域が香港でも文字体系は簡体字
+    [["zh-Hans-TW"], "zh-Hans"],
+    [["zh-TW", "ja"], "ja"],
+    [["zh-HK"], "en"],
+    [["zh-MO"], "en"],
+    [["zh-Hant"], "en"],
+    [["zh-Hant-CN"], "en"], // 地域が中国でも文字体系は繁体字
+  ])("簡体字が一覧にある時 %j → %s", (languages, expected) => {
+    expect(detectLocale(languages, withSimplified)).toBe(expected);
+  });
 });
 
 describe("覚える (D4)", () => {
