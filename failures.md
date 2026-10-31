@@ -633,3 +633,14 @@
 - **真因**: `no-literal-string` は JSX の文字ではなく、それを包む要素の開きの行で報告する。文字の直前の抑止は効かず「使われない抑止」になり、`--fix`（`reportUnusedDisableDirectives`）が消した。JSX の式の中身だけが消えて `{ }` が残った（推測を含む: どの規則の直しかは確かめていない）
 - **処方**: 抑止は要素の開きの行の直前に置く（JSX の子なら `{/* … */}`、`(` の中なら `//`）。`--fix` の後は `{ }` と空行を grep する
 - **一般化**: `eslint --fix` はコードも書き換える。JSX のコメントを含むファイルに `--fix` をかけたら差分を読む。抑止のコメントは、規則がどの行で報告するかを見てから置く
+
+## #58 server component のページが i18n の入口を読み、開発サーバーだけで react-i18next が RSC で落ちた（2026-10-31, spec 34 P3）
+
+- **症状**: `tauri dev` の窓が「Server Error: (0 , react__WEBPACK_IMPORTED_MODULE_0__.createContext) is not a function」になり、エディタが出なかった（利用者が画面の写しで知らせた）。
+  呼び出しの跡は `app/page.tsx` → `components/i18n/index.ts` → `use-translation.ts` → react-i18next の `context.js`。本番の組み立て（`build-web-demo.mjs`）とテストでは出ない
+- **真因**: `app/page.tsx`・`app/er-diagram/page.tsx` は server component で、`DocumentTitle` を入口（`@/components/i18n`、`"use client"` の無い re-export の束）から読んでいた。
+  入口は `useTranslation`（react-i18next）も再エクスポートする。開発サーバーは使わない再エクスポートも RSC の層で評価し、react の RSC 版に無い `createContext` で落ちる。
+  本番の組み立ては使わない再エクスポートを捨てるので通っていた。spec 31 P1（`0842ff4`）から。spec 31・34 の確かめは本番の組み立てと偽の Tauri の口だったので、開発サーバーを一度も開かずに来た
+- **処方**: server component は client component のファイル（`@/components/i18n/document-title`）を直に読む（`ca41741`）
+- **一般化**: server component から `"use client"` の無い入口（束）を読まない。束の 1 つでも client 専用のライブラリを読むと、開発サーバーだけが落ちる。
+  本番の組み立てで確かめても開発サーバーの道は確かめたことにならない — 依存の形を変えたら `tauri dev` か `web-dev` を一度開く（#56 の「入口を読まない」と同じ根）

@@ -63,6 +63,11 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-31: [spec 34](specs/34_desktop-ui-language.md) **P3 着地**（フォーク元 `ca41741`・デスクトップ `9fe2930`）: 保存ダイアログの題（`export_diagram` の `dialogTitle`）と About の訳す部品（`show_about` の `labels`、ライセンスの行は Rust が組み立てる）を画面が訳して渡す。
+  新規・インポートの図の題は画面が言語で付けて渡し、AI が題を付けずに届けた図は画面が `set_ui_locale` で知らせたひな形（`state.json` の `aiTitleTemplate`、素の `{time}`）で Rust が付ける（`lib/desktop/default-titles.ts`）。
+  `tauri dev` で state.json にひな形が書かれ、MCP で題なしの図が「AI の図 HH:MM:SS」になるのを見た（英語の題・ネイティブのダイアログは P5 で）。
+  **`tauri dev` が「createContext is not a function」で出なかった**: server component のページが i18n の入口から読み、開発サーバーだけ react-i18next を RSC で評価して落ちる（spec 31 P1 から。本番の組み立てでは出ない, failures #58）。
+  起動の時に 2 つの invoke が同時に動的 import すると、テストでは 2 本目が本物の `@tauri-apps/api/core` を掴む（failures #14 の形。`mcp-settings.test.tsx` も `invoke` を静的に模擬した）。次は P4（ER 図の初期図）
 - 2026-10-31: [spec 34](specs/34_desktop-ui-language.md) **P2 着地**（読み手 `2825824` → Rust と偽のバックエンド `43ad84e`）: Rust のエラーは `src-tauri/src/error.rs` の `DesktopError { code, params, detail }` で画面へ（`Display` は前の日本語の文のまま、MCP はそれを使う）。
   画面は `lib/desktop/errors.ts` の `describeError`（新しい形と前の文字列の両方を読む）で訳し、state にはエラーの値を持つ。全部の code は `src-tauri/tests/fixtures/desktop_error_codes.json`（Rust のテストが書き、vitest が訳を確かめる）。
   AI が読む文を固定したテスト（P0）は緑のまま。実物のアプリでエラーを起こして見るのは P5 の配布ビルドで。次は P3（保存ダイアログの題と About・新しい図の題）

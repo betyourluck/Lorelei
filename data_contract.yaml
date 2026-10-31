@@ -493,7 +493,7 @@ McpServer:
     open_in_editor:
       input:
         source: string
-        title: { type: string, nullable: true }   # GUI の図の一覧での名前 (spec 02 D8)。省略・空白だけなら「AI の図 HH:MM:SS」。届いた図は新しい 1 件になり、開いている図は上書きしない
+        title: { type: string, nullable: true }   # GUI の図の一覧での名前 (spec 02 D8)。省略・空白だけなら GUI の言語の既定の名 (日本語なら「AI の図 HH:MM:SS」, spec 34 D5)。届いた図は新しい 1 件になり、開いている図は上書きしない
       refuses: "ノードが 0 の図 (flowchart TD だけ等。to_editor は通る) は opened: false + reason「ノードの無い図は開けません」— エディタの取り込みが何もせず、前のキャンバスがその図として保存される穴 (spec 08 現況 4・D1)"
       output:
         opened: bool
@@ -595,11 +595,14 @@ GuiCommands:
     フロントは最初に言語を当てた時と切り替えた時に送る。Rust は DocumentState.ai_title_template に覚える (起動してから画面が知らせるまでの間に届く図のため)
   errors: "コマンドの Err は DesktopError (spec 34 D3)。Tauri の境界だけで直列化する。MCP には Display の文 (前と同じ)"
   export_diagram: >-
-    (source, format: svg|png|pdf|mmd, fileStem) → 保存したパス | null (取り消し)。フロントの型は lib/desktop/tauri.ts の ExportFormat = "svg" | "png" | "pdf" | "mmd" (spec 25)。
-    保存ダイアログは rfd (題「{拡張子の大文字} として保存」・既定の名前 {fileStem}.{拡張子}・種類の絞り込み)。上書きの確認は OS のダイアログが行う (OutputPathPolicy.gui_only)。
+    (source, format: svg|png|pdf|mmd, fileStem, dialogTitle?) → 保存したパス | null (取り消し)。フロントの型は lib/desktop/tauri.ts の ExportFormat = "svg" | "png" | "pdf" | "mmd" (spec 25)。
+    保存ダイアログは rfd (題は dialogTitle = フロントが画面の言語で訳した「{拡張子の大文字} として保存」(spec 34 D4、desktop.saveDialog.title)。無ければ日本語・既定の名前 {fileStem}.{拡張子}・種類の絞り込み)。上書きの確認は OS のダイアログが行う (OutputPathPolicy.gui_only)。
     src-tauri/src/desktop.rs の parse_kind が ExportKind { Render(RenderFormat), Mmd } にし (知らない形式は「未対応の形式です」)、Render は export_to (描いて write_output。RenderOptions は既定のまま: テーマと背景は source の先頭のテーマで決まる, spec 24 P2)、
     Mmd は save_mmd (描かず検査もせず、source をそのまま UTF-8 (BOM なし) で write_file。描けないコードでも保存できる, spec 25 D2)。RenderFormat (MCP の render の enum) に mmd は足さない
-  show_about: "() → ()。About (rfd の MessageDialog) を出す。入口はタイトルバーの「?」(spec 02 D5。ネイティブのメニューは持たない)。フォーク元への謝辞とライセンス一覧を載せ、全文は bundle.resources で licenses/ に同梱"
+  show_about: >-
+    (labels?: AboutLabels) → ()。About (rfd の MessageDialog) を出す。入口はタイトルバーの「?」(spec 02 D5。ネイティブのメニューは持たない)。フォーク元への謝辞とライセンス一覧を載せ、全文は bundle.resources で licenses/ に同梱。
+    spec 34 D4: 訳す部品だけをフロントが渡す — AboutLabels { title, description, forkedFrom, licenses, mermanPatched, fullText } (desktop.about.*)。
+    ライセンスの行 (固有名・URL・版) の組み立ては Rust の about_text に残す。labels が無ければ日本語
   window: "自作タイトルバーのウィンドウ操作は @tauri-apps/api/window (minimize / toggleMaximize / close / data-tauri-drag-region)。権限は capabilities/default.json の core:window:*"
   mcp_status: "() → McpStatus。設定画面とタイトルバーの印が読む (spec 03 D4・D6)"
   set_mcp_enabled: "(enabled) → McpStatus。切ると待ち受けを止め、入れると待ち受ける (初めてならトークンを作る)"

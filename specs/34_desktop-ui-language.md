@@ -2,7 +2,7 @@
 
 **ID**: 34
 **Date**: 2026-10-31
-**Status**: **Active** — rev1（[spec 31](31_ui-language.md) rev1 で分けた → 査読 1 本（「査読の採否」）→ rev1 → 裁定（「裁定」、推奨どおり）→ P0〜P2 着地（「P0 結果」〜「P2 結果」）。次は P3（保存ダイアログの題と About・新しい図の題））
+**Status**: **Active** — rev1（[spec 31](31_ui-language.md) rev1 で分けた → 査読 1 本（「査読の採否」）→ rev1 → 裁定（「裁定」、推奨どおり）→ P0〜P3 着地（「P0 結果」〜「P3 結果」）。次は P4（ER 図の初期図））
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。デスクトップ専用（`lib/desktop/`・`src-tauri/`・`crates/`）。フォーク元のファイルを触るのは、型の口（D1）・直書きのテストの走査の関数（D1）・言語のメニューの `buttonProps`（D2）・ER 図の初期図（D6）
 
 ## Goal
@@ -13,6 +13,33 @@ spec 31 の Goal（利用者の言「UI 言語の切り替え。英語と中国�
 ## 裁定（2026-10-31、利用者）
 
 利用者の言: 「推奨どおりで進める」 — D1〜D7 を推奨どおりに決めた（D5 の覚える所は案 A の `state.json`、D6 は案 B の言語ごとの初期図と集合での比べ）
+
+## P3 結果（2026-10-31）
+
+- **コミット**: フォーク元の直し `ca41741`（下の「開発サーバーで落ちていた」）→ デスクトップ `9fe2930`
+- **D4 保存ダイアログの題と About**: `export_diagram` に `dialogTitle`（画面が `desktop.save.dialogTitle` で「{拡張子の大文字} として保存」を訳す）、
+  `show_about` に `labels: AboutLabels { title, description, forkedFrom, licenses, mermanPatched, fullText }`（`desktop.about.*`）。
+  ライセンスの行（固有名・URL・版）は Rust の `about_text(version, &labels)` が組み立てる（`about_names_every_bundled_license` は日本語と英語の両方の部品で見る）。
+  渡されなければ前の日本語（`AboutLabels::default()`・`save_dialog_title`）。訳を足すのは `lib/desktop/tauri.ts` の `exportDiagram`・`showAbout` の 2 か所で、呼び手は変えていない
+- **D5 新しい図の題**: `lib/desktop/default-titles.ts`。新規（`use-doc-session.ts` の `create`。新規作成・種類の切り替え・初めての起動の全部が通る）は `createDocument(editor, newDocumentTitle(editor))`、
+  インポートは `importSource(source, importTitle())`（時刻は画面が Rust と同じ `HH:MM:SS` で入れる）。
+  AI の図は外枠の `Shell` の effect が最初の描画と `i18n.language` が変わるたびに `set_ui_locale({ aiTitle })` を送り、Rust は `state.json` の `aiTitleTemplate` に覚えて `{time}` に時刻を入れる。
+  ひな形は `desktop.defaultTitle.ai`（「AI の図 {time}」「AI diagram {time}」）で、i18next の補間（`{{…}}`）はかからない。空白だけのひな形は覚えない（日本語に戻す）・200 字で切る。
+  `state.json` は読んで書く（`last_opened` と互いに消さない。鍵 `STATE_LOCK`）。MCP の `open_in_editor` の `title` の説明・LORELEI.md を「GUI の画面の言語の既定の名」に
+- **テスト**: Rust 1 件（ひな形で付く・知らされる前は日本語・`last_opened` とひな形が互いに残る・名前を付けた図と新規は使わない・空白は覚えない）と About の 1 件の拡張。
+  vitest: `default-titles.test.ts`（時刻の形・言語ごとの題・全部の言語のひな形が素の `{time}` を 1 つ・保存ダイアログの題・About の部品）、外枠（About の部品・`set_ui_locale` を最初と切り替えで送る）、
+  一覧（日本語の題を渡す・英語の画面で「Untitled ER diagram」・既にある図の題は変えない）、ツールバー（インポートの題）
+- **壊して落ちるか**: 画面側 4 つ（`set_ui_locale` を送らない・インポートの題を固定・保存ダイアログの題を渡さない・新規の題を渡さない）で 6 件、Rust 2 つ（`set_last_opened` がひな形を消す・ひな形を使わない）でそれぞれ落ちた
+- **途中で見つけたこと**:
+  - **起動の時に `set_ui_locale` と `mcp_status` が同時に `@tauri-apps/api/core` を動的 import し、テストでは 2 本目が本物を掴んで `mcp_status` が落ちた**（MCP の印が出ず、`mcp-settings.test.tsx` の 11 件が落ちた）。
+    failures #14 と同じ形で、テストの模擬だけの問題（本物の Tauri では両方とも同じモジュール）。`mcp-settings.test.tsx` も `invoke` を境界で静的に模擬した。`@/lib/desktop/tauri` を模擬して `invoke` を静的に模擬していないテストは 7 つ残る（全部で緑）
+  - **開発サーバーで落ちていた**（failures #58）: `tauri dev` の窓が「createContext is not a function」で出ず、利用者が画面の写しで知らせた。server component のページが i18n の入口を読み、入口が react-i18next まで読む。
+    spec 31 P1 からで、本番の組み立てでは出ない。ページは `@/components/i18n/document-title` を直に読むようにした（フォーク元の改善のコミット）
+- **確かめたこと**:
+  - Rust: `src-tauri` 59 件・`cargo test --workspace` が緑。vitest の全部（118 ファイル 1290 件）は上の 11 件と、前から続く重い時だけの時間切れ 1 件（`update-diagram`、単独では通る）。直した後の 2 ファイルは緑。`tsc`・eslint 0 件
+  - **`tauri dev`**（ページを直した後）: 開発サーバーの 2 つのページが 200、画面が言語を当てて **`state.json` に `"aiTitleTemplate": "AI の図 {time}"` が書かれた**（画面 → Rust の経路が本物で通った）。
+    MCP の HTTP の口で `open_in_editor` を題なしで呼ぶと、作られた図の題は「AI の図 20:12:37」。図の一覧に確かめ用の図「spec 34 P3 の確かめ」が 1 つ残る
+  - **まだ見ていないこと**: 英語に切り替えた時の AI の図の題・保存ダイアログの題・About の見た目（rfd のネイティブのダイアログは偽の Tauri の口では描けず、画面を操る許可は下りていない）。P5 の配布ビルドで利用者に頼む
 
 ## P2 結果（2026-10-31）
 
