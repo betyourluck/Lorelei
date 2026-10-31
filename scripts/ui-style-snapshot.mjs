@@ -244,13 +244,16 @@ const WEB_SCENES = [
     "flow-imported",
     async (page) => {
       await pendingImport();
-      await page.getByRole("button", { name: "fit view" }).click();
+      await page.getByRole("button", { name: /全体を表示|fit view/i }).click();
     },
   ],
   [
     "flow-arrow-menu",
     async (page) => {
-      await page.getByRole("button", { name: "Select arrow type" }).first().click();
+      await page
+        .getByRole("button", { name: /矢印の種類を選ぶ|Select arrow type/ })
+        .first()
+        .click();
       await page.getByRole("menu").waitFor({ timeout: 10_000 });
     },
   ],
@@ -318,7 +321,7 @@ const WEB_SCENES = [
     "er-imported",
     async (page) => {
       await pendingImport();
-      await page.getByRole("button", { name: "fit view" }).click();
+      await page.getByRole("button", { name: /全体を表示|fit view/i }).click();
     },
   ],
   ["er-code-dialog", (page) => openCodeDialog(page, "mermaidコード出力")],
