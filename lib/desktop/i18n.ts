@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { i18n } from "@/components/i18n/i18n";
 import en from "./locales/en.json";
 import ja from "./locales/ja.json";
+import ko from "./locales/ko.json";
+import zhHans from "./locales/zh-Hans.json";
 
 declare module "@/components/i18n/resources" {
   interface I18nResources {
@@ -12,7 +14,8 @@ declare module "@/components/i18n/resources" {
   }
 }
 
-export const desktopResources = { ja, en } as const;
+// 言語の一覧 (components/i18n/i18n.ts の LOCALES) に無い言語の訳は選ばれないので、一覧へ足すより先に置いてよい (spec 35 D6)
+export const desktopResources = { ja, en, "zh-Hans": zhHans, ko } as const;
 for (const [lng, bundle] of Object.entries(desktopResources))
   i18n.addResourceBundle(lng, "desktop", bundle, true, true);
 

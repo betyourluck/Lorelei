@@ -3,7 +3,7 @@
  * AI の図の題のひな形は素の {time} のまま渡す (i18next の補間をかけない。時刻は Rust が %H:%M:%S で入れる)
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { i18n } from "@/components/i18n/i18n";
+import { i18n, LOCALES } from "@/components/i18n/i18n";
 import {
   aiTitleTemplate,
   clockTime,
@@ -38,16 +38,19 @@ describe("新しい図の題 (spec 34 D5)", () => {
     expect(importTitle(AT)).toBe("Import 09:05:07");
   });
 
-  it.each(Object.keys(desktopResources))(
-    "%s: AI の図のひな形は素の {time} を 1 つ持ち、補間されずに渡る",
-    async (lng) => {
-      await i18n.changeLanguage(lng);
-      const template = aiTitleTemplate();
-      expect(template.match(/\{time\}/g)).toHaveLength(1);
-      expect(template).not.toContain("{{");
-      expect(template).toBe(desktopResources[lng as keyof typeof desktopResources].defaultTitle.ai);
-    }
-  );
+  // 訳の値の形は、一覧へ足す前の言語も見る (spec 35 D6)
+  it.each(Object.keys(desktopResources))("%s: AI の図のひな形は素の {time} を 1 つ持つ", (lng) => {
+    const template = desktopResources[lng as keyof typeof desktopResources].defaultTitle.ai;
+    expect(template.match(/\{time\}/g)).toHaveLength(1);
+    expect(template).not.toContain("{{");
+  });
+
+  it.each(LOCALES.map((l) => l.code))("%s: AI の図のひな形は補間されずに渡る", async (lng) => {
+    await i18n.changeLanguage(lng);
+    expect(aiTitleTemplate()).toBe(
+      desktopResources[lng as keyof typeof desktopResources].defaultTitle.ai
+    );
+  });
 });
 
 describe("保存ダイアログの題と About (spec 34 D4)", () => {

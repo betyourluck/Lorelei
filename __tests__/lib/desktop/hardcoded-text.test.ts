@@ -30,7 +30,12 @@ describe("デスクトップの外枠の言葉", () => {
     expect(files.flatMap(hardcodedText)).toEqual([]);
   });
 
-  test.each(LOCALES.map((l) => l.code))(
+  test("言語の一覧の全部に desktop の訳がある", () => {
+    for (const { code } of LOCALES) expect(desktopResources, code).toHaveProperty(code);
+  });
+
+  // 一覧へ足す前の言語の訳も見る (spec 35 D6: デスクトップの訳を一覧より先に入れる)
+  test.each(Object.keys(desktopResources))(
     "%s の desktop の訳は日本語と同じキーと差し込みを持つ",
     (code) => {
       const base = leaves(desktopResources.ja as unknown as Tree);

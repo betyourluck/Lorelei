@@ -1,0 +1,174 @@
+{
+  "about": {
+    "description": "用于检查、渲染和导出 AI 编写的 Mermaid 图表，并在 GUI 中进行修改的应用。",
+    "forkedFrom": "派生自：",
+    "fullText": "许可证全文位于安装目录的 licenses 文件夹中。",
+    "licenses": "许可证",
+    "mermanPatched": "（merman-core 附带修改版）",
+    "title": "关于 Lorelei"
+  },
+  "colorMode": {
+    "dark": "深色",
+    "label": "界面颜色：{{mode}}",
+    "light": "浅色",
+    "system": "跟随系统"
+  },
+  "defaultTitle": {
+    "ai": "AI 图表 {time}",
+    "import": "导入 {{time}}",
+    "new": {
+      "erDiagram": "未命名的 ER 图",
+      "flowchart": "未命名的流程图"
+    }
+  },
+  "error": {
+    "ADD_FAILED": "无法添加到图表列表",
+    "CONVERT_FAILED": "无法读取 Mermaid 代码",
+    "DOCUMENT_GONE": "图表不在列表中（已移到回收站或已删除）",
+    "DOC_CORRUPT": "图表文件已损坏",
+    "DOC_LIST_FAILED": "无法读取图表列表",
+    "DOC_READ_FAILED": "无法读取图表",
+    "DOC_WRITE_FAILED": "无法保存",
+    "EXPORT_FAILED": "无法导出",
+    "INITIAL_FIGURE_REJECTED": "已停止：差点用编辑器的初始图覆盖来自 AI 或导入的图表",
+    "INVALID_ID": "图表 id 无效：{{id}}",
+    "MCP_CONFIG_UNREADABLE": "无法读取 MCP 设置文件。请手动修复或删除它",
+    "MCP_LISTEN_FAILED": "无法在 127.0.0.1:{{port}} 上监听",
+    "MCP_PORT_RANGE": "请将端口设为 {{min}}～{{max}}",
+    "MCP_TOKEN_SAVE_FAILED": "无法保存令牌",
+    "NOTHING_TO_CONFIRM": "没有可确定的内容",
+    "NO_DATA_DIR": "找不到应用数据文件夹",
+    "STALE_BASE": "图表已在别处被改写（{{currentUpdatedAt}}）",
+    "TASK_FAILED": "处理中途停止",
+    "TRASH_FAILED": "无法移到回收站",
+    "UNSUPPORTED_DIAGRAM": "此类图表无法在 GUI 编辑器中打开",
+    "UNSUPPORTED_FORMAT": "不支持的格式：{{format}}",
+    "withDetail": "{{message}}：{{detail}}"
+  },
+  "import": {
+    "cancel": "取消",
+    "description": "请粘贴 flowchart 或 erDiagram。将用对应类型的编辑器打开",
+    "failed": "无法导入",
+    "submit": "导入",
+    "title": "导入 Mermaid"
+  },
+  "kind": {
+    "erDiagram": "ER 图",
+    "flowchart": "流程图"
+  },
+  "list": {
+    "create": "新建",
+    "label": "图表列表",
+    "name": "图表名称",
+    "trash": "移到回收站",
+    "trashNamed": "将“{{title}}”移到回收站",
+    "unsaved": "有在最后一次“确定”之后的更改"
+  },
+  "mcp": {
+    "state": {
+      "blocked": "无法读取设置",
+      "failed": "无法监听",
+      "listening": "监听中：127.0.0.1:{{port}}",
+      "stopped": "已停止"
+    }
+  },
+  "open": {
+    "dropped": "已省略编辑器无法表示的部分",
+    "failed": "无法打开图表"
+  },
+  "pane": {
+    "listWidth": "图表列表的宽度",
+    "splitterHint": "{{label}}（拖动调整，双击还原）"
+  },
+  "revert": {
+    "askBody": "恢复后，可以用 Ctrl+Z（撤销）找回当前的更改。",
+    "askConfirm": "恢复",
+    "askTitle": "恢复到最后一次确定的内容吗？",
+    "hint": "恢复到最后一次“确定”的内容（恢复后也可以用 Ctrl+Z 撤销）",
+    "never": "尚未确定（在此版本之前确定、之后又更改的图表也无法恢复）",
+    "unchanged": "自最后一次确定以来没有更改"
+  },
+  "save": {
+    "dialogTitle": "另存为 {{format}}",
+    "failed": "无法保存",
+    "saved": "已保存"
+  },
+  "session": {
+    "cannotOpen": "无法打开“{{title}}”（不会保存）",
+    "confirmFailed": "无法确定",
+    "confirmStale": "AI 改写了图表，因此未确定",
+    "initialFigureRejected": "差点用编辑器的初始图覆盖 AI 的图表，因此已停止保存",
+    "initialFigureRejectedHint": "请重新打开图表。收到的原文仍然保留",
+    "listFailed": "无法读取图表列表",
+    "previousSaveFailed": "无法保存上一个图表",
+    "reloaded": "AI 改写了图表",
+    "reopening": "AI 改写了图表，正在重新打开",
+    "revertFailed": "无法恢复到已确定的内容",
+    "switchBlocked": "无法保存，因此未切换图表"
+  },
+  "settings": {
+    "changeFailed": "无法更改设置",
+    "client": {
+      "commandNote": "请在使用 Lorelei 的项目文件夹中运行（按文件夹注册；要在任何位置使用，请加上 --scope user）。重新生成令牌后，请重新注册。",
+      "commandTab": "命令（Claude Code）",
+      "copyCommand": "复制注册命令",
+      "copyJson": "复制 JSON",
+      "heading": "客户端设置",
+      "jsonNote": "请粘贴到读取 mcpServers 的客户端设置文件中，例如 Claude Code 的 .mcp.json。.mcp.json 通常会提交到 Git 共享，因此令牌也会进入仓库。不想这样时，请改用命令注册。重新生成令牌后，请重新粘贴。",
+      "jsonTab": "JSON",
+      "tokenPlaceholder": "<令牌>"
+    },
+    "copied": "已复制{{what}}",
+    "loading": "正在加载…",
+    "mcp": {
+      "apply": "应用",
+      "applyPort": "应用端口",
+      "cancel": "取消",
+      "copy": "复制",
+      "description": "让 Claude Code 等 MCP 客户端可以调用 validate / render / open_in_editor。仅在 Lorelei 打开期间可用。",
+      "enable": "启用 MCP 服务器",
+      "heading": "MCP 服务器（从 AI 接收图表）",
+      "localOnly": "仅在 127.0.0.1 上监听（其他设备无法连接）。",
+      "noToken": "尚未创建",
+      "port": "端口",
+      "regenerate": "重新生成令牌",
+      "regenerateConfirm": "重新生成",
+      "regenerateWarning": "使用当前令牌设置的客户端将无法再连接。",
+      "state": "监听状态",
+      "token": "令牌"
+    },
+    "title": "设置",
+    "what": {
+      "command": "注册命令",
+      "json": " JSON",
+      "token": "令牌"
+    }
+  },
+  "shell": {
+    "loading": "正在加载…",
+    "saveFailed": "保存失败",
+    "saveFailedDetail": "保存失败：{{detail}}",
+    "unopenable": "此图表无法打开，因此不会保存"
+  },
+  "titleBar": {
+    "about": "关于 Lorelei",
+    "close": "关闭",
+    "closeBlocked": "无法保存，因此未关闭",
+    "forceClose": "不保存并关闭",
+    "maximize": "最大化",
+    "mcp": "MCP：{{state}}",
+    "mcpHint": "{{text}}（点击打开设置）",
+    "mcpListening": "MCP：监听中 127.0.0.1:{{port}}",
+    "minimize": "最小化",
+    "toggleList": "显示或隐藏图表列表"
+  },
+  "toolbar": {
+    "add": "添加",
+    "addFrame": "添加分组",
+    "code": "生成代码",
+    "confirm": "确定",
+    "confirmHint": "确定（Ctrl+S）：编辑会自动保存。确定后，当前内容会作为可返回的节点保留，移到列表顶部，并清除 ●",
+    "import": "导入",
+    "revert": "恢复到已确定版本"
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "about": {
+    "description": "AI가 작성한 Mermaid 다이어그램을 검사·렌더링·내보내기하고 GUI에서 다듬는 앱입니다.",
+    "forkedFrom": "포크 원본:",
+    "fullText": "라이선스 전문은 설치 폴더의 licenses 폴더에 있습니다.",
+    "licenses": "라이선스",
+    "mermanPatched": "(merman-core는 수정판을 함께 제공)",
+    "title": "Lorelei 정보"
+  },
+  "colorMode": {
+    "dark": "다크",
+    "label": "화면 색상: {{mode}}",
+    "light": "라이트",
+    "system": "시스템 설정 따르기"
+  },
+  "defaultTitle": {
+    "ai": "AI 다이어그램 {time}",
+    "import": "가져오기 {{time}}",
+    "new": {
+      "erDiagram": "제목 없는 ER 다이어그램",
+      "flowchart": "제목 없는 플로차트"
+    }
+  },
+  "error": {
+    "ADD_FAILED": "다이어그램 목록에 추가하지 못했습니다",
+    "CONVERT_FAILED": "Mermaid 코드를 읽을 수 없습니다",
+    "DOCUMENT_GONE": "다이어그램이 목록에 없습니다 (휴지통으로 옮겼거나 사라졌습니다)",
+    "DOC_CORRUPT": "다이어그램 파일이 손상되었습니다",
+    "DOC_LIST_FAILED": "다이어그램 목록을 읽을 수 없습니다",
+    "DOC_READ_FAILED": "다이어그램을 읽을 수 없습니다",
+    "DOC_WRITE_FAILED": "저장할 수 없습니다",
+    "EXPORT_FAILED": "내보내지 못했습니다",
+    "INITIAL_FIGURE_REJECTED": "AI나 가져오기로 받은 다이어그램을 편집기의 초기 다이어그램으로 덮어쓸 뻔해서 중지했습니다",
+    "INVALID_ID": "다이어그램 id가 올바르지 않습니다: {{id}}",
+    "MCP_CONFIG_UNREADABLE": "MCP 설정 파일을 읽을 수 없습니다. 직접 고치거나 삭제하세요",
+    "MCP_LISTEN_FAILED": "127.0.0.1:{{port}}에서 수신 대기할 수 없습니다",
+    "MCP_PORT_RANGE": "포트는 {{min}}~{{max}} 범위에서 지정하세요",
+    "MCP_TOKEN_SAVE_FAILED": "토큰을 저장할 수 없습니다",
+    "NOTHING_TO_CONFIRM": "확정할 내용이 없습니다",
+    "NO_DATA_DIR": "앱 데이터 폴더를 찾을 수 없습니다",
+    "STALE_BASE": "다이어그램이 다른 곳에서 변경되었습니다 ({{currentUpdatedAt}})",
+    "TASK_FAILED": "처리가 도중에 멈췄습니다",
+    "TRASH_FAILED": "휴지통으로 옮길 수 없습니다",
+    "UNSUPPORTED_DIAGRAM": "이 종류의 다이어그램은 GUI 편집기에서 열 수 없습니다",
+    "UNSUPPORTED_FORMAT": "지원하지 않는 형식: {{format}}",
+    "withDetail": "{{message}}: {{detail}}"
+  },
+  "import": {
+    "cancel": "취소",
+    "description": "flowchart 또는 erDiagram을 붙여 넣으세요. 다이어그램 종류에 맞는 편집기에서 엽니다",
+    "failed": "가져오지 못했습니다",
+    "submit": "가져오기",
+    "title": "Mermaid 가져오기"
+  },
+  "kind": {
+    "erDiagram": "ER 다이어그램",
+    "flowchart": "플로차트"
+  },
+  "list": {
+    "create": "새로 만들기",
+    "label": "다이어그램 목록",
+    "name": "다이어그램 이름",
+    "trash": "휴지통으로 이동",
+    "trashNamed": "'{{title}}' 항목을 휴지통으로 이동",
+    "unsaved": "마지막 '확정' 이후 변경 사항이 있습니다"
+  },
+  "mcp": {
+    "state": {
+      "blocked": "설정을 읽을 수 없습니다",
+      "failed": "수신 대기할 수 없습니다",
+      "listening": "수신 대기 중: 127.0.0.1:{{port}}",
+      "stopped": "중지됨"
+    }
+  },
+  "open": {
+    "dropped": "편집기에서 표현할 수 없는 요소를 생략했습니다",
+    "failed": "다이어그램을 열지 못했습니다"
+  },
+  "pane": {
+    "listWidth": "다이어그램 목록의 너비",
+    "splitterHint": "{{label}} (드래그하여 변경, 더블클릭하여 원래대로)"
+  },
+  "revert": {
+    "askBody": "되돌린 후에도 Ctrl+Z(실행 취소)로 지금의 변경 사항을 되찾을 수 있습니다.",
+    "askConfirm": "되돌리기",
+    "askTitle": "마지막으로 확정한 내용으로 되돌릴까요?",
+    "hint": "마지막으로 '확정'한 내용으로 되돌립니다 (되돌린 후에도 Ctrl+Z로 취소할 수 있습니다)",
+    "never": "아직 확정하지 않았습니다 (이 버전 이전에 확정하고 그 후 변경한 다이어그램도 되돌릴 수 없습니다)",
+    "unchanged": "마지막 확정 이후 변경되지 않았습니다"
+  },
+  "save": {
+    "dialogTitle": "{{format}} 형식으로 저장",
+    "failed": "저장하지 못했습니다",
+    "saved": "저장했습니다"
+  },
+  "session": {
+    "cannotOpen": "'{{title}}' 다이어그램을 열 수 없습니다 (저장하지 않습니다)",
+    "confirmFailed": "확정하지 못했습니다",
+    "confirmStale": "AI가 다이어그램을 변경해서 확정하지 않았습니다",
+    "initialFigureRejected": "AI의 다이어그램을 편집기의 초기 다이어그램으로 덮어쓸 뻔해서 저장을 중지했습니다",
+    "initialFigureRejectedHint": "다이어그램을 다시 여세요. 받은 원본은 남아 있습니다",
+    "listFailed": "다이어그램 목록을 읽을 수 없습니다",
+    "previousSaveFailed": "이전 다이어그램을 저장하지 못했습니다",
+    "reloaded": "AI가 다이어그램을 변경했습니다",
+    "reopening": "AI가 다이어그램을 변경해서 다시 엽니다",
+    "revertFailed": "확정한 내용으로 되돌리지 못했습니다",
+    "switchBlocked": "저장하지 못해서 다이어그램을 전환하지 않았습니다"
+  },
+  "settings": {
+    "changeFailed": "설정을 변경하지 못했습니다",
+    "client": {
+      "commandNote": "Lorelei를 사용할 프로젝트 폴더에서 실행하세요 (등록은 폴더별입니다. 어디서나 사용하려면 --scope user를 추가합니다). 토큰을 다시 만들면 다시 등록하세요.",
+      "commandTab": "명령 (Claude Code)",
+      "copyCommand": "등록 명령 복사",
+      "copyJson": "JSON 복사",
+      "heading": "클라이언트 설정",
+      "jsonNote": "Claude Code의 .mcp.json처럼 mcpServers를 읽는 클라이언트 설정 파일에 붙여 넣으세요. .mcp.json은 Git에 커밋해 공유하는 파일이므로, 붙여 넣으면 토큰도 저장소에 들어갑니다. 원하지 않으면 명령으로 등록하세요. 토큰을 다시 만들면 다시 붙여 넣으세요.",
+      "jsonTab": "JSON",
+      "tokenPlaceholder": "<토큰>"
+    },
+    "copied": "{{what}} 복사 완료",
+    "loading": "불러오는 중…",
+    "mcp": {
+      "apply": "적용",
+      "applyPort": "포트 적용",
+      "cancel": "취소",
+      "copy": "복사",
+      "description": "Claude Code 같은 MCP 클라이언트에서 validate / render / open_in_editor를 호출할 수 있게 합니다. Lorelei가 열려 있는 동안만 사용할 수 있습니다.",
+      "enable": "MCP 서버 사용",
+      "heading": "MCP 서버 (AI에게서 다이어그램 받기)",
+      "localOnly": "127.0.0.1에서만 수신 대기합니다 (다른 기기에서는 연결할 수 없습니다).",
+      "noToken": "아직 만들지 않았습니다",
+      "port": "포트",
+      "regenerate": "토큰 다시 만들기",
+      "regenerateConfirm": "다시 만들기",
+      "regenerateWarning": "지금의 토큰으로 설정한 클라이언트는 더 이상 연결되지 않습니다.",
+      "state": "수신 대기 상태",
+      "token": "토큰"
+    },
+    "title": "설정",
+    "what": {
+      "command": "등록 명령",
+      "json": "JSON",
+      "token": "토큰"
+    }
+  },
+  "shell": {
+    "loading": "불러오는 중…",
+    "saveFailed": "저장하지 못했습니다",
+    "saveFailedDetail": "저장하지 못했습니다: {{detail}}",
+    "unopenable": "이 다이어그램은 열 수 없어서 저장하지 않습니다"
+  },
+  "titleBar": {
+    "about": "Lorelei 정보",
+    "close": "닫기",
+    "closeBlocked": "저장하지 못해서 닫지 않았습니다",
+    "forceClose": "저장하지 않고 닫기",
+    "maximize": "최대화",
+    "mcp": "MCP: {{state}}",
+    "mcpHint": "{{text}} (누르면 설정을 엽니다)",
+    "mcpListening": "MCP: 수신 대기 중 127.0.0.1:{{port}}",
+    "minimize": "최소화",
+    "toggleList": "다이어그램 목록 열기/닫기"
+  },
+  "toolbar": {
+    "add": "추가",
+    "addFrame": "그룹 추가",
+    "code": "코드 생성",
+    "confirm": "확정",
+    "confirmHint": "확정 (Ctrl+S): 편집은 자동으로 저장됩니다. 확정하면 지금의 내용을 돌아올 수 있는 지점으로 남기고, 목록의 맨 위로 올리며, ●가 사라집니다",
+    "import": "가져오기",
+    "revert": "확정본으로 되돌리기"
+  }
+}
