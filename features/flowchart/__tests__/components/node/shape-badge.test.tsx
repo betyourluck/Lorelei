@@ -1,9 +1,10 @@
 /**
- * ノードの右上の形の札 (spec 29、data_contract NodeShapeBadge) の決めごと。
+ * ノードの左上、変数名の青い札の左の形の札 (spec 29、data_contract NodeShapeBadge) の決めごと。
  * - 6 つの形で絵が違い、形を変えると変わる。名は札のボタンの aria-label と title
  * - 押すと形のメニュー (押した時だけ差し込み、リストは文書の直下)。選ぶと onShapeChange
  * - 押す・ダブルクリックしても、ノードのドラッグ・ラベルの編集を始めない
- * - 左上の変数名の札ははみ出す名を省略し、全文を title に出す
+ * - 左上の変数名の札は形の札の右に並び、はみ出す名を省略し、全文を title に出す
+ * 位置は CSS Modules と実寸で決まり jsdom では測れないので、札の並びは Web 版の画面で測る (spec 29「P2 の後の改め」)
  */
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -128,6 +129,15 @@ describe("ノードの形の札 (spec 29)", () => {
   });
 
   describe("左上の変数名の札", () => {
+    test("形の札 (幅 21px) と隙間 2px の分だけ右にずれ、⋮⋮ の手前まで", () => {
+      render(<NodeContent {...nodeProps("rectangle")} />);
+
+      expect(screen.getByText("[node1]")).toHaveStyle({
+        left: "23px",
+        maxWidth: "calc(100% - 55px)",
+      });
+    });
+
     test("はみ出す名は省略し、全文を title に出す", () => {
       const props = nodeProps("diamond");
       const long = "aVeryLongVariableNameThatWouldRunIntoTheShapeBadge";

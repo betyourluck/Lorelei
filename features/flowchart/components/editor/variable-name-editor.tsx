@@ -36,7 +36,8 @@ export const VariableNameEditor: FC<VariableNameEditorProps> = ({
     <Box
       position="absolute"
       top="-12px"
-      left="0px"
+      // 左に形の札 (spec 29。幅 21px、node/shape-badge.module.css) を置くので、その幅と隙間 2px だけ右へ
+      left="23px"
       bg="blue.500"
       color="white"
       px={1}
@@ -48,8 +49,8 @@ export const VariableNameEditor: FC<VariableNameEditorProps> = ({
       onClick={onClick}
       _hover={{ bg: "blue.600" }}
       zIndex={10}
-      // 長い名で右上の形の札 (spec 29) にぶつからないよう、札の手前で省略する。全文は title
-      maxW="calc(100% - 32px)"
+      // 長い名で右上の ⋮⋮ (内側の右上 24px 四方) にぶつからないよう、その手前で省略する。全文は title
+      maxW="calc(100% - 55px)"
       overflow="hidden"
       textOverflow="ellipsis"
       whiteSpace="nowrap"

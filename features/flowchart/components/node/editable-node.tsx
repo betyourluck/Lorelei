@@ -228,7 +228,7 @@ export const NodeContent: FC<EditableNodeProps> = ({ data, id, selected }) => {
         onBlur={handleLabelSave}
       />
 
-      {/* 右上の形の札 (spec 29)。最後の子に置く (前の要素の DOM の道筋をずらさない) */}
+      {/* 左上、変数名の札の左の形の札 (spec 29)。最後の子に置く (前の要素の DOM の道筋をずらさない) */}
       <ShapeBadge shape={data.shapeType || "rectangle"} onShapeChange={handleShapeChange} />
     </Box>
   );

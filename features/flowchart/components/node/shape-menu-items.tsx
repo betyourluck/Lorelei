@@ -10,7 +10,7 @@ interface ShapeMenuItemsProps {
   onShapeChange?: (shapeType: MermaidShapeType) => void;
 }
 
-/** 形のメニューの 6 つの項目。⋮⋮ の「ノード形状」と右上の形の札 (spec 29 D2) の両方の MenuList に入れる */
+/** 形のメニューの 6 つの項目。⋮⋮ の「ノード形状」と左上の形の札 (spec 29 D2) の両方の MenuList に入れる */
 export const ShapeMenuItems = ({ currentShape, onShapeChange }: ShapeMenuItemsProps) => (
   <>
     {SHAPE_OPTIONS.map((shape) => (

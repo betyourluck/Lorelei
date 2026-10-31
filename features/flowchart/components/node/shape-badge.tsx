@@ -19,7 +19,7 @@ interface ShapeBadgeProps {
 const stopDoubleClick = (e: MouseEvent) => e.stopPropagation();
 
 /**
- * ノードの右上の形の札 (spec 29、data_contract NodeShapeBadge)。押すと形のメニューを開く (⋮⋮ →「ノード形状」の近道)。
+ * ノードの左上、変数名の青い札の左の形の札 (spec 29、data_contract NodeShapeBadge)。押すと形のメニューを開く (⋮⋮ →「ノード形状」の近道)。
  * ノードは図に何十もあり、ドラッグで描き直すので、メニューは押した時だけ差し込む (useDeferredMenu)。リストは文書の直下に出す
  * (ノードの中に描くと、後ろのノードや線のボタンに隠れる, failures #28)。nodrag は押してもノードのドラッグを始めない xyflow の印
  */
@@ -44,7 +44,7 @@ export const ShapeBadge = ({ shape, onShapeChange }: ShapeBadgeProps) => {
         aria-expanded={false}
         {...buttonProps}
       >
-        <ShapeIcon shape={shape} />
+        <ShapeIcon shape={shape} size={13} />
       </button>
     );
   }
@@ -52,7 +52,7 @@ export const ShapeBadge = ({ shape, onShapeChange }: ShapeBadgeProps) => {
   return (
     <Menu onClose={onClose}>
       <MenuButton ref={menuButtonRef} as="button" {...common}>
-        <ShapeIcon shape={shape} />
+        <ShapeIcon shape={shape} size={13} />
       </MenuButton>
       <Portal>
         <MenuList className="nodrag">

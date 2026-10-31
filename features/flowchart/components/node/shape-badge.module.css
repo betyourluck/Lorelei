@@ -1,21 +1,22 @@
 /*
- * ノードの右上の形の札 (spec 29、data_contract NodeShapeBadge)。ノードはドラッグのたびに描き直すので、yamada-ui の部品 (Emotion) を通さずに描く。
- * ノードの外枠 (position: relative、縁 2px) の外、上の縁の上に載せる: 位置は外枠の内側 (padding の縁) から測るので、縁の 2px を足す。
- * 下端が縁にそろうので ⋮⋮ のメニュー (外枠の内側の右上) と重ならず、xyflow の測る大きさにも入らない。
+ * ノードの左上、変数名の青い札の左にある形の札 (spec 29、data_contract NodeShapeBadge)。ノードはドラッグのたびに描き直すので、yamada-ui の部品 (Emotion) を通さずに描く。
+ * 位置と高さは青い札 (components/editor/variable-name-editor.tsx の top -12px・left 0・高さ 17px) にそろえ、青い札はこの札の幅 21px と隙間 2px だけ右へずらす。
  * 色は画面の色の名 (components/providers/theme.ts) の CSS 変数。選んだ輪の青 (selectionRing) は使わない (D5)
  */
 .badge {
   position: absolute;
-  right: -2px;
-  bottom: calc(100% + 2px);
+  top: -12px;
+  left: 0;
   z-index: 10;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1px 4px;
+  width: 21px;
+  height: 17px;
+  padding: 0;
   border: 1px solid var(--ui-colors-nodeBorder);
-  border-bottom: none;
-  border-radius: 4px 4px 0 0;
+  border-radius: 2px;
   background: var(--ui-colors-surface);
   color: var(--ui-colors-nodeBorder);
   line-height: 0;
