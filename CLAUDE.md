@@ -63,6 +63,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-31: [spec 34](specs/34_desktop-ui-language.md) **P2 着地**（読み手 `2825824` → Rust と偽のバックエンド `43ad84e`）: Rust のエラーは `src-tauri/src/error.rs` の `DesktopError { code, params, detail }` で画面へ（`Display` は前の日本語の文のまま、MCP はそれを使う）。
+  画面は `lib/desktop/errors.ts` の `describeError`（新しい形と前の文字列の両方を読む）で訳し、state にはエラーの値を持つ。全部の code は `src-tauri/tests/fixtures/desktop_error_codes.json`（Rust のテストが書き、vitest が訳を確かめる）。
+  AI が読む文を固定したテスト（P0）は緑のまま。実物のアプリでエラーを起こして見るのは P5 の配布ビルドで。次は P3（保存ダイアログの題と About・新しい図の題）
 - 2026-10-31: [spec 34](specs/34_desktop-ui-language.md) **裁定（推奨どおり）・P0・P1 着地**。P0: キーの型は `components/i18n/resources.ts` の `I18nResources` を `lib/desktop` から `declare module` で広げる（パスの別名でも併合が効く）・
   `changeLanguage` は同期・MCP に流れる文を全文で固定するテスト（`src-tauri/src/lib.rs`）・data_contract に `DesktopError`・`DesktopMessages` ほか。
   P1（フォーク元 `28e6412`・デスクトップ `ff5bc20`）: 名前空間 `desktop`（`lib/desktop/locales/`、`useDesktopTranslation`・`desktopT`）、タイトルバーに言語のメニュー、**日本語に留める処理を外した**（窓を出す時には覚えた言語になっている、テストで固定）、

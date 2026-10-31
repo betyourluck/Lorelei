@@ -2,7 +2,7 @@
 
 **ID**: 34
 **Date**: 2026-10-31
-**Status**: **Active** — rev1（[spec 31](31_ui-language.md) rev1 で分けた → 査読 1 本（「査読の採否」）→ rev1 → 裁定（「裁定」、推奨どおり）→ P0・P1 着地（「P0 結果」「P1 結果」）。次は P2（エラーのコード））
+**Status**: **Active** — rev1（[spec 31](31_ui-language.md) rev1 で分けた → 査読 1 本（「査読の採否」）→ rev1 → 裁定（「裁定」、推奨どおり）→ P0〜P2 着地（「P0 結果」〜「P2 結果」）。次は P3（保存ダイアログの題と About・新しい図の題））
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。デスクトップ専用（`lib/desktop/`・`src-tauri/`・`crates/`）。フォーク元のファイルを触るのは、型の口（D1）・直書きのテストの走査の関数（D1）・言語のメニューの `buttonProps`（D2）・ER 図の初期図（D6）
 
 ## Goal
@@ -13,6 +13,27 @@ spec 31 の Goal（利用者の言「UI 言語の切り替え。英語と中国�
 ## 裁定（2026-10-31、利用者）
 
 利用者の言: 「推奨どおりで進める」 — D1〜D7 を推奨どおりに決めた（D5 の覚える所は案 A の `state.json`、D6 は案 B の言語ごとの初期図と集合での比べ）
+
+## P2 結果（2026-10-31）
+
+- **コミットの順**: 読み手 `2825824`（`lib/desktop/errors.ts` の `readError`・`errorCode`・`describeError`。新しい形と前の版の頭に印の付いた文字列の両方を読む）→ Rust と偽のバックエンド `43ad84e`。
+  読み手を先に入れたので、間の版でも STALE_BASE などの見分けは外れない
+- **入れたもの**:
+  - `src-tauri/src/error.rs` の `DesktopError { code, params, detail }`。**`Display` は前の版の日本語の文のまま**（`message` は直列化しない）。`From<String>` は `OTHER`
+  - `documents.rs`（`Store` の全部）・`lib.rs`（`store()`・取り込み・コマンド）・`desktop.rs`（書き出し・保存ダイアログ）・`mcp_host.rs`（設定ファイル・トークン・待ち受け・ポートの範囲）が返す。
+    `OpenRequest.error`・`McpStatus.detail` も `DesktopError`。MCP へ渡す所（`readback`・`EditorPort`・`deliver`）は `to_string()` で前の文に
+  - `STALE_BASE` の今の版は `params.currentUpdatedAt`（文の後ろから正規表現で取り出すのをやめた）。`MCP_LISTEN_FAILED` の port・`MCP_PORT_RANGE` の min と max・`UNSUPPORTED_FORMAT` の形式・`INVALID_ID` の id も `params`
+  - `lorelei_core`（merman・書き出し）の文は訳さず `detail` に。画面は「題（訳した code）: detail」
+  - 書き換え前の控えの失敗（`BACKUP_FAILED` を予定した）は MCP の `update_diagram` にしか出ないので code を持たせなかった（data_contract から外した）
+  - 画面: state にはエラーの値を持ち（`saveError`）、描く時に `describeError` で訳す。`String(e)` の 9 か所と `r.error ?? ""` の 2 か所・`McpStatus.detail` の 2 か所を `describeError` に。`desktop` の訳に `error.*` の 22 の code
+  - テスト: `error.rs` の 2 件（Display は前の文・直列化の形 / code の fixture `src-tauri/tests/fixtures/desktop_error_codes.json`）、`errors.test.ts`（両方の形の読み・見分け・訳・code の無いもの・全部の code に訳があり余分な訳が無い）。
+    Rust のテストは文の頭ではなく `code` で見分ける形に（STALE_BASE は文の後ろの版と `params` の両方を見る）。設定ファイルが壊れた時のトークンの守りは、画面へ渡す形（直列化した全部）でも確かめる
+  - 偽のバックエンドは同じ形（`desktopError(code, params?, detail?)`）を返す
+- **確かめたこと**:
+  - **AI が読む文は前と同じ**: P0 で全文を固定したテスト 2 件（取り込めない種類・Mermaid の誤り・readback の図が無い・開いている図が無い・壊れたファイル（readback と update））が型を変えた後も緑。`src-tauri` の 58 件が緑
+  - **壊して落ちるか**: 読み手が新しい形を読めないようにすると、STALE_BASE を見分けるテスト 2 件（`update-diagram`・`revert-confirmed`）が落ちた
+  - vitest の全部（117 ファイル 1282 件）で 1 件が時間切れ（`update-diagram` の 1 件、単独では通る。P1 から続く重い時の時間切れ）。`tsc` 0 件、eslint 0 件
+  - **実物のアプリでエラーを起こして見るのは、まだしていない**（画面を操る許可が下りていない）。P5 の配布ビルドで利用者に頼む
 
 ## P1 結果（2026-10-31）
 
