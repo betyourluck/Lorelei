@@ -13,7 +13,7 @@ English | [日本語](README.ja.md)
 Lorelei is a desktop app (Rust + Tauri 2) with a built-in **MCP server**. Claude Code and other MCP clients hand it Mermaid; Lorelei
 
 - **checks** it (syntax, and what the editor can and cannot keep),
-- **renders** it to **SVG / PNG / PDF** with a bundled font (Noto Sans JP), so Japanese text looks the same on every machine,
+- **renders** it to **SVG / PNG / PDF** with bundled fonts (Noto Sans JP, SC and KR), so Japanese, Chinese and Korean text looks the same on every machine,
 - **opens** it in a GUI editor, where you fix the layout and labels by hand,
 - and lets the AI **read back** and **update** the diagram you edited.
 
@@ -113,6 +113,6 @@ Lorelei is a fork of **[illionillion/mermaid-editor](https://github.com/illionil
 - Lorelei / mermaid-editor — MIT ([LICENSE](LICENSE))
 - [merman](https://github.com/Latias94/merman) — MIT OR Apache-2.0
 - [mermaid.js](https://github.com/mermaid-js/mermaid) — MIT
-- Noto Sans JP — SIL Open Font License 1.1 ([OFL.txt](crates/lorelei_core/fonts/OFL.txt))
+- Noto Sans JP, SC and KR — SIL Open Font License 1.1 ([OFL.txt](crates/lorelei_core/fonts/OFL.txt))
 
 Bug reports and questions: [Issues](https://github.com/betyourluck/Lorelei/issues).

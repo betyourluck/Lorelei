@@ -814,6 +814,8 @@ flowchart TD
                 "Apache-2.0",
                 "Open Font License",
                 "Reserved Font Name 'Source'",
+                // 書き出しの同梱フォントは 3 つ (spec 35 D4)
+                "Noto Sans JP / SC / KR",
                 // フォーク元の GitHub メニューを隠すので、上流への謝辞は About が持つ (spec 02 D2)
                 "https://github.com/illionillion/mermaid-editor",
             ] {

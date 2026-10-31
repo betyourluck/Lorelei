@@ -42,7 +42,7 @@
     ],
     "resources": {
       "../LICENSE": "licenses/LICENSE-Lorelei.txt",
-      "../crates/lorelei_core/fonts/OFL.txt": "licenses/NotoSansJP-OFL.txt",
+      "../crates/lorelei_core/fonts/OFL.txt": "licenses/NotoSans-OFL.txt",
       "../vendor/merman-core/LICENSE-MIT": "licenses/merman-LICENSE-MIT.txt",
       "../vendor/merman-core/LICENSE-APACHE": "licenses/merman-LICENSE-APACHE.txt"
     }

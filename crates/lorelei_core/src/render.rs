@@ -174,6 +174,8 @@ fn svg_tree(svg: &str) -> Result<usvg::Tree, CoreError> {
     let options = usvg::Options {
         fontdb: fonts::database(),
         font_family: fonts::FAMILY.to_string(),
+        // PNG・PDF・MCP の preview はここを通る。字の無い時は同じ太さの同梱フォントを先に選ぶ (spec 35 D4)
+        font_resolver: fonts::resolver(),
         ..usvg::Options::default()
     };
     usvg::Tree::from_str(svg, &options).map_err(|err| CoreError::Render(err.to_string()))
@@ -249,4 +251,63 @@ fn pdf(tree: &usvg::Tree) -> Result<Vec<u8>, CoreError> {
     document
         .finish()
         .map_err(|err| CoreError::Render(format!("PDF の生成に失敗しました: {err:?}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 描いた字 (glyph id・フォントの PostScript 名) を、usvg の木から順に集める
+    fn glyphs(
+        group: &usvg::Group,
+        db: &usvg::fontdb::Database,
+        out: &mut Vec<(String, u16, String)>,
+    ) {
+        for node in group.children() {
+            match node {
+                usvg::Node::Group(g) => glyphs(g, db, out),
+                usvg::Node::Text(text) => {
+                    for span in text.layouted() {
+                        for g in &span.positioned_glyphs {
+                            let font = db
+                                .face(g.font)
+                                .map(|f| f.post_script_name.clone())
+                                .unwrap_or_default();
+                            out.push((g.text.clone(), g.id.0, font));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // spec 35 D4: 同梱の JP に無い字 (ハングル・簡体字) は SC・KR で描く (.notdef = glyph id 0 にしない)。
+    // 太字は同じ太さのフォント、JP にある漢字は JP の字形、の順で選ぶ
+    #[test]
+    fn korean_and_chinese_labels_are_drawn_with_the_bundled_fonts() {
+        let src = "flowchart TD\n  A[\"사용자 목록\"] --> B[\"这是简体们\"]\n  B --> C[\"`**굵은 한글** **简体们**`\"]\n";
+        let (_, svg) = render_svg(src, &RenderOptions::default()).unwrap();
+        let tree = svg_tree(&svg).unwrap();
+        let mut drawn = vec![];
+        glyphs(tree.root(), tree.fontdb(), &mut drawn);
+        let font_of = |ch: &str, bold: bool| -> String {
+            drawn
+                .iter()
+                .filter(|(t, _, f)| t == ch && f.ends_with("-Bold") == bold)
+                .map(|(_, _, f)| f.clone())
+                .next()
+                .unwrap_or_else(|| panic!("{ch} (bold={bold}) が描かれていない: {drawn:?}"))
+        };
+        assert!(
+            drawn.iter().all(|(_, id, _)| *id != 0),
+            ".notdef で描いた字がある: {drawn:?}"
+        );
+        assert_eq!(font_of("사", false), "NotoSansKR-Regular");
+        assert_eq!(font_of("굵", true), "NotoSansKR-Bold");
+        assert_eq!(font_of("这", false), "NotoSansSC-Regular");
+        assert_eq!(font_of("们", true), "NotoSansSC-Bold");
+        assert_eq!(font_of("是", false), "NotoSansJP-Regular");
+        assert_eq!(font_of("体", true), "NotoSansJP-Bold");
+    }
 }

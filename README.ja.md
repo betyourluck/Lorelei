@@ -13,7 +13,7 @@
 Lorelei は **MCP サーバー**を内蔵したデスクトップアプリ（Rust + Tauri 2）です。Claude Code などの AI から Mermaid を受け取り、
 
 - **検査**します（文法と、エディタで開くと何が残り何が省かれるか）
-- **SVG / PNG / PDF に書き出し**ます。日本語は同梱フォント（Noto Sans JP）で描くので、端末のフォントに左右されません
+- **SVG / PNG / PDF に書き出し**ます。日本語・中国語（簡体字）・韓国語は同梱フォント（Noto Sans JP・SC・KR）で描くので、端末のフォントに左右されません
 - **GUI エディタで開き**、人が配置やラベルを手で直せます
 - 人が直した図を、AI が**読み戻し**・**書き換え**できます
 
@@ -113,6 +113,6 @@ Lorelei は **[illionillion/mermaid-editor](https://github.com/illionillion/merm
 - Lorelei / mermaid-editor — MIT（[LICENSE](LICENSE)）
 - [merman](https://github.com/Latias94/merman) — MIT OR Apache-2.0
 - [mermaid.js](https://github.com/mermaid-js/mermaid) — MIT
-- Noto Sans JP — SIL Open Font License 1.1（[OFL.txt](crates/lorelei_core/fonts/OFL.txt)）
+- Noto Sans JP・SC・KR — SIL Open Font License 1.1（[OFL.txt](crates/lorelei_core/fonts/OFL.txt)）
 
 不具合の報告・質問は [Issues](https://github.com/betyourluck/Lorelei/issues) へ。

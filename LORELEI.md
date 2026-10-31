@@ -4,7 +4,7 @@ Lorelei は [illionillion/mermaid-editor](https://github.com/illionillion/mermai
 Rust + Tauri 2 のデスクトップアプリと **MCP サーバー**を足したものです。
 
 - Claude Code などの AI から MCP で Mermaid を渡すと、**検査**し、**SVG / PNG / PDF に書き出し**、**GUI エディタで開いて**人が手直しできます
-- 日本語は同梱フォント（Noto Sans JP）で描くので、端末のフォントに左右されません
+- 日本語・中国語（簡体字）・韓国語は同梱フォント（Noto Sans JP・SC・KR）で描くので、端末のフォントに左右されません
 - Lorelei は DB やリポジトリには繋がりません。図の素材（DB のスキーマ・コード）は AI 側が読み、Mermaid にして渡します
 
 エディタだけをブラウザで試せるライブデモ（Web 版。MCP・図の一覧・SVG / PNG / PDF の書き出しは無く、保存もしません）: https://betyourluck.github.io/lorelei-web/
@@ -136,7 +136,7 @@ Claude Code は project スコープのサーバーを最初に使う時に承�
   crates.io に新しい版が出たら同梱をやめます）
 - 「コード生成」のダイアログの右のプレビューは [mermaid.js](https://github.com/mermaid-js/mermaid) 11.17.2 で描いています。
   SVG / PNG / PDF の書き出しは merman（Rust）で描くので、**描き手が違います**。同じ 11.17.2 系ですが、配置・字形（プレビューは OS の書体、
-  書き出しは同梱の Noto Sans JP）・ラベルの描き方（プレビューは mermaid.js の既定の HTML ラベル、書き出しは `htmlLabels: false`）が
+  書き出しは同梱の Noto Sans JP・SC・KR）・ラベルの描き方（プレビューは mermaid.js の既定の HTML ラベル、書き出しは `htmlLabels: false`）が
   完全には一致しません。プレビューは「Mermaid としてどう描かれるか」の目安で、保存した画像そのものの写しではありません
 - インポートは、貼った Mermaid に**1 行でも文法の誤りがあると全体を取り込みません**（誤りの行を示します。エディタの赤線とプレビューで取り込む前に分かります）。
   エディタで表現できない要素（style・枠とその中を結ぶ線など）は、エディタの下の「取り込むと消えるもの」と、行の黄色の印で取り込む前に知らせます
@@ -144,7 +144,8 @@ Claude Code は project スコープのサーバーを最初に使う時に承�
   デスクトップでは保存する図からも落ちるので、その図を一覧から開き直すと、その列は消えています。テーブル名は空白や記号を含められます（`"…"` で囲んで書きます）。空のテーブル名は確定できません
 - 図の先頭に書いた**テーマ以外の設定**（`themeVariables`・`flowchart.rankSpacing` など）と、選べないテーマ（base など）は、エディタで開くと省かれます（「取り込むと消えるもの」と MCP の `dropped` に `config:<名前>`・`theme:<名前>` で出ます）。
   `themeVariables` の色は、開かずに `render` で書き出す時には効きます（プレビューの mermaid.js と同じ）。色として読めない値があると、`validate` と書き出しがエラーになります。
-  `themeCSS` と書体の指定（`fontFamily`）は効きません（書き出しは同梱の Noto Sans JP で描きます）
+  `themeCSS` と書体の指定（`fontFamily`）は効きません（書き出しは同梱の Noto Sans JP・SC・KR で描きます）
+- 書き出しで、日本語にもある漢字は中国語のラベルでも日本語の字形（Noto Sans JP）で描かれます（「直」「骨」など。図のラベルの言語は分からないので、日本語に無い簡体字だけを Noto Sans SC で描きます）
 - GitHub と Zenn が frontmatter に書いたテーマを読むかは、まだ確かめていません（読まない時は `%%{init: {"theme": "…"}}%%` に書き換えて貼ってください）
 - 書き出しでは、線のラベルの背景が薄く、線が文字に透けて見えます（`htmlLabels: false` の描き方。dark で目立ちます。プレビューの mermaid.js では透けません）
 - ラベルの `<b>` のような HTML は、Mermaid がそのまま HTML として扱います（`<br>` で改行できる代わりに、インポートで `<b></b>` のように整えられることがあります）
@@ -153,4 +154,4 @@ Claude Code は project スコープのサーバーを最初に使う時に承�
 
 - Lorelei / mermaid-editor — MIT（[LICENSE](LICENSE)）
 - merman — MIT OR Apache-2.0
-- Noto Sans JP — SIL Open Font License 1.1（[crates/lorelei_core/fonts/OFL.txt](crates/lorelei_core/fonts/OFL.txt)）
+- Noto Sans JP・SC・KR — SIL Open Font License 1.1（[crates/lorelei_core/fonts/OFL.txt](crates/lorelei_core/fonts/OFL.txt)。SC・KR は日本語に無い字だけを切り出して同梱）

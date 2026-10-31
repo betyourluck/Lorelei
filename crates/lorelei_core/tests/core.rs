@@ -109,6 +109,9 @@ fn background_follows_mermaid_default_and_can_be_overridden() {
     assert!(root.contains("background-color:transparent"), "{root}");
 }
 
+/// 韓国語・簡体字のラベル (普通と Markdown の太字)。ハングルと JP に無い簡体字 (这・简・们) を含む (spec 35 D4)
+const CJK: &str = "flowchart TD\n  A[\"사용자 목록\"] --> B[\"这是简体们\"]\n  B --> C[\"`**굵은 한글** **简体们**`\"]\n";
+
 #[test]
 fn pdf_embeds_only_the_bundled_font() {
     for src in [FLOW, ER] {
@@ -116,13 +119,42 @@ fn pdf_embeds_only_the_bundled_font() {
         assert!(out.bytes.starts_with(b"%PDF"));
         let fonts = base_fonts(&out.bytes);
         assert!(!fonts.is_empty());
-        // P0 で見た太字化 (BIZ-UDGothic-Bold) やシステムフォントが紛れ込まないこと
+        // P0 で見た太字化 (BIZ-UDGothic-Bold) やシステムフォントが紛れ込まないこと。日本語の図は JP だけで描く
         for font in &fonts {
             assert!(
                 font.contains("NotoSansJP-"),
                 "同梱以外のフォント: {fonts:?}"
             );
         }
+    }
+}
+
+// spec 35 D4: 韓国語・簡体字の字は同梱の KR・SC で描き、太字は Bold で描く (usvg の既定は太さを見ずに代わりを選ぶ)
+#[test]
+fn pdf_draws_korean_and_chinese_with_the_bundled_fonts_of_the_same_weight() {
+    let out = render(CJK, RenderFormat::Pdf, &RenderOptions::default()).unwrap();
+    let fonts: Vec<String> = base_fonts(&out.bytes)
+        .into_iter()
+        .map(|f| {
+            f.split_once('+')
+                .map_or(f.clone(), |(_, name)| name.to_string())
+        })
+        .collect();
+    for want in [
+        "NotoSansKR-Regular",
+        "NotoSansKR-Bold",
+        "NotoSansSC-Regular",
+        "NotoSansSC-Bold",
+    ] {
+        assert!(fonts.iter().any(|f| f == want), "{want}: {fonts:?}");
+    }
+    for font in &fonts {
+        assert!(
+            ["NotoSansJP-", "NotoSansSC-", "NotoSansKR-"]
+                .iter()
+                .any(|p| font.starts_with(p)),
+            "同梱以外のフォント: {fonts:?}"
+        );
     }
 }
 

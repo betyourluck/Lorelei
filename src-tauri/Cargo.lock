@@ -2481,6 +2481,7 @@ dependencies = [
  "serde_json",
  "svgtypes",
  "thiserror 2.0.20",
+ "ttf-parser",
  "usvg",
  "uuid",
 ]

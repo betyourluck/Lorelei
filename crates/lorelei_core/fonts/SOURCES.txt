@@ -1,0 +1,4 @@
+scripts/build-fonts.py の入力 (spec 35)
+NotoSansJP: NotoSansJP-VF.ttf sha256=5113756f8a3b5d01b2211025e267c50121e3b36f465b7bbaf3cdaf4c3430bfd0
+NotoSansSC: NotoSansSC-VF.ttf sha256=a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da
+NotoSansKR: NotoSansKR-VF.ttf sha256=194018e6b2b293a7964f037b25c0249ce1418bc9ab3c971060a03aa57861e252

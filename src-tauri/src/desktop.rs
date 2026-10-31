@@ -150,7 +150,7 @@ pub fn about_text(version: &str, labels: &AboutLabels) -> String {
          {licenses}\n\
          ・Lorelei / mermaid-editor (illionillion) — MIT License\n\
          ・merman (Latias94) — MIT OR Apache-2.0 {merman_patched}\n\
-         ・Noto Sans JP — SIL Open Font License 1.1\n  \
+         ・Noto Sans JP / SC / KR — SIL Open Font License 1.1\n  \
          Copyright 2014-2021 Adobe, with Reserved Font Name 'Source'\n\n\
          {full_text}"
     )

@@ -13,6 +13,8 @@ resvg.workspace = true
 krilla.workspace = true
 krilla-svg.workspace = true
 svgtypes.workspace = true
+# usvg が字を持つかの判定を crate の外に出していないので直に読む (fonts.rs、spec 35 D4)。usvg 0.47 と同じ版
+ttf-parser = "0.25.1"
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

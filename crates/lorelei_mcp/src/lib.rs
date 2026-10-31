@@ -324,7 +324,7 @@ impl LoreleiServer {
 
     #[tool(
         name = "render",
-        description = "Mermaid を SVG / PNG / PDF に描画する。日本語は同梱フォント (Noto Sans JP) で描く。\
+        description = "Mermaid を SVG / PNG / PDF に描画する。日本語・中国語 (簡体字)・韓国語は同梱フォント (Noto Sans JP・SC・KR) で描く。\
                        png / pdf は output_path (絶対パス、拡張子は形式と一致、親フォルダは既存) に書き出す。\
                        svg で output_path を省くと SVG 本文を返す。既存ファイルは overwrite=true の時だけ上書きする。\
                        描画結果の縮小 PNG を毎回画像で返す (preview、既定 true)。画像で見た目を確かめ、\
