@@ -21,6 +21,8 @@ Lorelei is a fork of [illionillion/mermaid-editor](https://github.com/illionilli
 
 Open an Issue with the 「新規機能追加」 (feature request) template. Start with the problem — what you were trying to do with the diagrams your AI writes — rather than the solution.
 
+**Translations**: the Chinese (简体中文) and Korean (한국어) UI texts were written without native-speaker review. If a word reads wrong, open an Issue with the screen, the current text and your suggestion. The texts are in `locales/<language>/common.json` (editor) and `lib/desktop/locales/<language>.json` (desktop app).
+
 Lorelei checks, renders, exports and edits Mermaid. By design it does not connect to databases or repositories: the AI reads those and hands Lorelei the Mermaid.
 
 ## Pull requests
@@ -111,6 +113,8 @@ Lorelei は [illionillion/mermaid-editor](https://github.com/illionillion/mermai
 ### 機能を提案する
 
 Issue を「新規機能追加」のテンプレートで作ってください。解決策より先に、困っていること（AI が書いた図で何をしようとしていたか）を書いてもらえると助かります。
+
+**訳の直し**: 中国語（简体中文）・韓国語（한국어）の画面の言葉は、母語の人に確かめてもらわずに作りました。おかしな言葉があれば、その画面・今の言葉・直した案を Issue に書いてください。訳は `locales/<言語>/common.json`（エディタ）と `lib/desktop/locales/<言語>.json`（デスクトップ版）にあります。
 
 Lorelei が受け持つのは、Mermaid の検査・描画・書き出し・編集です。DB やリポジトリには、作りとして繋ぎません（それを読むのは AI の側で、Lorelei は Mermaid を受け取ります）。
 

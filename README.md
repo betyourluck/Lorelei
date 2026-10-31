@@ -80,6 +80,9 @@ Things to ask:
 
 ## In the editor
 
+- **Language**: the language button (in the title bar of the desktop app, or next to the editor switch in the panel on the web) switches the UI between 日本語, English, 简体中文 and 한국어. On first start it follows your OS or browser language. The Chinese and Korean translations have not been reviewed by native speakers yet — corrections are welcome in [Issues](https://github.com/betyourluck/Lorelei/issues).
+- **Node shape**: the small icon to the left of a node's blue name tag shows its Mermaid shape (rectangle, diamond, rounded, circle, hexagon, stadium). Click it to change the shape.
+- **Undo / Redo**: Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z (⌘Z and ⌘⇧Z on macOS), or the ↶ ↷ buttons. In the desktop app, 「確定へ戻す」 (Revert to confirmed) goes back to the content you last confirmed with Ctrl+S, and the ● in the diagram list shows there are changes since then.
 - **Dark mode** (desktop app): the button left of "?" in the title bar switches between 「ライト」 (Light), 「ダーク」 (Dark) and 「OS に合わせる」 (System). It changes only the app's look — exports and generated code keep the theme you pick in 「コード生成」 (Generate code).
 - **Selecting several items**: Ctrl+click (⌘+click on macOS) adds or removes a node, ER table or subgraph frame; Shift+drag on an empty area selects everything inside the box. Selected items get a blue ring, and dragging one of them moves them all.
 - **Minimap**: the map button at the bottom of the canvas controls (bottom-left) shows or hides the minimap.
