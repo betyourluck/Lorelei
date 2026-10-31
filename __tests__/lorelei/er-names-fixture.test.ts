@@ -17,6 +17,8 @@ const NAMES = [
   "style", "style注文", "class", "classes", "classDef", "subgraph", "erDiagram", "direction", "accTitle", "accDescr",
   "u-id", "u.x", "u注文", "1abc", "２番", "a.b", "a*b", "a(b)", "a:b", "a~b", "😀絵", "é",
   'a"b', "#1;", "a#b", "a&amp;b", "50%", "C:\\dir", "direction LR", "x direction TB y", "direction\u3000rl",
+  // spec 35: 中国語・韓国語の画面の初期図・新しいテーブルの名
+  "用户", "表3", "사용자", "테이블3",
   "one-to-one", "one-to-many", "many-to-one", "many-to-many", "zero-to-one", "one-to-zero", "one-to-many-mandatory",
 ];
 

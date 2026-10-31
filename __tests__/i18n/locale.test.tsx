@@ -28,9 +28,12 @@ describe("detectLocale (D4)", () => {
     [["en-US"], "en"],
     [["en-GB", "ja-JP"], "en"],
     [["fr-FR", "ja-JP"], "ja"],
-    [["ko-KR"], "en"], // 一覧に無い言語 → 英語
-    [["zh-TW", "ja"], "ja"], // 繁体字は簡体字に寄せない (今は簡体字も一覧に無い)
-    [["zh-CN"], "en"],
+    [["ko-KR"], "ko"],
+    [["zh-TW", "ja"], "ja"], // 繁体字は簡体字に寄せない
+    [["zh-CN"], "zh-Hans"],
+    [["zh-Hans-HK"], "zh-Hans"],
+    [["zh-Hant-CN"], "en"],
+    [["de-DE"], "en"], // 一覧に無い言語 → 英語
     [[], "en"],
   ])("%j → %s", (languages, expected) => {
     expect(detectLocale(languages)).toBe(expected);

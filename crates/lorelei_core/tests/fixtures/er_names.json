@@ -172,6 +172,22 @@
     "source": "erDiagram\n  \"direction#12288;rl\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"direction#12288;rl\" : \"direction#12288;rl\""
   },
   {
+    "name": "用户",
+    "source": "erDiagram\n  用户 {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ 用户 : 用户"
+  },
+  {
+    "name": "表3",
+    "source": "erDiagram\n  表3 {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ 表3 : 表3"
+  },
+  {
+    "name": "사용자",
+    "source": "erDiagram\n  사용자 {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ 사용자 : 사용자"
+  },
+  {
+    "name": "테이블3",
+    "source": "erDiagram\n  테이블3 {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ 테이블3 : 테이블3"
+  },
+  {
     "name": "one-to-one",
     "source": "erDiagram\n  \"one-to-one\" {\n    int id PK\n  }\n  B {\n  }\n  B ||--o{ \"one-to-one\" : \"one-to-one\""
   },

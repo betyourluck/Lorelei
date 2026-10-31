@@ -1,7 +1,9 @@
 {
   "erDiagram": [
     "erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }",
-    "erDiagram\n  User {\n    int id PK\n    varchar(255) name UK\n  }"
+    "erDiagram\n  User {\n    int id PK\n    varchar(255) name UK\n  }",
+    "erDiagram\n  用户 {\n    int id PK\n    varchar(255) name UK\n  }",
+    "erDiagram\n  사용자 {\n    int id PK\n    varchar(255) name UK\n  }"
   ],
   "flowchart": [
     "flowchart TD\n    startNode[Start]\n"

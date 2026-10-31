@@ -11,7 +11,7 @@ import {
 } from "@/features/er-diagram/utils/er-names";
 
 describe("quoteErName (D1)", () => {
-  test.each(["ユーザー", "テーブル2", "注文明細", "ー長音", "User", "user", "u", "u注文", "_a", "a-b", "é", "only", "money", "zero", "relation", "行う"])(
+  test.each(["ユーザー", "テーブル2", "注文明細", "ー長音", "User", "user", "u", "u注文", "_a", "a-b", "é", "only", "money", "zero", "relation", "行う", "用户", "表3", "사용자", "테이블3"])(
     "%s は囲まない (両方の解析器で 1 つの名前として読める)",
     (name) => {
       expect(quoteErName(name)).toBe(name);

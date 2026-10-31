@@ -1,0 +1,365 @@
+{
+  "app": {
+    "erTitle": "Mermaid ER 다이어그램 편집기",
+    "flowTitle": "Mermaid 플로차트 편집기"
+  },
+  "codeEditor": {
+    "phrase": {
+      "all": "모두",
+      "byWord": "단어 단위",
+      "close": "닫기",
+      "completions": "자동 완성 후보",
+      "controlCharacter": "제어 문자",
+      "currentMatch": "현재 일치 항목",
+      "diagnostics": "문제",
+      "find": "찾기",
+      "foldedCode": "접힌 코드",
+      "go": "이동",
+      "goToLine": "줄로 이동",
+      "matchCase": "대소문자 구분",
+      "next": "다음",
+      "noDiagnostics": "문제 없음",
+      "onLine": "줄",
+      "previous": "이전",
+      "regexp": "정규식",
+      "replace": "바꾸기",
+      "replaceAll": "모두 바꾸기",
+      "replaceField": "바꾸기",
+      "replacedMatchOnLine": "$번째 줄의 일치 항목을 바꿨습니다",
+      "replacedMatches": "$개를 바꿨습니다",
+      "selectionDeleted": "선택 영역을 삭제했습니다",
+      "to": "~",
+      "unfold": "펼치기"
+    },
+    "status": {
+      "insert": "삽입",
+      "overwrite": "덮어쓰기",
+      "position": "{{line}}줄, {{col}}열",
+      "size": "{{lines}}줄, {{chars}}자"
+    }
+  },
+  "codeModal": {
+    "download": "다운로드",
+    "emptyFrames": "빈 그룹({{names}})은 미리 보기와 내보내기에서 사각형 노드로 그려집니다 (안에 노드를 넣으면 그룹이 됩니다)",
+    "listSeparator": ", ",
+    "skippedColumn": "{{table}}.{{column}} ({{reason}})",
+    "skippedColumns": "내보내지 않은 컬럼: {{columns}}",
+    "title": "생성된 Mermaid 코드"
+  },
+  "completion": {
+    "arrow": {
+      "arrow": "화살표",
+      "both": "양방향 화살표",
+      "dotted": "점선 화살표",
+      "labelText": "레이블",
+      "labeled": "레이블이 있는 화살표",
+      "line": "연결선 (화살표 없음)",
+      "thick": "굵은 화살표"
+    },
+    "cardinality": {
+      "manyToMany": "다 대 다",
+      "oneToOne": "1 대 1",
+      "oneToOneOrMore": "1 대 다 (1개 이상)",
+      "oneToZeroOrMore": "1 대 다 (0개 이상)",
+      "oneToZeroOrOne": "1 대 0 또는 1",
+      "zeroOrMoreToOne": "다 (0개 이상) 대 1",
+      "zeroOrOneToOne": "0 또는 1 대 1"
+    },
+    "direction": {
+      "BT": "아래에서 위로",
+      "LR": "왼쪽에서 오른쪽으로",
+      "RL": "오른쪽에서 왼쪽으로",
+      "TB": "위에서 아래로 (TD와 같음)",
+      "TD": "위에서 아래로"
+    },
+    "er": {
+      "columns": "컬럼 작성",
+      "fk": "외래 키",
+      "pk": "기본 키",
+      "type": "타입",
+      "uk": "고유 키"
+    },
+    "header": {
+      "erDiagram": "ER 다이어그램",
+      "flowchartLR": "플로차트 (왼쪽에서 오른쪽으로)",
+      "flowchartTD": "플로차트 (위에서 아래로)",
+      "graphTD": "플로차트 (graph 문법)"
+    },
+    "id": {
+      "node": "노드",
+      "table": "테이블"
+    },
+    "shape": {
+      "circle": "원",
+      "circleText": "원",
+      "diamond": "마름모 (분기)",
+      "diamondText": "마름모",
+      "hexagon": "육각형",
+      "hexagonText": "육각형",
+      "rectangle": "사각형",
+      "rectangleText": "사각형",
+      "round": "둥근 사각형",
+      "roundText": "둥근 사각형",
+      "stadium": "스타디움",
+      "stadiumText": "스타디움"
+    }
+  },
+  "confirmDelete": {
+    "body": "연결된 연결선도 함께 삭제됩니다.",
+    "cancel": "취소",
+    "delete": "삭제",
+    "named": "'{{name}}' 항목을 삭제할까요?",
+    "selected": {
+      "node": "선택한 노드 {{count}}개를 삭제할까요?",
+      "table": "선택한 테이블 {{count}}개를 삭제할까요?"
+    },
+    "this": {
+      "node": "이 노드를 삭제할까요?",
+      "table": "이 테이블을 삭제할까요?"
+    }
+  },
+  "contribution": {
+    "menu": "기여 메뉴",
+    "newIssue": "Issue 만들기",
+    "repository": "저장소 보기"
+  },
+  "copy": {
+    "copied": "복사했습니다",
+    "copyCode": "코드 복사"
+  },
+  "defaults": {
+    "group": "그룹{{n}}",
+    "initialTable": "사용자",
+    "table": "테이블{{id}}"
+  },
+  "direction": {
+    "label": "다이어그램 방향: {{value}}",
+    "title": "다이어그램 방향"
+  },
+  "dropWarnings": {
+    "circleCross": "원·X 화살표는 일반 화살표(-->)로 가져옵니다",
+    "class": "class 지정은 가져오지 않습니다",
+    "classDef": "classDef 지정(스타일 정의)은 가져오지 않습니다",
+    "classShorthand": "::: 형식의 class 지정은 가져오지 않습니다",
+    "click": "click 지정(링크·동작)은 가져오지 않습니다",
+    "edgeIntoOwnSubgraph": "그룹과 그 안을 잇는 연결선은 그려지지 않으므로 가져오지 않습니다",
+    "edgeLength": "화살표 길이 지정은 가져오지 않습니다 (일반 길이로 합니다)",
+    "er": {
+      "alias": "테이블 별칭은 가져오지 않습니다 (식별자를 이름으로 합니다)",
+      "cardinality": "편집기에 없는 카디널리티이므로 1 대 다로 가져옵니다",
+      "columnComment": "컬럼 주석은 가져오지 않습니다",
+      "nonIdentifying": "비식별 관계(점선)는 실선으로 가져옵니다"
+    },
+    "linkStyle": "linkStyle 지정(연결선 스타일)은 가져오지 않습니다",
+    "openLine": "화살표가 없는 연결선은 화살표(-->)로 가져옵니다",
+    "separator": "; ",
+    "style": "style 지정은 가져오지 않습니다",
+    "unknownShape": "편집기에 없는 모양이므로 사각형으로 가져옵니다"
+  },
+  "dropped": {
+    "accessibility": "접근성 정보",
+    "alias": "별칭",
+    "attributeComment": "속성 주석",
+    "cardinalityUnsupported": "지원하지 않는 카디널리티",
+    "class": "class 지정",
+    "classDef": "classDef",
+    "click": "click",
+    "config": "설정 {{detail}}",
+    "direction": "방향 {{detail}}",
+    "edge": "화살표 {{detail}}",
+    "edgeIntoOwnSubgraph": "그룹과 그 안을 잇는 연결선",
+    "edgeLength": "화살표 길이 지정",
+    "edgeToSubgraph": "서브그래프로 향하는 화살표",
+    "item": "{{label}} ×{{count}}",
+    "nonIdentifying": "비식별 관계 (점선)",
+    "separator": ", ",
+    "shape": "모양 {{detail}}",
+    "style": "style 지정",
+    "subgraph": "서브그래프",
+    "theme": "테마 {{detail}} (선택할 수 없는 테마)",
+    "tooltip": "툴팁"
+  },
+  "edge": {
+    "arrowName": {
+      "arrow": "일반 화살표 (->)",
+      "bidirectional": "양방향 화살표 (<->)",
+      "bidirectionalThick": "굵은 양방향 화살표 (<==>)",
+      "dotted": "점선 화살표 (-.->)",
+      "invisible": "숨김 (~~~)",
+      "thick": "굵은 화살표 (==>)"
+    },
+    "arrowType": "화살표 종류 선택",
+    "delete": "연결선 삭제"
+  },
+  "erNames": {
+    "bothEmpty": "이름과 타입이 비어 있음",
+    "name": {
+      "chars": "이름에 쓸 수 없는 문자가 있음",
+      "empty": "이름이 비어 있음",
+      "key": "이름이 PK·FK·UK로 읽힘",
+      "space": "이름에 공백이 있음"
+    },
+    "type": {
+      "chars": "타입에 쓸 수 없는 문자가 있음",
+      "empty": "타입이 비어 있음",
+      "key": "타입이 PK·FK·UK로 읽힘",
+      "space": "타입에 공백이 있음"
+    }
+  },
+  "erPanel": {
+    "addTable": "테이블 추가",
+    "generateCode": "Mermaid 코드 출력",
+    "hint": "💡 팁: 테이블을 더블클릭하면 편집, 빈 곳으로 드래그하면 새 테이블을 만듭니다",
+    "import": "Mermaid 가져오기",
+    "title": "Mermaid ER 다이어그램 편집기"
+  },
+  "erTable": {
+    "addColumn": "컬럼 추가",
+    "columnName": "컬럼 이름",
+    "delete": "삭제",
+    "deleteColumn": "삭제",
+    "invalid": "{{reason}} (Mermaid로 쓸 수 없어서 이 컬럼은 코드에 내보내지 않습니다)",
+    "openMenu": "이 테이블의 메뉴 열기",
+    "openMenuNamed": "'{{name}}' 테이블의 메뉴 열기",
+    "tableName": "테이블 이름",
+    "type": "타입"
+  },
+  "flowPanel": {
+    "addFrame": "그룹 추가",
+    "addNode": "노드 추가",
+    "generateCode": "코드 생성",
+    "hint": "💡 팁: 노드를 더블클릭하면 편집, 빈 곳으로 드래그하면 새 노드를 만듭니다",
+    "import": "가져오기",
+    "title": "Mermaid 플로차트 편집기"
+  },
+  "frame": {
+    "delete": "그룹 삭제",
+    "deleteFrameEdges": "그룹에 연결된 연결선 {{count}}개도 삭제됩니다.",
+    "deleteFrames": "선택한 그룹 {{count}}개를 삭제할까요?",
+    "deleteHint": "그룹 삭제 (안의 노드는 남습니다)",
+    "deleteKept": "안의 노드·그룹 {{count}}개는 남습니다 (바깥으로 옮깁니다).",
+    "deleteMixed": "선택한 항목 {{count}}개(그룹 {{frames}}개)를 삭제할까요?",
+    "deleteNodeEdges": "삭제할 노드에 연결된 연결선도 함께 삭제됩니다.",
+    "deleteOne": "'{{name}}' 그룹을 삭제할까요?",
+    "direction": {
+      "BT": "아래에서 위로",
+      "LR": "왼쪽에서 오른쪽으로",
+      "RL": "오른쪽에서 왼쪽으로",
+      "TB": "위에서 아래로"
+    },
+    "dropBody": "그룹과 그 안을 잇는 연결선 {{count}}개는 Mermaid 렌더링에서 보이지 않으므로 삭제합니다. 삭제하지 않고 되돌리려면 '취소'를 누르세요.",
+    "dropConfirm": "이동하고 연결선 삭제",
+    "dropTitle": "이 이동으로 일부 연결선이 렌더링되지 않습니다",
+    "emptyNotice": "빈 그룹은 내보내면 사각형 노드로 그려집니다",
+    "idHint": "더블클릭하여 ID 변경",
+    "idLabel": "그룹 ID",
+    "noticeIgnored": "안의 노드가 그룹 밖과 연결되어 있어서, 렌더링에서는 이 방향({{written}})이 적용되지 않습니다 ({{drawn}} 방향으로 배치됩니다)",
+    "noticeReversed": "렌더링에서는 이 그룹 안이 {{drawn}}({{words}}) 방향으로 배치됩니다. 방향을 지정하면 맞출 수 있습니다",
+    "sentenceJoin": " ",
+    "titleHint": "더블클릭하여 제목 변경",
+    "titleLabel": "그룹 제목",
+    "untitled": "(제목 없음)"
+  },
+  "frameDirection": {
+    "label": "그룹 안의 방향: {{value}}",
+    "none": "지정 안 함",
+    "short": "방향",
+    "title": "그룹 안의 방향 (지정 안 함이면 바깥의 방향을 따름)"
+  },
+  "history": {
+    "redo": "다시 실행",
+    "redoTitle": "다시 실행 (Ctrl+Y)",
+    "undo": "실행 취소",
+    "undoTitle": "실행 취소 (Ctrl+Z)"
+  },
+  "importModal": {
+    "cancel": "취소",
+    "empty": "Mermaid 코드를 입력하세요",
+    "erDescription": "Mermaid ER 다이어그램 코드를 붙여 넣어 가져올 수 있습니다",
+    "erHelp": "💡 지원: 테이블 정의 {columns}, 관계(||--o{, }o--|| 등), 속성(PK, UK)",
+    "erNotFound": "유효한 ER 다이어그램 코드를 찾지 못했습니다. 테이블과 관계의 정의를 확인하세요.",
+    "erTitle": "Mermaid ER 다이어그램 코드 가져오기",
+    "example": "예:\n{{code}}",
+    "failed": "Mermaid 코드를 해석하는 중에 오류가 발생했습니다",
+    "flowDescription": "Mermaid 플로차트 코드를 붙여 넣어 가져올 수 있습니다",
+    "flowExample": {
+      "decision": "판단",
+      "end": "종료",
+      "no": "아니요",
+      "processA": "처리A",
+      "processB": "처리B",
+      "start": "시작",
+      "yes": "예"
+    },
+    "flowHelp": "💡 지원하는 노드 모양: 사각형[label], 마름모{label}, 원((label)), 육각형{{label}}, 스타디움([label]), 둥근 사각형(label)",
+    "flowNotFound": "유효한 Mermaid 코드를 찾지 못했습니다. 노드와 연결선의 정의를 확인하세요.",
+    "flowTitle": "Mermaid 코드 가져오기",
+    "import": "가져오기",
+    "importing": "가져오는 중...",
+    "notEr": "ER 다이어그램이 아닙니다 (flowchart 등은 각각의 편집기에서 가져오세요)",
+    "notFlowchart": "플로차트가 아닙니다 (erDiagram 등은 각각의 편집기에서 가져오세요)",
+    "syntaxError": "Mermaid 문법 오류로 가져올 수 없습니다: {{message}}",
+    "syntaxErrorAtLine": "Mermaid 문법 오류로 가져올 수 없습니다 ({{line}}번째 줄): {{message}}"
+  },
+  "language": {
+    "label": "화면 언어: {{name}}",
+    "title": "화면 언어"
+  },
+  "minimap": {
+    "hide": "미니맵 숨기기",
+    "label": "미니맵",
+    "show": "미니맵 표시"
+  },
+  "nav": {
+    "choose": "편집기 선택",
+    "er": "ER 다이어그램 편집기",
+    "flowchart": "플로차트 편집기"
+  },
+  "node": {
+    "delete": "삭제",
+    "editLabel": "레이블 편집",
+    "editVariableName": "변수 이름 편집",
+    "openMenu": "노드 메뉴 열기"
+  },
+  "notFound": {
+    "body": "찾으시는 페이지가 없습니다.",
+    "heading": "404 - 페이지를 찾을 수 없습니다",
+    "home": "홈으로 돌아가기",
+    "title": "페이지를 찾을 수 없습니다"
+  },
+  "preview": {
+    "code": "Mermaid 코드",
+    "drawing": "그리는 중…",
+    "dropped": "가져오면 사라지는 것: {{dropped}}",
+    "empty": "왼쪽에 Mermaid를 붙여 넣으면 여기에 다이어그램이 나옵니다",
+    "failed": "그리지 못했습니다",
+    "generatedCode": "생성된 Mermaid 코드",
+    "preview": "미리 보기"
+  },
+  "shape": {
+    "badge": "모양: {{shape}}",
+    "circle": "원",
+    "diamond": "마름모",
+    "hexagon": "육각형",
+    "menu": "노드 모양",
+    "rectangle": "사각형",
+    "rounded": "둥근 사각형",
+    "stadium": "스타디움"
+  },
+  "theme": {
+    "label": "테마: {{value}}",
+    "title": "출력 테마 (코드·미리 보기·내보내기)"
+  },
+  "xyflow": {
+    "controls": "조작 패널",
+    "edgeDescription": "Enter 또는 스페이스로 연결선을 선택합니다. Delete로 삭제하고 Esc로 취소합니다.",
+    "fitView": "전체 보기",
+    "handle": "연결점",
+    "interactive": "편집 잠금 전환",
+    "minimap": "미니맵",
+    "nodeDescription": "Enter 또는 스페이스로 노드를 선택합니다. Delete로 삭제하고 Esc로 취소합니다.",
+    "nodeDescriptionKeyboardDisabled": "Enter 또는 스페이스로 노드를 선택하고 방향키로 움직일 수 있습니다. Delete로 삭제하고 Esc로 취소합니다.",
+    "zoomIn": "확대",
+    "zoomOut": "축소"
+  }
+}

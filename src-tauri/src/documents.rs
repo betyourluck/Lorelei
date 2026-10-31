@@ -495,6 +495,8 @@ pub fn initial_sources(editor: Editor) -> &'static [&'static str] {
         Editor::ErDiagram => &[
             "erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }",
             "erDiagram\n  User {\n    int id PK\n    varchar(255) name UK\n  }",
+            "erDiagram\n  用户 {\n    int id PK\n    varchar(255) name UK\n  }",
+            "erDiagram\n  사용자 {\n    int id PK\n    varchar(255) name UK\n  }",
         ],
     }
 }
@@ -580,9 +582,11 @@ mod tests {
         sv(&s, &ai.id, flow, BTreeMap::new()).unwrap();
         assert_eq!(s.load(&ai.id).unwrap().source, flow);
         assert!(sv(&s, &imported.id, er, BTreeMap::new()).is_err());
-        // spec 34 D6: 初期図は作った時の言語なので、どの言語の初期図でも拒む (英語の画面のテーブル名は User)
-        let en_er = "erDiagram\n  User {\n    int id PK\n    varchar(255) name UK\n  }";
-        assert_eq!(sv(&s, &imported.id, en_er, BTreeMap::new()).unwrap_err().code, INITIAL_FIGURE_REJECTED);
+        // spec 34 D6: 初期図は作った時の言語なので、どの言語の初期図でも拒む (英語の画面のテーブル名は User、spec 35 で 用户・사용자)
+        for name in ["User", "用户", "사용자"] {
+            let er = format!("erDiagram\n  {name} {{\n    int id PK\n    varchar(255) name UK\n  }}");
+            assert_eq!(sv(&s, &imported.id, &er, BTreeMap::new()).unwrap_err().code, INITIAL_FIGURE_REJECTED, "{name}");
+        }
         assert_eq!(s.load(&imported.id).unwrap().source, "");
 
         // 新規作成の図は初期図で始まるのが正しい

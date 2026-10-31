@@ -5,11 +5,15 @@ import { createInstance } from "i18next";
 import { initReactI18next } from "react-i18next";
 import en from "@/locales/en/common.json";
 import ja from "@/locales/ja/common.json";
+import ko from "@/locales/ko/common.json";
+import zhHans from "@/locales/zh-Hans/common.json";
 
 /** 選べる言語。足す時は locales/<code>/ に訳を置き、ここに 1 行足す (spec 31 D2)。名はその言語で書く */
 export const LOCALES = [
   { code: "ja", name: "日本語" }, // i18n-allow: 言語の名はその言語で書く
   { code: "en", name: "English" },
+  { code: "zh-Hans", name: "简体中文" }, // i18n-allow: 言語の名はその言語で書く
+  { code: "ko", name: "한국어" },
 ] as const;
 
 export type Locale = (typeof LOCALES)[number]["code"];
@@ -21,7 +25,12 @@ export const FALLBACK_LOCALE: Locale = "en";
 /** 選んだ言語を覚える localStorage のキー (data_contract UiLocale) */
 export const LOCALE_STORAGE_KEY = "mermaid-editor.locale.v1";
 
-export const resources = { ja: { common: ja }, en: { common: en } } as const;
+export const resources = {
+  ja: { common: ja },
+  en: { common: en },
+  "zh-Hans": { common: zhHans },
+  ko: { common: ko },
+} as const;
 
 export const i18n = createInstance();
 void i18n.use(initReactI18next).init({
