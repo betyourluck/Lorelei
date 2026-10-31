@@ -63,6 +63,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-31: [spec 34](specs/34_desktop-ui-language.md) **rev1**（査読 1 本・34 点を採った）。要の改め: Rust のエラーは `{code, params?, detail?}` で `Display` は今の文のまま（MCP は変えない）、直列化は Tauri の境界（`Err`・`OpenRequest.error`・`McpStatus.detail`）だけ、
+  Phase は読み手（`describeError`）を先に入れて Rust と偽のバックエンドを一続きで変える（間の main で STALE_BASE の見分けが外れないように）。**TS と Rust の初期図を結ぶテストが無い**（片側だけ変えると緑のまま保険が外れる）ので fixture を先に、
+  ER 図の初期図は言語ごとに訳して Rust は全部の言語の集合と比べる案に推奨を改めた（日本語の画面と Web 版は今のまま）。窓を出す順は日本語に留める 1 行を消すだけで足りる見込み。D1〜D7 の裁定待ち
 - 2026-10-31: [spec 31](specs/31_ui-language.md) **P2 着地**（フォーク元 `68ff699`）: 2 つのパネルの見出しに画面の言語のメニュー（`LanguageMenu`、Web 版）。利用者の裁定で、日本語の画面で前から英語だった所（`Zoom In`・`Delete edge`・`Copied!` など）を日本語にした。
   英語の画面は 15 場面を撮ってはみ出し・重なりなし、日本語の画面は P1 から言語のメニューの所だけが変わった（計算されたスタイルの違い 0）。メニューで切り替えると開き直さずに変わり、開き直しても残る。
   **テストの setup は `@/components/i18n/i18n` から読む**（入口から読むと全部のファイルで部品まで読み、setup が 18 倍になった, failures #56）。残りは P3（ライブデモを作り直すか、利用者が決める）。次は spec 34（デスクトップ）か spec 35（中国語・韓国語）
