@@ -5,6 +5,7 @@ import type { FC, ReactNode } from "react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HistoryGateContext } from "@/components/editor-history/gate";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
+import { blockBrowserContextMenu } from "./context-menu";
 import { setUiLocale } from "./default-titles";
 import type { HistoryStatus, RegisteredActions } from "./desktop-actions";
 import { DesktopActionsProvider } from "./desktop-actions";
@@ -55,6 +56,8 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
   useEffect(() => {
     void windowAction("show");
   }, []);
+  // WebView の既定の右クリックのメニュー (再読み込み・印刷・名前を付けて保存) を出さない。文字を入れる所は残す
+  useEffect(() => blockBrowserContextMenu(), []);
   // AI の図の題のひな形を Rust に知らせる (spec 34 D5)。最初の描画の言語 (LocaleSync が当てた後) と、切り替えるたびに。
   // 失敗しても画面は困らない (Rust は前に覚えたひな形か日本語で付ける)
   const { i18n } = useDesktopTranslation();

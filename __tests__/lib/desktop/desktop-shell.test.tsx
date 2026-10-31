@@ -83,6 +83,33 @@ describe("DesktopShell", () => {
     expect(container.querySelector("[data-lorelei-desktop]")).toBeNull();
   });
 
+  it("デスクトップ版では WebView の既定の右クリックのメニューを出さない。Web 版ではブラウザのメニューのまま", async () => {
+    const rightClick = (target: Element) => {
+      const e = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2 });
+      target.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    setTauri(false);
+    const web = render(
+      <DesktopShell>
+        <p>editor</p>
+      </DesktopShell>
+    );
+    expect(rightClick(screen.getByText("editor"))).toBe(false);
+    web.unmount();
+
+    setTauri(true);
+    const desktop = render(
+      <DesktopShell>
+        <p>editor</p>
+      </DesktopShell>
+    );
+    await screen.findByRole("banner");
+    expect(rightClick(screen.getByText("editor"))).toBe(true);
+    desktop.unmount();
+    expect(rightClick(document.body)).toBe(false);
+  });
+
   it("外枠が描けたら窓を出す。Web 版では何もしない (spec 05 D5: 窓は隠したまま起動する)", async () => {
     win.show.mockClear();
     setTauri(false);
