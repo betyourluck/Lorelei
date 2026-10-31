@@ -6,6 +6,7 @@ import type { FC } from "@yamada-ui/react";
 import { Box, IconButton, Input, Text } from "@yamada-ui/react";
 import type { KeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "@/components/i18n";
 import { selectionRing } from "@/components/layout/selection-ring";
 import { handlePositions } from "../../hooks/direction";
 import { useUpdateNodeInternals } from "../../hooks/use-update-node-internals";
@@ -73,6 +74,7 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
   const updateNodeInternals = useUpdateNodeInternals();
   useEffect(() => updateNodeInternals(id), [handleDirection, id, updateNodeInternals]);
   const notice = useFrameNotice(id);
+  const { t } = useTranslation();
   const [editing, setEditing] = useState<Editing>(null);
   const [draft, setDraft] = useState("");
   const composing = useRef(false);
@@ -161,30 +163,30 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
         data-testid="subgraph-header"
       >
         {editing === "id" ? (
-          input("枠の ID")
+          input(t("frame.idLabel"))
         ) : (
           <Text
             fontSize="xs"
             color="textCaption"
             flexShrink={0}
-            title="ダブルクリックで ID を変える"
+            title={t("frame.idHint")}
             onDoubleClick={() => start("id")}
           >
             {data.variableName}
           </Text>
         )}
         {editing === "title" ? (
-          input("枠の題")
+          input(t("frame.titleLabel"))
         ) : (
           <Text
             fontWeight="bold"
             fontSize="sm"
             lineClamp={1}
             flex="1"
-            title="ダブルクリックで題を変える"
+            title={t("frame.titleHint")}
             onDoubleClick={() => start("title")}
           >
-            {title || "（題なし）"}
+            {title || t("frame.untitled")}
           </Text>
         )}
         {data.onDirectionChange && (
@@ -197,8 +199,8 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
         {data.onDelete && (
           <IconButton
             className="nodrag"
-            aria-label="枠を削除"
-            title="枠を削除（中のノードは残ります）"
+            aria-label={t("frame.delete")}
+            title={t("frame.deleteHint")}
             icon={<XIcon />}
             size="xs"
             variant="ghost"
@@ -244,7 +246,7 @@ export const SubgraphNode: FC<SubgraphNodeProps> = ({ data, id, selected }) => {
           color="textCaption"
           pointerEvents="none"
         >
-          空の枠は、書き出すと四角いノードとして描かれます
+          {t("frame.emptyNotice")}
         </Text>
       )}
     </Box>

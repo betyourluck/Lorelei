@@ -2,6 +2,7 @@
 
 import { GripIcon, TrashIcon } from "@yamada-ui/lucide";
 import { IconButton, Menu, MenuButton, MenuItem, MenuList } from "@yamada-ui/react";
+import { useTranslation } from "@/components/i18n";
 
 interface TableMenuProps {
   /** テーブル名 (読み上げの名前に使う) */
@@ -15,7 +16,8 @@ interface TableMenuProps {
  * 今は「削除」だけ (項目は後から足せる)。
  */
 export const TableMenu = ({ name, onDelete }: TableMenuProps) => {
-  const label = name.trim() ? `テーブル『${name.trim()}』の操作メニューを開く` : "このテーブルの操作メニューを開く";
+  const { t } = useTranslation();
+  const label = name.trim() ? t("erTable.openMenuNamed", { name: name.trim() }) : t("erTable.openMenu");
   return (
     <Menu>
       <MenuButton
@@ -30,7 +32,7 @@ export const TableMenu = ({ name, onDelete }: TableMenuProps) => {
       />
       <MenuList className="nodrag">
         <MenuItem color="danger" icon={<TrashIcon fontSize="xl" color="danger" />} onClick={onDelete}>
-          削除
+          {t("erTable.delete")}
         </MenuItem>
       </MenuList>
     </Menu>

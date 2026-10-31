@@ -1,4 +1,5 @@
 import type { Node } from "@xyflow/react";
+import { i18n } from "@/components/i18n";
 import { themeFrontmatter, type MermaidTheme } from "@/components/ui/mermaid-theme";
 import type {
   MermaidArrowType,
@@ -280,19 +281,19 @@ export const getArrowTypeSymbol = (arrowType: MermaidArrowType): string => {
 export const getArrowTypeDisplayName = (arrowType: MermaidArrowType): string => {
   switch (arrowType) {
     case "arrow":
-      return "通常の矢印 (->)";
+      return i18n.t("edge.arrowName.arrow");
     case "thick":
-      return "太い矢印 (==>)";
+      return i18n.t("edge.arrowName.thick");
     case "dotted":
-      return "点線矢印 (-.->)";
+      return i18n.t("edge.arrowName.dotted");
     case "invisible":
-      return "非表示 (~~~)";
+      return i18n.t("edge.arrowName.invisible");
     case "bidirectional":
-      return "双方向矢印 (<->)";
+      return i18n.t("edge.arrowName.bidirectional");
     case "bidirectional-thick":
-      return "太い双方向矢印 (<==>)";
+      return i18n.t("edge.arrowName.bidirectionalThick");
     default:
-      return "通常の矢印 (->)";
+      return i18n.t("edge.arrowName.arrow");
   }
 };
 

@@ -22,6 +22,7 @@ import {
   Text,
 } from "@yamada-ui/react";
 import { useState, useEffect } from "react";
+import { useTranslation } from "@/components/i18n";
 import { selectionRing } from "@/components/layout/selection-ring";
 import { describeFieldProblem, fieldProblem } from "../../utils/er-names";
 import { TableMenu } from "./table-menu";
@@ -54,6 +55,7 @@ export const ERTableContent: FC<ERTableContentProps> = ({
   onDelete,
   selected,
 }) => {
+  const { t } = useTranslation();
   const handleChange = (rowIdx: number, key: keyof ERColumn, value: string | boolean) => {
     onColumnsChange(columns.map((col, i) => (i === rowIdx ? { ...col, [key]: value } : col)));
   };
@@ -71,17 +73,17 @@ export const ERTableContent: FC<ERTableContentProps> = ({
     if (column.name.trim() === "" && column.type.trim() === "") return undefined;
     const problem = fieldProblem(column[field], field);
     return problem
-      ? `${describeFieldProblem(field, problem)}（Mermaid に書けないので、この列はコードに書き出しません）`
+      ? t("erTable.invalid", { reason: describeFieldProblem(field, problem) })
       : undefined;
   };
 
   const columnDefs: ColumnDef<ERColumn>[] = [
     {
-      header: () => "カラム名",
+      header: () => t("erTable.columnName"),
       cell: ({ row, getValue }) => (
         <CellEditor
           value={getValue() as string}
-          label="カラム名"
+          label={t("erTable.columnName")}
           invalidReason={invalidReason(row.original, "name")}
           onCommit={(v) => handleChange(row.index, "name", v)}
         />
@@ -89,11 +91,11 @@ export const ERTableContent: FC<ERTableContentProps> = ({
       accessorKey: "name",
     },
     {
-      header: () => "型",
+      header: () => t("erTable.type"),
       cell: ({ row, getValue }) => (
         <CellEditor
           value={getValue() as string}
-          label="型"
+          label={t("erTable.type")}
           invalidReason={invalidReason(row.original, "type")}
           onCommit={(v) => handleChange(row.index, "type", v)}
         />
@@ -159,7 +161,7 @@ export const ERTableContent: FC<ERTableContentProps> = ({
       id: "actions",
       cell: ({ row }) => (
         <IconButton
-          aria-label="削除"
+          aria-label={t("erTable.deleteColumn")}
           icon={<XIcon />}
           size="xs"
           colorScheme="danger"
@@ -201,12 +203,12 @@ export const ERTableContent: FC<ERTableContentProps> = ({
             <HStack justifyContent="space-between" w="full">
               <HStack as={Label}>
                 <Text fontWeight="bold" fontSize="md">
-                  テーブル名
+                  {t("erTable.tableName")}
                 </Text>
                 {/* 確定 (Enter・フォーカスが外れる) で反映し、空・空白だけの確定は前の名前に戻す。打鍵の途中の空の名前を自動保存に乗せない (spec 13 D3) */}
                 <CellEditor
                   value={name}
-                  label="テーブル名"
+                  label={t("erTable.tableName")}
                   onCommit={onNameChange}
                   rejectBlank
                   size="md"
@@ -216,7 +218,7 @@ export const ERTableContent: FC<ERTableContentProps> = ({
               </HStack>
               <HStack gap="sm">
                 <Button size="md" colorScheme="blue" onClick={handleAdd}>
-                  カラム追加
+                  {t("erTable.addColumn")}
                 </Button>
                 {onDelete && <TableMenu name={name} onDelete={onDelete} />}
               </HStack>

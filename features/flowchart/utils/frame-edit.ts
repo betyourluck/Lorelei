@@ -3,6 +3,7 @@
  * 枠は xyflow の親ノードで、中のノードの position は親からの相対。親は子より前に並べる (xyflow の決まり)
  */
 import type { Edge, Node } from "@xyflow/react";
+import { i18n } from "@/components/i18n";
 import { getSafeVariableName, type ParsedMermaidData } from "../hooks/mermaid";
 import type { GraphType, SubgraphDirection } from "../types/types";
 import { layoutNested, type NestedLayoutMetrics } from "./nested-layout";
@@ -470,7 +471,8 @@ export function nextFrameName(nodes: Node[]): { variableName: string; title: str
   );
   let n = 1;
   while (used.has(`group${n}`)) n++;
-  return { variableName: `group${n}`, title: `グループ${n}` };
+  // 題は作った時の画面の言語 (spec 31 D8)。ID (変数名) は言語に依らない
+  return { variableName: `group${n}`, title: i18n.t("defaults.group", { n }) };
 }
 
 /** 枠の ID の候補がほかのノード・枠の ID とぶつかるか (空も確定させない) */

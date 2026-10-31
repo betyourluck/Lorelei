@@ -1,6 +1,7 @@
 import { Panel } from "@xyflow/react";
 import { CircleDotIcon, CodeIcon, GithubIcon } from "@yamada-ui/lucide";
 import { Menu, MenuButton, MenuList, MenuItem, IconButton, Link } from "@yamada-ui/react";
+import { useTranslation } from "@/components/i18n";
 
 /** 既定のリポジトリ。フォークで Web 版を配る時は、ビルド時に NEXT_PUBLIC_REPOSITORY_URL で差し替える */
 const DEFAULT_REPOSITORY_URL = "https://github.com/illionillion/mermaid-editor";
@@ -15,6 +16,7 @@ export const ContributionPanel = () => {
 };
 
 export const ContributionPanelContent = () => {
+  const { t } = useTranslation();
   const repository = repositoryUrl();
   return (
     <Menu>
@@ -22,7 +24,7 @@ export const ContributionPanelContent = () => {
         as={IconButton}
         icon={<GithubIcon />}
         size="sm"
-        aria-label="コントリビューションメニュー"
+        aria-label={t("contribution.menu")}
         bg="gray.600"
         color="white"
         _hover={{ bg: "black", textDecoration: "none" }}
@@ -35,7 +37,7 @@ export const ContributionPanelContent = () => {
           rel="noopener noreferrer"
           icon={<CodeIcon />}
         >
-          リポジトリを見る
+          {t("contribution.repository")}
         </MenuItem>
         <MenuItem
           as={Link}
@@ -44,7 +46,7 @@ export const ContributionPanelContent = () => {
           rel="noopener noreferrer"
           icon={<CircleDotIcon />}
         >
-          Issueを作成
+          {t("contribution.newIssue")}
         </MenuItem>
       </MenuList>
     </Menu>

@@ -1,6 +1,7 @@
 /**
  * ER 図のインポートが使う読み取り (spec 11 D3)。mermaid.js で解析し、エディタの取り込みの形にする
  */
+import { i18n } from "@/components/i18n";
 import type { DroppedItem } from "@/components/ui/mermaid-dropped";
 import { describeSyntaxError, MermaidSyntaxError } from "@/components/ui/mermaid-parse-issue";
 import { readMermaidDiagram } from "@/components/ui/mermaid-render";
@@ -21,7 +22,7 @@ export async function readErForImport(code: string): Promise<ErImport> {
   if (snapshot.kind !== "er") {
     return {
       ok: false,
-      error: "ER 図ではありません（flowchart などはそれぞれのエディタのインポートで取り込んでください）",
+      error: i18n.t("importModal.notEr"),
     };
   }
   return { ok: true, ...erFromMermaid(snapshot) };

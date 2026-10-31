@@ -1,4 +1,5 @@
 import type { Node, Edge } from "@xyflow/react";
+import { i18n } from "@/components/i18n";
 import type { ERTableNodeProps } from "../components/node/er-table-node";
 import type { ErCardinality } from "../types";
 
@@ -23,7 +24,8 @@ export function createNewERTableNode(
     type: "erTable",
     position,
     data: {
-      name: `テーブル${nodeId}`,
+      // 新しいテーブルの名は作った時の画面の言語 (spec 31 D8)
+      name: i18n.t("defaults.table", { id: nodeId }),
       columns: [{ name: "id", type: "int", pk: true, uk: false }],
       ...handlers,
     },

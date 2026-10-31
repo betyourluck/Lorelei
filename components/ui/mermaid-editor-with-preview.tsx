@@ -4,6 +4,7 @@ import type { FC } from "@yamada-ui/react";
 import { Box, Center, Text, VStack } from "@yamada-ui/react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "@/components/i18n";
 import { LazyCodeEditor } from "./lazy-code-editor";
 import { MermaidTwoPane } from "./mermaid-code-with-preview";
 import { describeDropped, type DroppedItem } from "./mermaid-dropped";
@@ -68,6 +69,7 @@ export const MermaidEditorWithPreview: FC<MermaidEditorWithPreviewProps> = ({
   readDropped,
   defaultHeader,
 }) => {
+  const { t } = useTranslation();
   const previewCode = useDebouncedValue(value, PREVIEW_DELAY_MS);
   const dropped = useDroppedSummary(previewCode, readDropped);
 
@@ -86,12 +88,12 @@ export const MermaidEditorWithPreview: FC<MermaidEditorWithPreviewProps> = ({
               status
               warnings={warnings}
               defaultHeader={defaultHeader}
-              aria-label="Mermaid コード"
+              aria-label={t("preview.code")}
             />
           </Box>
           {dropped && (
             <Text role="status" fontSize="sm" color="warning">
-              取り込むと消えるもの: {dropped}
+              {t("preview.dropped", { dropped })}
             </Text>
           )}
           {footer}
@@ -102,7 +104,7 @@ export const MermaidEditorWithPreview: FC<MermaidEditorWithPreviewProps> = ({
           <MermaidPreview code={previewCode} keepLast defaultHeader={defaultHeader} />
         ) : (
           <Center h="full" minH="40" color="gray.500" p="md">
-            <Text>左に Mermaid を貼ると、ここに図が出ます</Text>
+            <Text>{t("preview.empty")}</Text>
           </Center>
         )
       }

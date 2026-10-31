@@ -19,8 +19,10 @@ import {
 import { Box, useToken } from "@yamada-ui/react";
 import { useCallback, useState, useRef, useEffect, useMemo } from "react";
 import { useEditorHistory } from "@/components/editor-history/use-editor-history";
+import { useTranslation } from "@/components/i18n";
 import { FlowLayout } from "@/components/layout/";
 import { useCanvasColors } from "@/components/layout/use-canvas-colors";
+import { useFlowAriaLabels } from "@/components/layout/use-flow-aria-labels";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { useDesktopOpen } from "@/lib/desktop";
@@ -128,6 +130,8 @@ export function FlowEditor() {
   const namedDeleteRef = useRef<string | null>(null);
   const { screenToFlowPosition, deleteElements, getNodes, getEdges, getViewport } = useReactFlow();
   const canvasColors = useCanvasColors();
+  const ariaLabels = useFlowAriaLabels();
+  const { t, i18n } = useTranslation();
   const storeApi = useStoreApi();
   // 枠をまたぐ線の経路 (spec 17)。線は自分の経路を EdgeRouteContext から読む
   const edgeRoutes = useEdgeRouting();
@@ -506,9 +510,9 @@ export function FlowEditor() {
         return;
       }
       const ok = await askDelete(
-        "この移動で、線が描画されなくなります",
-        `枠とその中を結ぶ線 ${broken.length} 本は Mermaid の描画で見えないので消します。消さずに戻す時は「やめる」。`,
-        "移動して線を消す"
+        t("frame.dropTitle"),
+        t("frame.dropBody", { count: broken.length }),
+        t("frame.dropConfirm")
       );
       if (!ok) {
         const start = dragStartRef.current;
@@ -519,7 +523,7 @@ export function FlowEditor() {
       setNodes((nds) => applyDrop(nds, ids));
       setEdges((eds) => eds.filter((e) => !brokenIds.has(e.id)));
     },
-    [getNodes, getEdges, setNodes, setEdges, askDelete]
+    [getNodes, getEdges, setNodes, setEdges, askDelete, t]
   );
 
   // 枠と自分の中を結ぶ線は繋がせない (spec 16 裁定 2)
@@ -542,23 +546,25 @@ export function FlowEditor() {
       const name = String((plan.frames[0].data as { title?: unknown }).title || (plan.frames[0].data as { variableName?: unknown }).variableName || "");
       const title =
         plan.remove.length === 1
-          ? `枠『${name}』を削除しますか？`
+          ? t("frame.deleteOne", { name })
           : others === 0
-            ? `選択した ${plan.frames.length} 個の枠を削除しますか？`
-            : `選択した ${plan.remove.length} 個（枠 ${plan.frames.length} 個）を削除しますか？`;
+            ? t("frame.deleteFrames", { count: plan.frames.length })
+            : t("frame.deleteMixed", { count: plan.remove.length, frames: plan.frames.length });
       // 枠そのものにつながる線 (枠を指す線, spec 16) も一緒に消える
       const frameIds = new Set(plan.frames.map((f) => f.id));
       const frameEdges = plan.removeEdges.filter((e) => frameIds.has(e.source) || frameIds.has(e.target));
       const body = [
-        plan.kept > 0 ? `中のノード・枠 ${plan.kept} 個は残ります（外側へ移します）。` : "",
-        frameEdges.length > 0 ? `枠につながる線 ${frameEdges.length} 本も消えます。` : "",
-        plan.removeEdges.length > frameEdges.length || others > 0 ? "消すノードにつながっている線も一緒に消えます。" : "",
-      ].join("");
+        plan.kept > 0 ? t("frame.deleteKept", { count: plan.kept }) : "",
+        frameEdges.length > 0 ? t("frame.deleteFrameEdges", { count: frameEdges.length }) : "",
+        plan.removeEdges.length > frameEdges.length || others > 0 ? t("frame.deleteNodeEdges") : "",
+      ]
+        .filter(Boolean)
+        .join(t("frame.sentenceJoin"));
       if (!(await askDelete(title, body))) return false;
       setNodes(plan.reparent);
       return { nodes: plan.remove, edges: plan.removeEdges };
     },
-    [getNodes, setNodes, confirmNodeDelete, askDelete]
+    [getNodes, setNodes, confirmNodeDelete, askDelete, t]
   );
 
   // adjust: 取り込んだノードを当てる前にかける (省略できる。デスクトップの「確定へ戻す」が保存した位置を当てるのに使う, spec 32 D4)
@@ -745,7 +751,9 @@ export function FlowEditor() {
       handles: handleDirections(structNodes, dir),
       notices: frameDirectionNotice(structNodes, structEdges, dir),
     };
-  }, [frameStructure]);
+    // 知らせの文は画面の言語で作るので、言語が変わったら作り直す (spec 31 D6)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frameStructure, i18n.language]);
 
   return (
     <Box h="var(--lorelei-editor-h, 100vh)" w="full">
@@ -768,6 +776,7 @@ export function FlowEditor() {
         onNodeDragStop={onNodeDragStop}
         isValidConnection={isValidConnection}
         fitView
+        ariaLabelConfig={ariaLabels}
         {...canvasColors}
       >
         <FlowLayout>

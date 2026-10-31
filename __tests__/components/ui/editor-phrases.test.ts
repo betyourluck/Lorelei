@@ -6,7 +6,8 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { describe, expect, test } from "vitest";
-import { EDITOR_PHRASES_JA } from "@/components/ui/editor-phrases";
+import { LOCALES } from "@/components/i18n";
+import { EDITOR_PHRASE_KEYS, editorPhrases } from "@/components/ui/editor-phrases";
 
 /** エディタが使う CodeMirror の包み。どれも `phrase()` で英語の文言を引く */
 const PACKAGES = [
@@ -31,21 +32,31 @@ function libraryPhraseKeys(): string[] {
   return Array.from(keys).sort();
 }
 
-describe("EDITOR_PHRASES_JA", () => {
+describe("EDITOR_PHRASE_KEYS", () => {
   test("ライブラリが引く文言をすべて覆う", () => {
     const lib = libraryPhraseKeys();
     expect(lib.length).toBeGreaterThan(10); // 抽出そのものが壊れていないことの下限
-    expect(lib.filter((k) => !(k in EDITOR_PHRASES_JA))).toEqual([]);
+    expect(lib.filter((k) => !(k in EDITOR_PHRASE_KEYS))).toEqual([]);
   });
 
   test("使われないキーを抱えない（綴り違いは黙って英語のまま出る）", () => {
     const lib = new Set(libraryPhraseKeys());
-    expect(Object.keys(EDITOR_PHRASES_JA).filter((k) => !lib.has(k))).toEqual([]);
+    expect(Object.keys(EDITOR_PHRASE_KEYS).filter((k) => !lib.has(k))).toEqual([]);
   });
 
-  test("差し込み位置 $ を落とさない", () => {
-    for (const [key, value] of Object.entries(EDITOR_PHRASES_JA)) {
-      if (key.includes("$")) expect(value).toContain("$");
+  test("どの言語の訳も差し込み位置 $ を落とさない", () => {
+    for (const { code } of LOCALES) {
+      for (const [key, value] of Object.entries(editorPhrases(code))) {
+        if (key.includes("$")) expect(value, `${code}: ${key}`).toContain("$");
+      }
     }
+  });
+
+  test("日本語は前の和訳のまま", () => {
+    expect(editorPhrases("ja")).toMatchObject({
+      Find: "検索",
+      "replaced $ matches": "$ 件を置換しました",
+      to: "〜",
+    });
   });
 });

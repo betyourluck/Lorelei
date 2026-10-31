@@ -3,6 +3,7 @@
  * 規則は mermaid.js 11.17.2 と merman の両方に同じ入力を通して決めた (spec 13「P0 結果」)。
  * 生成器のコードは mermaid.js (プレビュー・Web 版のインポート) と merman (MCP・デスクトップで開き直す) の両方が読む
  */
+import { i18n } from "@/components/i18n";
 
 /** 囲まずに書ける形。Unicode の文字か _ で始まり、文字・数字・_・- だけ (数字始まりは mermaid.js が多重度として割る) */
 const BARE_NAME = new RegExp("^[\\p{L}_][\\p{L}\\p{N}_-]*$", "u");
@@ -80,21 +81,9 @@ export function fieldProblem(value: string, field: "name" | "type"): FieldProble
   return "chars";
 }
 
-const FIELD_LABEL = { name: "名前", type: "型" } as const;
-
-/** 印とダイアログに出す短い理由 (「名前に空白」「型が空」など) */
+/** 印とダイアログに出す短い理由 (「名前に空白」「型が空」など)。文は欄と理由ごとに持つ (spec 31 D6) */
 export function describeFieldProblem(field: "name" | "type", problem: FieldProblem): string {
-  const label = FIELD_LABEL[field];
-  switch (problem) {
-    case "empty":
-      return `${label}が空`;
-    case "space":
-      return `${label}に空白`;
-    case "key":
-      return `${label}が PK・FK・UK と読まれる`;
-    case "chars":
-      return `${label}に書けない文字`;
-  }
+  return i18n.t(`erNames.${field}.${problem}`);
 }
 
 /** コード生成に書き出さなかった列 (テーブル名・列名・短い理由) */
@@ -110,7 +99,7 @@ export function unwritableColumns(
       if (!name && !type) return [];
       const reason =
         name === "empty" && type === "empty"
-          ? "名前と型が空"
+          ? i18n.t("erNames.bothEmpty")
           : name
             ? describeFieldProblem("name", name)
             : describeFieldProblem("type", type!);

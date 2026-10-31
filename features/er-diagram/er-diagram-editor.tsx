@@ -15,6 +15,7 @@ import { useCallback, useState, useRef } from "react";
 import { useEditorHistory } from "@/components/editor-history/use-editor-history";
 import { FlowLayout } from "@/components/layout/";
 import { useCanvasColors } from "@/components/layout/use-canvas-colors";
+import { useFlowAriaLabels } from "@/components/layout/use-flow-aria-labels";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { DirectionContext } from "@/features/flowchart/components/direction-context";
@@ -63,7 +64,7 @@ export const initialERNodes: Node<ERTableNodeProps>[] = [
     type: "erTable",
     position: { x: 100, y: 100 },
     data: {
-      name: "ユーザー",
+      name: "ユーザー", // i18n-allow: 初期図は Rust の保険が文字で突き合わせる (言語で変えない。spec 34 D6)
       columns: [
         { name: "id", type: "int", pk: true, uk: false },
         { name: "name", type: "varchar(255)", pk: false, uk: true },
@@ -78,6 +79,7 @@ export const ERDiagramEditor: FC = () => {
   const connectingNodeId = useRef<string | null>(null);
   const { screenToFlowPosition, deleteElements } = useReactFlow();
   const canvasColors = useCanvasColors();
+  const ariaLabels = useFlowAriaLabels();
   // 削除は見出しのボタンも Backspace も deleteElements → onBeforeDelete の確認を通す (つながるリレーションも一緒に消える)
   const confirmDelete = useConfirmDelete<Node<ERTableNodeProps>>("table", (n) => n.data.name ?? "");
   // ノード幅はテーマtokenから取得
@@ -344,6 +346,7 @@ export const ERDiagramEditor: FC = () => {
         edgeTypes={edgeTypes}
         onBeforeDelete={confirmDelete.onBeforeDelete}
         fitView
+        ariaLabelConfig={ariaLabels}
         {...canvasColors}
       >
         <FlowLayout>

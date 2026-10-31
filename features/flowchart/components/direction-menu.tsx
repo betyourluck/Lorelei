@@ -3,6 +3,7 @@
 import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, ChevronDownIcon } from "@yamada-ui/lucide";
 import type { Component, FC, IconProps } from "@yamada-ui/react";
 import { Button, Menu, MenuButton, MenuItem, MenuList } from "@yamada-ui/react";
+import { useTranslation } from "@/components/i18n";
 import type { GraphType } from "../types/types";
 
 /** 向きの矢印 (図の向きのメニューと枠の向きのメニューで共通, spec 16 D7) */
@@ -24,6 +25,7 @@ interface DirectionMenuProps {
 
 /** 図の向きの切り替え (パネルとコード生成のモーダルで共通。フローチャートと ER 図で共通) */
 export const DirectionMenu: FC<DirectionMenuProps> = ({ value, onChange }) => {
+  const { t } = useTranslation();
   const current = ARROWS.find((a) => a.type === value) ?? ARROWS[0];
   return (
     <Menu>
@@ -32,8 +34,8 @@ export const DirectionMenu: FC<DirectionMenuProps> = ({ value, onChange }) => {
         as={Button}
         startIcon={<current.arrow />}
         rightIcon={<ChevronDownIcon fontSize="xl" />}
-        aria-label={`図の向き: ${value}`}
-        title="図の向き"
+        aria-label={t("direction.label", { value })}
+        title={t("direction.title")}
       >
         {value}
       </MenuButton>

@@ -30,7 +30,8 @@ import {
 } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { useEffect, useRef, useState } from "react";
-import { EDITOR_PHRASES_JA } from "./editor-phrases";
+import { useTranslation } from "@/components/i18n";
+import { editorPhrases } from "./editor-phrases";
 import { countChars, overwriteSpan } from "./editor-typing";
 import type { MermaidKind } from "./mermaid-completion";
 import { mermaidCompletionSource, mermaidLinter, type LineWarning } from "./mermaid-intellisense";
@@ -164,6 +165,9 @@ export const CodeEditor = ({
   const [info, setInfo] = useState<StatusInfo | null>(null);
   const readOnlyCompartment = useRef(new Compartment()).current;
   const placeholderCompartment = useRef(new Compartment()).current;
+  // CodeMirror の文言は画面の言語で。切り替えたら開いているエディタも差し替える (spec 31 D7)
+  const phrasesCompartment = useRef(new Compartment()).current;
+  const { t, i18n } = useTranslation();
 
   // エディタは 1 つだけ作る（StrictMode の二度走りでも cleanup で壊してから作り直す）
   useEffect(() => {
@@ -209,7 +213,7 @@ export const CodeEditor = ({
           syntaxHighlighting(highlight),
           darkTheme,
           tooltipTheme,
-          EditorState.phrases.of(EDITOR_PHRASES_JA),
+          phrasesCompartment.of(EditorState.phrases.of(editorPhrases())),
           ...(intellisense
             ? [
                 autocompletion({ override: [mermaidCompletionSource(mermaid)] }),
@@ -287,6 +291,10 @@ export const CodeEditor = ({
     viewRef.current?.dispatch({ effects: placeholderCompartment.reconfigure(placeholderExt(placeholder)) });
   }, [placeholder, placeholderCompartment]);
 
+  useEffect(() => {
+    viewRef.current?.dispatch({ effects: phrasesCompartment.reconfigure(EditorState.phrases.of(editorPhrases())) });
+  }, [i18n.language, phrasesCompartment]);
+
   return (
     <div style={{ height, display: "flex", flexDirection: "column", overflow: "hidden", borderRadius: 6 }}>
       <div ref={host} style={{ flex: 1, minHeight: 0, overflow: "hidden" }} />
@@ -305,9 +313,13 @@ export const CodeEditor = ({
             lineHeight: "20px",
           }}
         >
-          <span>{`${info.line} 行目・${info.col} 列`}</span>
-          <span>{`${info.lines} 行・${info.chars} 文字`}</span>
-          {!readOnly && <span style={{ marginLeft: "auto", fontWeight: overwrite ? 700 : 400 }}>{overwrite ? "上書き" : "挿入"}</span>}
+          <span>{t("codeEditor.status.position", { line: info.line, col: info.col })}</span>
+          <span>{t("codeEditor.status.size", { lines: info.lines, chars: info.chars })}</span>
+          {!readOnly && (
+            <span style={{ marginLeft: "auto", fontWeight: overwrite ? 700 : 400 }}>
+              {overwrite ? t("codeEditor.status.overwrite") : t("codeEditor.status.insert")}
+            </span>
+          )}
         </div>
       )}
     </div>

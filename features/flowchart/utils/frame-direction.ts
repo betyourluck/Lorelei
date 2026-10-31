@@ -5,6 +5,7 @@
  *   規則は P0 の 4 で、両方の実装の描画を測った 520 点と一致したもの (spec 16「P0 結果」)
  */
 import type { Edge, Node } from "@xyflow/react";
+import { i18n } from "@/components/i18n";
 import type { GraphType, SubgraphDirection } from "../types/types";
 import { edgeIntoOwnFrame, SUBGRAPH_NODE_TYPE } from "./subgraph-tree";
 
@@ -117,17 +118,10 @@ export function effectiveDirections(
   return out;
 }
 
-const WORDS: Record<SubgraphDirection, string> = {
-  TB: "上から下",
-  BT: "下から上",
-  LR: "左から右",
-  RL: "右から左",
-};
-
 /**
  * 見出しの知らせ (D4)。エディタの向きと描画で効く向きが違う枠にだけ出す。
  * 理由は 2 つ: 中のノードが外とつながって書いた向きが効かない / 外とつながらない、向きの無い枠は描画で逆向きになる。
- * 外側の枠の食い違いを受け継いだだけの枠には出さない (外側の枠に出る)
+ * 外側の枠の食い違いを受け継いだだけの枠には出さない (外側の枠に出る)。文は呼ばれた時の画面の言語 (spec 31 D6)
  */
 export function frameDirectionNotice(
   nodes: Node[],
@@ -151,10 +145,7 @@ export function frameDirectionNotice(
     if (!drawn || !mine || toSubgraphDirection(mine) === drawn) return;
     const written = writtenDirection(frame);
     if (written) {
-      out.set(
-        frame.id,
-        `中のノードが枠の外とつながっているので、描画ではこの向き（${written}）は効きません（${drawn} で並びます）`
-      );
+      out.set(frame.id, i18n.t("frame.noticeIgnored", { written, drawn }));
       return;
     }
     // 向きの無い枠: 置かれている側と同じ向きで描かれるなら食い違いは外側のもの
@@ -164,7 +155,7 @@ export function frameDirectionNotice(
     if (outerDrawn === drawn) return;
     out.set(
       frame.id,
-      `描画では、この枠の中は ${drawn}（${WORDS[drawn]}）に並びます。向きを指定すると揃えられます`
+      i18n.t("frame.noticeReversed", { drawn, words: i18n.t(`frame.direction.${drawn}`) })
     );
   });
   return out;

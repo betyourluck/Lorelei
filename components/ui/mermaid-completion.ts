@@ -2,6 +2,7 @@
  * Mermaid の補完の芯（spec 10 D4）。CodeMirror に依らない純粋関数なのでテストできる。
  * flowchart / graph と erDiagram だけを扱う（エディタで開けるのはこの 2 つ）。
  */
+import { i18n } from "@/components/i18n";
 
 export interface MermaidOption {
   label: string;
@@ -42,38 +43,50 @@ const WORD_ALL = new RegExp(`${WORD_CHARS}+`, "gu");
 const WORD_THEN_SPACE = new RegExp(`${WORD_CHARS}\\s+$`, "u");
 const ONE_WORD_THEN_SPACE = new RegExp(`^\\s*${WORD_CHARS}+\\s+$`, "u");
 
-const HEADERS: MermaidOption[] = [
-  { label: "flowchart TD", detail: "フローチャート（上から下）", type: "keyword" },
-  { label: "flowchart LR", detail: "フローチャート（左から右）", type: "keyword" },
-  { label: "graph TD", detail: "フローチャート（graph の書き方）", type: "keyword" },
-  { label: "erDiagram", detail: "ER 図", type: "keyword" },
+// 候補の説明・形のラベルは画面の言語で書く。表は呼ばれた時に作る (読み込み時に訳すと切り替えに付いてこない, spec 31 D6)
+const t = i18n.t.bind(i18n);
+
+const headers = (): MermaidOption[] => [
+  { label: "flowchart TD", detail: t("completion.header.flowchartTD"), type: "keyword" },
+  { label: "flowchart LR", detail: t("completion.header.flowchartLR"), type: "keyword" },
+  { label: "graph TD", detail: t("completion.header.graphTD"), type: "keyword" },
+  { label: "erDiagram", detail: t("completion.header.erDiagram"), type: "keyword" },
 ];
 
-const DIRECTIONS: MermaidOption[] = [
-  { label: "TD", detail: "上から下", type: "keyword" },
-  { label: "TB", detail: "上から下（TD と同じ）", type: "keyword" },
-  { label: "BT", detail: "下から上", type: "keyword" },
-  { label: "LR", detail: "左から右", type: "keyword" },
-  { label: "RL", detail: "右から左", type: "keyword" },
+const directions = (): MermaidOption[] => [
+  { label: "TD", detail: t("completion.direction.TD"), type: "keyword" },
+  { label: "TB", detail: t("completion.direction.TB"), type: "keyword" },
+  { label: "BT", detail: t("completion.direction.BT"), type: "keyword" },
+  { label: "LR", detail: t("completion.direction.LR"), type: "keyword" },
+  { label: "RL", detail: t("completion.direction.RL"), type: "keyword" },
 ];
 
-const ARROWS: MermaidOption[] = [
-  { label: "-->", detail: "矢印", type: "operator", insert: "--> " },
-  { label: "---", detail: "線（矢印なし）", type: "operator", insert: "--- " },
-  { label: "-.->", detail: "点線の矢印", type: "operator", insert: "-.-> " },
-  { label: "==>", detail: "太線の矢印", type: "operator", insert: "==> " },
-  { label: "<-->", detail: "両向きの矢印", type: "operator", insert: "<--> " },
-  { label: "-->|ラベル|", detail: "ラベル付きの矢印", type: "operator", insert: "-->|ラベル| ", select: [4, 7] },
-];
+const arrows = (): MermaidOption[] => {
+  const label = t("completion.arrow.labelText");
+  return [
+    { label: "-->", detail: t("completion.arrow.arrow"), type: "operator", insert: "--> " },
+    { label: "---", detail: t("completion.arrow.line"), type: "operator", insert: "--- " },
+    { label: "-.->", detail: t("completion.arrow.dotted"), type: "operator", insert: "-.-> " },
+    { label: "==>", detail: t("completion.arrow.thick"), type: "operator", insert: "==> " },
+    { label: "<-->", detail: t("completion.arrow.both"), type: "operator", insert: "<--> " },
+    {
+      label: `-->|${label}|`,
+      detail: t("completion.arrow.labeled"),
+      type: "operator",
+      insert: `-->|${label}| `,
+      select: [4, 4 + label.length],
+    },
+  ];
+};
 
 /** フォーク元のエディタが扱える形（インポートのヘルプの一行と同じ 6 つ） */
-const SHAPES: MermaidOption[] = [
-  shape("[四角]", "四角形"),
-  shape("(角丸)", "角丸"),
-  shape("{ひし形}", "ひし形（分岐）"),
-  shape("((円))", "円"),
-  shape("([スタジアム])", "スタジアム"),
-  shape("{{六角形}}", "六角形"),
+const shapes = (): MermaidOption[] => [
+  shape(`[${t("completion.shape.rectangleText")}]`, t("completion.shape.rectangle")),
+  shape(`(${t("completion.shape.roundText")})`, t("completion.shape.round")),
+  shape(`{${t("completion.shape.diamondText")}}`, t("completion.shape.diamond")),
+  shape(`((${t("completion.shape.circleText")}))`, t("completion.shape.circle")),
+  shape(`([${t("completion.shape.stadiumText")}])`, t("completion.shape.stadium")),
+  shape(`{{${t("completion.shape.hexagonText")}}}`, t("completion.shape.hexagon")),
 ];
 
 function shape(text: string, detail: string): MermaidOption {
@@ -83,28 +96,30 @@ function shape(text: string, detail: string): MermaidOption {
 }
 
 /** フォーク元のエディタが扱える多重度（data_contract の cardinality の 7 組） */
-const CARDINALITY_TABLE: MermaidOption[] = [
-  { label: "||--||", detail: "1 対 1", type: "operator" },
-  { label: "||--o{", detail: "1 対 多（0 以上）", type: "operator" },
-  { label: "||--|{", detail: "1 対 多（1 以上）", type: "operator" },
-  { label: "||--o|", detail: "1 対 0 または 1", type: "operator" },
-  { label: "}o--||", detail: "多（0 以上）対 1", type: "operator" },
-  { label: "}o--o{", detail: "多 対 多", type: "operator" },
-  { label: "o|--||", detail: "0 または 1 対 1", type: "operator" },
-];
-const CARDINALITIES: MermaidOption[] = CARDINALITY_TABLE.map((c) => ({ ...c, insert: `${c.label} ` }));
+const cardinalities = (): MermaidOption[] =>
+  (
+    [
+      ["||--||", "oneToOne"],
+      ["||--o{", "oneToZeroOrMore"],
+      ["||--|{", "oneToOneOrMore"],
+      ["||--o|", "oneToZeroOrOne"],
+      ["}o--||", "zeroOrMoreToOne"],
+      ["}o--o{", "manyToMany"],
+      ["o|--||", "zeroOrOneToOne"],
+    ] as const
+  ).map(([label, key]) => ({ label, detail: t(`completion.cardinality.${key}`), type: "operator", insert: `${label} ` }));
 
-const ER_TYPES = ["int", "string", "varchar", "text", "float", "decimal", "boolean", "date", "datetime", "timestamp", "uuid"].map(
-  (t): MermaidOption => ({ label: t, detail: "型", type: "type", insert: `${t} ` })
-);
-const ER_KEYS: MermaidOption[] = [
-  { label: "PK", detail: "主キー", type: "keyword" },
-  { label: "FK", detail: "外部キー", type: "keyword" },
-  { label: "UK", detail: "一意キー", type: "keyword" },
+const ER_TYPE_NAMES = ["int", "string", "varchar", "text", "float", "decimal", "boolean", "date", "datetime", "timestamp", "uuid"];
+const erTypes = (): MermaidOption[] =>
+  ER_TYPE_NAMES.map((name): MermaidOption => ({ label: name, detail: t("completion.er.type"), type: "type", insert: `${name} ` }));
+const erKeys = (): MermaidOption[] => [
+  { label: "PK", detail: t("completion.er.pk"), type: "keyword" },
+  { label: "FK", detail: t("completion.er.fk"), type: "keyword" },
+  { label: "UK", detail: t("completion.er.uk"), type: "keyword" },
 ];
 
 const FLOW_KEYWORDS = new Set(["subgraph", "end", "direction", "classDef", "class", "style", "linkStyle", "click", "flowchart", "graph"]);
-const DIRECTION_WORDS = new Set(DIRECTIONS.map((d) => d.label));
+const DIRECTION_WORDS = new Set(["TD", "TB", "BT", "LR", "RL"]);
 const ARROW_TAIL = /(?:<?(?:-{2,}|={2,}|-\.+-|~{3})[>ox]?(?:\|[^|]*\|)?|&)\s*$/;
 const ARROW_ALL = /<?(?:-{2,}|={2,}|-\.+-|~{3})[>ox]?/g;
 const CARDINALITY_TAIL =
@@ -221,19 +236,19 @@ export function mermaidCandidates(text: string, pos: number, kind?: MermaidKind)
   const diagram = diagramOf(textBefore.slice(0, lineStart).split("\n"));
   if (diagram === null) {
     // 1 行目（図の種類がまだ無い）
-    if (/^\s*(?:flowchart|graph)\s+$/.test(rest)) return result(DIRECTIONS, true);
-    if (rest.trim() === "") return result(HEADERS.filter((h) => !kind || (kind === "er") === (h.label === "erDiagram")));
+    if (/^\s*(?:flowchart|graph)\s+$/.test(rest)) return result(directions(), true);
+    if (rest.trim() === "") return result(headers().filter((h) => !kind || (kind === "er") === (h.label === "erDiagram")));
     return result([]);
   }
-  if (/(?:^|\s)direction\s+$/.test(rest)) return result(DIRECTIONS, true);
+  if (/(?:^|\s)direction\s+$/.test(rest)) return result(directions(), true);
 
   if (diagram === "flow") {
     if (insideFlowText(lineBefore)) return result([]);
-    if (rest.trim() === "") return result(asIds(flowIds(others), "ノード"));
-    if (ARROW_TAIL.test(rest)) return result(asIds(flowIds(others), "ノード"), true);
+    if (rest.trim() === "") return result(asIds(flowIds(others), t("completion.id.node")));
+    if (ARROW_TAIL.test(rest)) return result(asIds(flowIds(others), t("completion.id.node")), true);
     if (typed === "" && WORD_THEN_SPACE.test(rest) || (typed === "" && /[\])}]\s+$/.test(rest))) {
       const spaces = /\s+$/.exec(rest)?.[0].length ?? 0;
-      return result([...ARROWS, ...SHAPES.map((s) => ({ ...s, eatBefore: spaces }))], true);
+      return result([...arrows(), ...shapes().map((s) => ({ ...s, eatBefore: spaces }))], true);
     }
     return result([]);
   }
@@ -242,14 +257,14 @@ export function mermaidCandidates(text: string, pos: number, kind?: MermaidKind)
   if (count(lineBefore, '"') % 2 === 1) return result([]);
   if (insideEntity(textBefore)) {
     const words = rest.trim().split(/\s+/).filter(Boolean);
-    if (words.length === 0) return result(ER_TYPES);
-    if (words.length >= 2) return result(ER_KEYS, true);
+    if (words.length === 0) return result(erTypes());
+    if (words.length >= 2) return result(erKeys(), true);
     return result([]);
   }
-  if (rest.trim() === "") return result(asIds(erEntities(others), "テーブル"));
-  if (CARDINALITY_TAIL.test(rest)) return result(asIds(erEntities(others), "テーブル"), true);
+  if (rest.trim() === "") return result(asIds(erEntities(others), t("completion.id.table")));
+  if (CARDINALITY_TAIL.test(rest)) return result(asIds(erEntities(others), t("completion.id.table")), true);
   if (typed === "" && ONE_WORD_THEN_SPACE.test(rest)) {
-    return result([...CARDINALITIES, { label: "{", detail: "カラムを書く", type: "operator" }], true);
+    return result([...cardinalities(), { label: "{", detail: t("completion.er.columns"), type: "operator" }], true);
   }
   return result([]);
 }

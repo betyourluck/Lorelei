@@ -4,6 +4,7 @@ import { PlusIcon, DownloadIcon, UploadIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import { VStack, HStack, Text, Button, useBoolean } from "@yamada-ui/react";
 import type { EditorHistoryActions } from "@/components/editor-history/use-editor-history";
+import { useTranslation } from "@/components/i18n";
 import { NavigationMenu } from "@/components/ui";
 import { HistoryButtons } from "@/components/ui/history-buttons";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
@@ -44,6 +45,7 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
   onThemeChange,
   history,
 }) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useBoolean(false);
   const [openImport, setOpenImport] = useBoolean(false);
   const code = generateCode(nodes, edges);
@@ -51,7 +53,7 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
   const skippedColumns = unwritableColumns(nodes.map((n) => n.data));
   // Lorelei: デスクトップ版のツールバーから呼べるようにする (Web 版では何もしない)
   useDesktopActions({
-    add: { label: "テーブル追加", run: onAddTable },
+    add: { label: t("erPanel.addTable"), run: onAddTable },
     code: setOpen.on,
     direction,
     setDirection: onDirectionChange,
@@ -80,20 +82,20 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
           justify="space-between"
         >
           <Text fontSize="lg" fontWeight="bold">
-            Mermaid ER図エディター
+            {t("erPanel.title")}
           </Text>
           <NavigationMenu />
         </HStack>
         <VStack gap={2} align="start">
           <Text fontSize="sm" color="textHint">
-            💡 ヒント: テーブルをダブルクリックで編集、ドラッグして空の場所で新テーブル作成
+            {t("erPanel.hint")}
           </Text>
           <HStack gap={2} display={{ base: "flex", md: "inline-flex" }} flexWrap="wrap">
             <Button startIcon={<PlusIcon />} colorScheme="blue" size="sm" onClick={onAddTable}>
-              テーブル追加
+              {t("erPanel.addTable")}
             </Button>
             <Button startIcon={<DownloadIcon />} colorScheme="green" size="sm" onClick={setOpen.on}>
-              mermaidコード出力
+              {t("erPanel.generateCode")}
             </Button>
             <Button
               startIcon={<UploadIcon />}
@@ -101,7 +103,7 @@ export const ERDiagramPanel: FC<ERDiagramPanelProps> = ({
               size="sm"
               onClick={setOpenImport.on}
             >
-              mermaidインポート
+              {t("erPanel.import")}
             </Button>
             {direction && onDirectionChange && (
               <DirectionMenu value={direction} onChange={onDirectionChange} />

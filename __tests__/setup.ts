@@ -1,10 +1,24 @@
 import "@testing-library/jest-dom/vitest";
 import { configure } from "@testing-library/react";
-import { vi } from "vitest";
+import { beforeEach, vi } from "vitest";
+import { i18n, LOCALE_STORAGE_KEY } from "@/components/i18n";
 
 // waitFor / findBy の既定の待ち時間 (Testing Library の既定は 1 秒)。本物の mermaid.js で取り込むテストは、GitHub Actions のランナー
 // (特に Windows) では 1 秒でダイアログが閉じ切らず落ちた (spec 20 P2, failures #34)。テスト 1 件の上限 (vitest.config の 15 秒) より短くする
 configure({ asyncUtilTimeout: 10000 });
+
+// 画面の言葉は日本語で確かめる (spec 31 D10)。jsdom の navigator.language は en-US なので、ブラウザの言語も日本語にし、
+// テストごとに日本語へ戻して覚えた言語を消す (前のテストの切り替えを持ち越さない)
+Object.defineProperty(window.navigator, "languages", { configurable: true, get: () => ["ja-JP"] });
+Object.defineProperty(window.navigator, "language", { configurable: true, get: () => "ja-JP" });
+beforeEach(() => {
+  void i18n.changeLanguage("ja");
+  try {
+    localStorage.removeItem(LOCALE_STORAGE_KEY);
+  } catch {
+    // localStorage の無い環境
+  }
+});
 
 // matchMediaのモック
 Object.defineProperty(window, "matchMedia", {

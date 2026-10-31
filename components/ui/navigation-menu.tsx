@@ -3,13 +3,15 @@
 import { Menu, MenuButton, MenuList, MenuItem, Button } from "@yamada-ui/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslation } from "@/components/i18n";
 
 const NAV_ITEMS = [
-  { label: "フローチャートエディタ", path: "/flow-chart" },
-  { label: "ER図エディタ", path: "/er-diagram" },
+  { label: "nav.flowchart", path: "/flow-chart" },
+  { label: "nav.er", path: "/er-diagram" },
 ] as const;
 
 export const NavigationMenu = () => {
+  const { t } = useTranslation();
   const pathname = usePathname() ?? "";
   // '/' の時はフローチャートを選択中とみなす
   const isRoot = pathname === "/";
@@ -25,12 +27,12 @@ export const NavigationMenu = () => {
   return (
     <Menu>
       <MenuButton as={Button} variant="outline" size="sm" ml={{ base: 0, sm: "auto" }}>
-        {current?.label ?? "エディタを選択"}
+        {current ? t(current.label) : t("nav.choose")}
       </MenuButton>
       <MenuList>
         {menuItems.map((item) => (
           <MenuItem key={item.path} as={Link} href={pathname !== "" ? item.path : "#"}>
-            {item.label}
+            {t(item.label)}
           </MenuItem>
         ))}
       </MenuList>

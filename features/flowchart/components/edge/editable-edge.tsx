@@ -6,6 +6,7 @@ import { Input } from "@yamada-ui/react";
 import { X } from "lucide-react";
 import type { MouseEvent, KeyboardEvent } from "react";
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "@/components/i18n";
 import { adjustEdgeLabelPosition, getCyclicEdgeStyle } from "../../hooks/edge-layout";
 import { getArrowTypeSymbol } from "../../hooks/mermaid";
 import { useEdgeRoute } from "../../hooks/use-edge-routes";
@@ -38,6 +39,7 @@ interface EdgeContentProps {
 }
 
 export function EdgeContent({ id, labelX, labelY, data, zIndex }: EdgeContentProps) {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [edgeLabel, setEdgeLabel] = useState(data?.label || "");
   const [isComposing, setIsComposing] = useState(false);
@@ -134,6 +136,7 @@ export function EdgeContent({ id, labelX, labelY, data, zIndex }: EdgeContentPro
       ) : (
         <>
           <div className={styles.label} onClick={handleClick}>
+            {/* eslint-disable-next-line i18next/no-literal-string -- 矢印の種類の値 (画面の言葉ではない) */}
             <span className={styles.symbol}>{getArrowTypeSymbol(data?.arrowType || "arrow")}</span>
             <span>{edgeLabel || "..."}</span>
           </div>
@@ -143,7 +146,7 @@ export function EdgeContent({ id, labelX, labelY, data, zIndex }: EdgeContentPro
           />
           <button
             type="button"
-            aria-label="Delete edge"
+            aria-label={t("edge.delete")}
             className={styles.deleteButton}
             onClick={handleDelete}
           >

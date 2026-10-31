@@ -3,6 +3,7 @@
 import { ChevronDownIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import { Box, Button, Menu, MenuButton, MenuItem, MenuList, Portal } from "@yamada-ui/react";
+import { useTranslation } from "@/components/i18n";
 import type { SubgraphDirection } from "../types/types";
 import { toGraphType } from "../utils/frame-direction";
 import { DIRECTION_ARROW } from "./direction-menu";
@@ -20,6 +21,7 @@ interface FrameDirectionMenuProps {
  * 枠の見出し (28px) に入る大きさにする。変えると、その枠の中だけを新しい向きで並べ直す (呼び出し側の relayoutFrame)
  */
 export const FrameDirectionMenu: FC<FrameDirectionMenuProps> = ({ value, onChange }) => {
+  const { t } = useTranslation();
   const Current = value ? DIRECTION_ARROW[toGraphType(value)] : null;
   // ボタンは枠のノードの中に描かれるので nodrag (押しても枠をドラッグしない)・nopan で包む。項目のリストは文書の直下へ出す
   // (枠の中に描くと、枠より上に描かれる中のノード・線のボタンに隠れる。線の矢印のメニューと同じ)
@@ -39,10 +41,10 @@ export const FrameDirectionMenu: FC<FrameDirectionMenuProps> = ({ value, onChang
           flexShrink={0}
           startIcon={Current ? <Current /> : undefined}
           rightIcon={<ChevronDownIcon />}
-          aria-label={`枠の中の向き: ${value ?? "指定なし"}`}
-          title="枠の中の向き（指定なしは外側の向きで並ぶ）"
+          aria-label={t("frameDirection.label", { value: value ?? t("frameDirection.none") })}
+          title={t("frameDirection.title")}
         >
-          {value ?? "向き"}
+          {value ?? t("frameDirection.short")}
         </MenuButton>
         <Portal>
           <MenuList>
@@ -55,7 +57,7 @@ export const FrameDirectionMenu: FC<FrameDirectionMenuProps> = ({ value, onChang
                   bgColor={choice === value ? "selected" : "transparent"}
                   onClick={() => onChange(choice)}
                 >
-                  {choice ?? "指定なし"}
+                  {choice ?? t("frameDirection.none")}
                 </MenuItem>
               );
             })}

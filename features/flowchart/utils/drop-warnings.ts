@@ -1,7 +1,9 @@
 /**
  * 取り込むと消える書き方の行に付ける印 (spec 11 D4)。字句で見つける目安で、正確な数は取り込みの結果 (flowFromMermaid の dropped) が持つ。
- * 文字列 ("…") と線のラベル (|…|) の中は見ない
+ * 文字列 ("…") と線のラベル (|…|) の中は見ない。文は画面の言語で、呼ばれた時に訳す (spec 31 D6)
  */
+import type { ParseKeys } from "i18next";
+import { i18n } from "@/components/i18n";
 
 export interface DropWarning {
   /** 1 始まり */
@@ -9,12 +11,12 @@ export interface DropWarning {
   message: string;
 }
 
-const STATEMENTS: [RegExp, string][] = [
-  [/^classDef\b/, "classDef（見た目の定義）は取り込まれません"],
-  [/^class\s/, "class 指定は取り込まれません"],
-  [/^style\s/, "style 指定は取り込まれません"],
-  [/^linkStyle\b/, "linkStyle（線の見た目の指定）は取り込まれません"],
-  [/^click\s/, "click（リンク・動作）は取り込まれません"],
+const STATEMENTS: [RegExp, ParseKeys][] = [
+  [/^classDef\b/, "dropWarnings.classDef"],
+  [/^class\s/, "dropWarnings.class"],
+  [/^style\s/, "dropWarnings.style"],
+  [/^linkStyle\b/, "dropWarnings.linkStyle"],
+  [/^click\s/, "dropWarnings.click"],
 ];
 
 /** 文字列とラベルの中身を空にする (中の記号で誤って印を付けない) */
@@ -23,13 +25,13 @@ export const stripTexts = (line: string): string => line.replace(/"[^"]*"/g, '""
 // tsconfig の target では u の正規表現リテラルが書けないので、\p を使うものは RegExp で作る
 export const CLASS_SHORTHAND = new RegExp(":::[\\p{L}\\p{N}_]", "u");
 
-const INLINE: [RegExp, string][] = [
-  [CLASS_SHORTHAND, "::: の class 指定は取り込まれません"],
+const INLINE: [RegExp, ParseKeys][] = [
+  [CLASS_SHORTHAND, "dropWarnings.classShorthand"],
   // ID のすぐ後のエディタに無い形の開き: [( 円柱、[[ サブルーチン、[/ [\ 台形・平行四辺形、((( 二重円、> 旗
-  [new RegExp("[\\p{L}\\p{N}_](?:\\[\\(|\\[\\[|\\[\\/|\\[\\\\|\\(\\(\\(|>)", "u"), "エディタに無い形なので、四角として取り込みます"],
-  [/(?:-{3,}>|={3,}>|-\.{2,}->)/, "矢印の長さ指定は取り込まれません（普通の長さにします）"],
-  [/(?<![-=.<])(?:-{3,}|={3,}|-\.+-)(?![->=.ox])/, "矢印の無い線は、矢印（-->）として取り込みます"],
-  [new RegExp("(?:--|==|-\\.-)[ox](?![\\p{L}\\p{N}_])", "u"), "丸・バツの矢印は、普通の矢印（-->）として取り込みます"],
+  [new RegExp("[\\p{L}\\p{N}_](?:\\[\\(|\\[\\[|\\[\\/|\\[\\\\|\\(\\(\\(|>)", "u"), "dropWarnings.unknownShape"],
+  [/(?:-{3,}>|={3,}>|-\.{2,}->)/, "dropWarnings.edgeLength"],
+  [/(?<![-=.<])(?:-{3,}|={3,}|-\.+-)(?![->=.ox])/, "dropWarnings.openLine"],
+  [new RegExp("(?:--|==|-\\.-)[ox](?![\\p{L}\\p{N}_])", "u"), "dropWarnings.circleCross"],
 ];
 
 /** 先頭の frontmatter (--- … ---) の行の番号 (0 始まり)。中の --- を線と読まない (rev1、査読 11) */
@@ -96,16 +98,16 @@ export function flowchartDropWarnings(text: string): DropWarning[] {
     const line = raw.trim();
     if (!line || line.startsWith("%%") || front.has(i)) return;
     const messages: string[] = [];
-    for (const [re, message] of STATEMENTS) if (re.test(line)) messages.push(message);
+    for (const [re, key] of STATEMENTS) if (re.test(line)) messages.push(i18n.t(key));
     if (messages.length === 0) {
       const code = stripTexts(line);
-      for (const [re, message] of INLINE) if (re.test(code)) messages.push(message);
+      for (const [re, key] of INLINE) if (re.test(code)) messages.push(i18n.t(key));
       const ends = edgeEnds(code);
       // 隣り合う端どうし (連鎖 A --> B --> C の A と C は結ばない。& の行は目安のまま)
       if (ends.some((a, k) => k > 0 && intoOwn(ends[k - 1], a)))
-        messages.push("枠とその中を結ぶ線は描画されないので取り込みません");
+        messages.push(i18n.t("dropWarnings.edgeIntoOwnSubgraph"));
     }
-    if (messages.length) warnings.push({ line: i + 1, message: messages.join("。") });
+    if (messages.length) warnings.push({ line: i + 1, message: messages.join(i18n.t("dropWarnings.separator")) });
   });
   return warnings;
 }

@@ -1,3 +1,5 @@
+import { i18n } from "@/components/i18n";
+
 /** mermaid.parse の誤り 1 件（spec 10 D5）。位置が分からなければ null（先頭に出す。位置を偽らない） */
 export interface ParseIssue {
   /** 1 始まり */
@@ -25,8 +27,10 @@ export class MermaidSyntaxError extends Error {
 
 /** 取り込めない理由の 1 行（spec 11 D3）。例: 「Mermaid の文法の誤りで取り込めません（3 行目）: Parse error on line 3:」 */
 export function describeSyntaxError(issue: ParseIssue): string {
-  const where = issue.line === null ? "" : `（${issue.line} 行目）`;
-  return `Mermaid の文法の誤りで取り込めません${where}: ${issue.message.split("\n")[0]}`;
+  const message = issue.message.split("\n")[0];
+  return issue.line === null
+    ? i18n.t("importModal.syntaxError", { message })
+    : i18n.t("importModal.syntaxErrorAtLine", { line: issue.line, message });
 }
 
 /** mermaid が図の種類を決められなかった誤り（見出しの無いコード） */

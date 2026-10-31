@@ -50,11 +50,13 @@
     "@xyflow/react": "^12.8.2",
     "@yamada-ui/lucide": "^1.10.5",
     "@yamada-ui/react": "^1.7.7",
+    "i18next": "26.4.7",
     "lucide-react": "0.475.0",
     "mermaid": "11.17.2",
     "next": "14.1.0",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "react-i18next": "17.0.21"
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^4.1.1",
@@ -88,6 +90,7 @@
     "eslint-config-next": "14.1.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-define-config": "^2.1.0",
+    "eslint-plugin-i18next": "6.1.5",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.37.5",

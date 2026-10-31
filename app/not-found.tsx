@@ -1,21 +1,11 @@
-import { Link as UILink, Center, Heading, Text } from "@yamada-ui/react";
-import Link from "next/link";
+import { NotFoundContent } from "@/components/ui/not-found-content";
 
+// 組み立ての時の題と説明は組み立ての言語 (日本語)。画面の言葉と切り替えた時の題は NotFoundContent が持つ (spec 31 D7)
 export const metadata = {
-  title: "ページが見つかりません",
-  description: "お探しのページは存在しません。",
+  title: "ページが見つかりません", // i18n-allow: 組み立ての時の題
+  description: "お探しのページは存在しません。", // i18n-allow: 組み立ての時の説明
 };
 
-const NotFound = () => {
-  return (
-    <Center as="main" gap="md" flexDir="column" width="full" height="100vh">
-      <Heading as="h1">404 - ページが見つかりません</Heading>
-      <Text>お探しのページは存在しません。</Text>
-      <UILink as={Link} href="/">
-        ホームに戻る
-      </UILink>
-    </Center>
-  );
-};
+const NotFound = () => <NotFoundContent />;
 
 export default NotFound;

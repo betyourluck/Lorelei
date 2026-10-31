@@ -3,6 +3,7 @@
 import { ChevronDownIcon, PaletteIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import { Button, Menu, MenuButton, MenuItem, MenuList } from "@yamada-ui/react";
+import { useTranslation } from "@/components/i18n";
 import { MERMAID_THEMES, type MermaidTheme } from "@/components/ui/mermaid-theme";
 
 interface ThemeMenuProps {
@@ -15,6 +16,7 @@ interface ThemeMenuProps {
  * 編集画面の見た目は変えず、生成するコード・プレビュー・書き出しにだけ効く
  */
 export const ThemeMenu: FC<ThemeMenuProps> = ({ value, onChange }) => {
+  const { t } = useTranslation();
   return (
     <Menu>
       <MenuButton
@@ -22,8 +24,8 @@ export const ThemeMenu: FC<ThemeMenuProps> = ({ value, onChange }) => {
         as={Button}
         startIcon={<PaletteIcon />}
         rightIcon={<ChevronDownIcon fontSize="xl" />}
-        aria-label={`テーマ: ${value}`}
-        title="出力のテーマ (コード・プレビュー・書き出し)"
+        aria-label={t("theme.label", { value })}
+        title={t("theme.title")}
       >
         {value}
       </MenuButton>

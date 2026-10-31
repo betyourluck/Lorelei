@@ -8,8 +8,9 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   // フォークで Web 版を配る時は、ビルド時に NEXT_PUBLIC_SITE_TITLE で差し替える
-  title: process.env.NEXT_PUBLIC_SITE_TITLE || "Mermaid フローチャート エディター",
-  description: "Mermaidフローチャートを作成・編集するためのWebベースのツール",
+  // 組み立ての時の題と説明は組み立ての言語 (日本語)。切り替えた時の題は各ページの DocumentTitle が書く (spec 31 D7)
+  title: process.env.NEXT_PUBLIC_SITE_TITLE || "Mermaid フローチャート エディター", // i18n-allow: 組み立ての時の題
+  description: "Mermaidフローチャートを作成・編集するためのWebベースのツール", // i18n-allow: 組み立ての時の説明
 };
 
 export default function RootLayout({

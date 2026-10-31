@@ -46,6 +46,7 @@ export function ErEdge({
         >
           <ErEditableEdge
             id={id}
+            // eslint-disable-next-line i18next/no-literal-string -- 生成器が Mermaid に書く既定のラベル (訳さない, UiMessages.not_translated)
             label={data?.label || "relation"}
             cardinality={data?.cardinality || "one-to-many"}
             onLabelChange={data?.onLabelChange || (() => {})}

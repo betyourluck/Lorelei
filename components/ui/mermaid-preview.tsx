@@ -3,6 +3,7 @@
 import type { FC } from "@yamada-ui/react";
 import { Box, Center, Text } from "@yamada-ui/react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "@/components/i18n";
 import { renderMermaid } from "./mermaid-render";
 
 interface PreviewState {
@@ -31,6 +32,7 @@ interface MermaidPreviewProps {
 
 /** Mermaid を mermaid.js で描いて見せる (spec 09 D3) */
 export const MermaidPreview: FC<MermaidPreviewProps> = ({ code, keepLast = false, defaultHeader }) => {
+  const { t } = useTranslation();
   const [state, setState] = useState<PreviewState>({ svg: null, error: null, loading: true });
 
   useEffect(() => {
@@ -56,7 +58,7 @@ export const MermaidPreview: FC<MermaidPreviewProps> = ({ code, keepLast = false
   const errorBox = state.error !== null && (
     <Box role="alert" p="md" color="danger" bg={state.svg ? "white" : undefined} borderBottomWidth={state.svg ? "1px" : 0}>
       <Text fontWeight="bold" mb="sm">
-        描けませんでした
+        {t("preview.failed")}
       </Text>
       <Text as="pre" fontFamily="mono" fontSize="sm" whiteSpace="pre-wrap" wordBreak="break-all">
         {state.error}
@@ -68,7 +70,7 @@ export const MermaidPreview: FC<MermaidPreviewProps> = ({ code, keepLast = false
     if (state.error !== null) return errorBox;
     return (
       <Center h="full" minH="40" color="muted">
-        <Text>描いています…</Text>
+        <Text>{t("preview.drawing")}</Text>
       </Center>
     );
   }

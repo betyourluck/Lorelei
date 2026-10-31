@@ -14,6 +14,7 @@ import {
   AlertDescription,
 } from "@yamada-ui/react";
 import { useState } from "react";
+import { useTranslation } from "@/components/i18n";
 import { MermaidEditorWithPreview } from "@/components/ui";
 import type { ParsedMermaidData } from "../../hooks/mermaid";
 import { flowchartDropWarnings } from "../../utils/drop-warnings";
@@ -31,17 +32,15 @@ interface ImportModalProps {
   onImport: (data: ParsedMermaidData) => void;
 }
 
-// ヘルプテキストの定数
-const HELP_TEXT = `💡 対応しているノード形状: 四角形[label], ダイヤモンド{label}, 円((label)), 六角形{{label}}, スタジアム([label]), 角丸(label)`;
-
 export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) => {
+  const { t } = useTranslation();
   const [mermaidCode, setMermaidCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleImport = async () => {
     if (!mermaidCode.trim()) {
-      setError("Mermaidコードを入力してください");
+      setError(t("importModal.empty"));
       return;
     }
 
@@ -58,9 +57,7 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
       const parsedData = result.data;
 
       if (parsedData.nodes.length === 0 && parsedData.edges.length === 0) {
-        setError(
-          "有効なMermaidコードが見つかりませんでした。ノードまたはエッジの定義を確認してください。"
-        );
+        setError(t("importModal.flowNotFound"));
         return;
       }
 
@@ -68,7 +65,7 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
       setMermaidCode("");
       onClose();
     } catch {
-      setError("Mermaidコードの解析中にエラーが発生しました");
+      setError(t("importModal.failed"));
     } finally {
       setIsLoading(false);
     }
@@ -80,11 +77,12 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
     onClose();
   };
 
+  // 例の記法はそのまま、ラベルだけ画面の言語で (spec 31 D7)
   const exampleCode = `flowchart TD
-    A[開始] --> B{判定}
-    B -->|はい| C[処理A]
-    B -->|いいえ| D[処理B]
-    C --> E[終了]
+    A[${t("importModal.flowExample.start")}] --> B{${t("importModal.flowExample.decision")}}
+    B -->|${t("importModal.flowExample.yes")}| C[${t("importModal.flowExample.processA")}]
+    B -->|${t("importModal.flowExample.no")}| D[${t("importModal.flowExample.processB")}]
+    C --> E[${t("importModal.flowExample.end")}]
     D --> E`;
 
   return (
@@ -97,7 +95,7 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
       closeOnEsc={!mermaidCode.trim()}
     >
       <ModalOverlay />
-      <ModalHeader>Mermaidコードインポート</ModalHeader>
+      <ModalHeader>{t("importModal.flowTitle")}</ModalHeader>
       <ModalBody pb={2} flex={1} minH={0} overflow={{ base: "hidden", md: "auto" }}>
         <MermaidEditorWithPreview
           value={mermaidCode}
@@ -105,36 +103,36 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
             setMermaidCode(value);
             setError(null);
           }}
-          placeholder={`例:\n${exampleCode}`}
+          placeholder={t("importModal.example", { code: exampleCode })}
           mermaid="flowchart"
           warnings={flowchartDropWarnings}
           readDropped={readFlowchartDropped}
           defaultHeader={FLOWCHART_DEFAULT_HEADER}
           description={
             <Text fontSize="sm" color="textHint">
-              Mermaidのフローチャートコードを貼り付けてインポートできます
+              {t("importModal.flowDescription")}
             </Text>
           }
           footer={
             <>
               {error && <ErrorAlert message={error} />}
               <Text fontSize="xs" color="textCaption">
-                {HELP_TEXT}
+                {t("importModal.flowHelp")}
               </Text>
             </>
           }
         />
       </ModalBody>
       <ModalFooter>
-        <Button onClick={handleClose}>キャンセル</Button>
+        <Button onClick={handleClose}>{t("importModal.cancel")}</Button>
         <Button
           colorScheme="blue"
           onClick={handleImport}
           loading={isLoading}
-          loadingText="インポート中..."
+          loadingText={t("importModal.importing")}
           disabled={!mermaidCode.trim()}
         >
-          インポート
+          {t("importModal.import")}
         </Button>
       </ModalFooter>
     </Modal>

@@ -1,6 +1,7 @@
 import { XIcon } from "@yamada-ui/lucide";
 import { Box, Input, HStack, IconButton } from "@yamada-ui/react";
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "@/components/i18n";
 import type { ErCardinality } from "../../types";
 import { ErCardinalitySelector } from "./er-cardinality-selector";
 
@@ -21,6 +22,7 @@ export function ErEditableEdge({
   onCardinalityChange,
   onDelete,
 }: ErEditableEdgeProps) {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [edgeLabel, setEdgeLabel] = useState(label);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,6 +82,7 @@ export function ErEditableEdge({
             minW="20px"
             textAlign="center"
           >
+            {/* eslint-disable-next-line i18next/no-literal-string -- 生成器が Mermaid に書く既定のラベル (訳さない, UiMessages.not_translated) */}
             {edgeLabel || "relation"}
           </Box>
           <ErCardinalitySelector
@@ -87,7 +90,7 @@ export function ErEditableEdge({
             onChange={(type) => onCardinalityChange(id, type)}
           />
           <IconButton
-            aria-label="Delete edge"
+            aria-label={t("edge.delete")}
             icon={<XIcon />}
             size="xs"
             variant="outline"

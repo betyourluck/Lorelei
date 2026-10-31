@@ -1,0 +1,360 @@
+{
+  "app": {
+    "erTitle": "Mermaid ER Diagram Editor",
+    "flowTitle": "Mermaid Flowchart Editor"
+  },
+  "codeEditor": {
+    "phrase": {
+      "all": "all",
+      "byWord": "by word",
+      "close": "close",
+      "completions": "Completions",
+      "controlCharacter": "Control character",
+      "currentMatch": "current match",
+      "diagnostics": "Diagnostics",
+      "find": "Find",
+      "foldedCode": "folded code",
+      "go": "go",
+      "goToLine": "Go to line",
+      "matchCase": "match case",
+      "next": "next",
+      "noDiagnostics": "No diagnostics",
+      "onLine": "on line",
+      "previous": "previous",
+      "regexp": "regexp",
+      "replace": "replace",
+      "replaceAll": "replace all",
+      "replaceField": "Replace",
+      "replacedMatchOnLine": "replaced match on line $",
+      "replacedMatches": "replaced $ matches",
+      "selectionDeleted": "Selection deleted",
+      "to": "to",
+      "unfold": "unfold"
+    },
+    "status": {
+      "insert": "INS",
+      "overwrite": "OVR",
+      "position": "Ln {{line}}, Col {{col}}",
+      "size": "{{lines}} lines, {{chars}} chars"
+    }
+  },
+  "codeModal": {
+    "download": "Download",
+    "emptyFrames": "Empty groups ({{names}}) are drawn as rectangular nodes in the preview and the export (put a node inside to make it a group)",
+    "listSeparator": ", ",
+    "skippedColumn": "{{table}}.{{column}} ({{reason}})",
+    "skippedColumns": "Columns left out: {{columns}}",
+    "title": "Generated Mermaid code"
+  },
+  "completion": {
+    "arrow": {
+      "arrow": "Arrow",
+      "both": "Two-way arrow",
+      "dotted": "Dotted arrow",
+      "labelText": "label",
+      "labeled": "Arrow with a label",
+      "line": "Line (no arrow)",
+      "thick": "Thick arrow"
+    },
+    "cardinality": {
+      "manyToMany": "Many to many",
+      "oneToOne": "One to one",
+      "oneToOneOrMore": "One to many (one or more)",
+      "oneToZeroOrMore": "One to many (zero or more)",
+      "oneToZeroOrOne": "One to zero or one",
+      "zeroOrMoreToOne": "Many (zero or more) to one",
+      "zeroOrOneToOne": "Zero or one to one"
+    },
+    "direction": {
+      "BT": "Bottom to top",
+      "LR": "Left to right",
+      "RL": "Right to left",
+      "TB": "Top to bottom (same as TD)",
+      "TD": "Top to bottom"
+    },
+    "er": {
+      "columns": "Write columns",
+      "fk": "Foreign key",
+      "pk": "Primary key",
+      "type": "Type",
+      "uk": "Unique key"
+    },
+    "header": {
+      "erDiagram": "ER diagram",
+      "flowchartLR": "Flowchart (left to right)",
+      "flowchartTD": "Flowchart (top to bottom)",
+      "graphTD": "Flowchart (graph syntax)"
+    },
+    "id": {
+      "node": "Node",
+      "table": "Table"
+    },
+    "shape": {
+      "circle": "Circle",
+      "circleText": "circle",
+      "diamond": "Diamond (decision)",
+      "diamondText": "diamond",
+      "hexagon": "Hexagon",
+      "hexagonText": "hexagon",
+      "rectangle": "Rectangle",
+      "rectangleText": "box",
+      "round": "Rounded",
+      "roundText": "rounded",
+      "stadium": "Stadium",
+      "stadiumText": "stadium"
+    }
+  },
+  "confirmDelete": {
+    "body": "Lines connected to it are deleted too.",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "named": "Delete “{{name}}”?",
+    "selected": {
+      "node": "Delete the {{count}} selected nodes?",
+      "table": "Delete the {{count}} selected tables?"
+    },
+    "this": {
+      "node": "Delete this node?",
+      "table": "Delete this table?"
+    }
+  },
+  "contribution": {
+    "menu": "Contribution menu",
+    "newIssue": "Open an issue",
+    "repository": "View the repository"
+  },
+  "copy": {
+    "copied": "Copied!",
+    "copyCode": "Copy the code"
+  },
+  "defaults": {
+    "group": "Group{{n}}",
+    "table": "Table{{id}}"
+  },
+  "direction": {
+    "label": "Diagram direction: {{value}}",
+    "title": "Diagram direction"
+  },
+  "dropWarnings": {
+    "circleCross": "Circle and cross arrows are imported as normal arrows (-->)",
+    "class": "class is not imported",
+    "classDef": "classDef (style definitions) is not imported",
+    "classShorthand": "The ::: class shorthand is not imported",
+    "click": "click (links and actions) is not imported",
+    "edgeIntoOwnSubgraph": "A line between a group and its contents is not drawn, so it is not imported",
+    "edgeLength": "Arrow length is not imported (normal length is used)",
+    "er": {
+      "alias": "Table aliases are not imported (the identifier is used as the name)",
+      "cardinality": "This cardinality is not in the editor, so it is imported as one to many",
+      "columnComment": "Column comments are not imported",
+      "nonIdentifying": "A non-identifying relationship (dotted) is imported as a solid line"
+    },
+    "linkStyle": "linkStyle (line styles) is not imported",
+    "openLine": "A line without an arrow is imported as an arrow (-->)",
+    "separator": "; ",
+    "style": "style is not imported",
+    "unknownShape": "This shape is not in the editor, so it is imported as a rectangle"
+  },
+  "dropped": {
+    "accessibility": "Accessibility info",
+    "alias": "Alias",
+    "attributeComment": "Attribute comment",
+    "cardinalityUnsupported": "Unsupported cardinality",
+    "class": "class",
+    "classDef": "classDef",
+    "click": "click",
+    "config": "Config {{detail}}",
+    "direction": "Direction {{detail}}",
+    "edge": "Arrow {{detail}}",
+    "edgeIntoOwnSubgraph": "Line between a group and its contents",
+    "edgeLength": "Arrow length",
+    "edgeToSubgraph": "Arrow to a subgraph",
+    "item": "{{label}} ×{{count}}",
+    "nonIdentifying": "Non-identifying relationship (dotted)",
+    "separator": ", ",
+    "shape": "Shape {{detail}}",
+    "style": "style",
+    "subgraph": "Subgraph",
+    "theme": "Theme {{detail}} (not selectable)",
+    "tooltip": "Tooltip"
+  },
+  "edge": {
+    "arrowName": {
+      "arrow": "Arrow (->)",
+      "bidirectional": "Two-way arrow (<->)",
+      "bidirectionalThick": "Thick two-way arrow (<==>)",
+      "dotted": "Dotted arrow (-.->)",
+      "invisible": "Invisible (~~~)",
+      "thick": "Thick arrow (==>)"
+    },
+    "arrowType": "Select arrow type",
+    "delete": "Delete edge"
+  },
+  "erNames": {
+    "bothEmpty": "Name and type are empty",
+    "name": {
+      "chars": "Name contains characters that cannot be written",
+      "empty": "Name is empty",
+      "key": "Name is read as PK, FK or UK",
+      "space": "Name contains a space"
+    },
+    "type": {
+      "chars": "Type contains characters that cannot be written",
+      "empty": "Type is empty",
+      "key": "Type is read as PK, FK or UK",
+      "space": "Type contains a space"
+    }
+  },
+  "erPanel": {
+    "addTable": "Add table",
+    "generateCode": "Export Mermaid code",
+    "hint": "💡 Tip: double-click a table to edit it; drag to an empty spot to create a new table",
+    "import": "Import Mermaid",
+    "title": "Mermaid ER Diagram Editor"
+  },
+  "erTable": {
+    "addColumn": "Add column",
+    "columnName": "Column name",
+    "delete": "Delete",
+    "deleteColumn": "Delete",
+    "invalid": "{{reason}} (this cannot be written in Mermaid, so the column is left out of the code)",
+    "openMenu": "Open the menu for this table",
+    "openMenuNamed": "Open the menu for the table “{{name}}”",
+    "tableName": "Table name",
+    "type": "Type"
+  },
+  "flowPanel": {
+    "addFrame": "Add group",
+    "addNode": "Add node",
+    "generateCode": "Generate code",
+    "hint": "💡 Tip: double-click a node to edit it; drag to an empty spot to create a new node",
+    "import": "Import",
+    "title": "Mermaid Flowchart Editor"
+  },
+  "frame": {
+    "delete": "Delete group",
+    "deleteFrameEdges": "{{count}} line(s) connected to the group are deleted too.",
+    "deleteFrames": "Delete the {{count}} selected groups?",
+    "deleteHint": "Delete group (the nodes inside are kept)",
+    "deleteKept": "The {{count}} node(s) and group(s) inside are kept (moved outside).",
+    "deleteMixed": "Delete the {{count}} selected items ({{frames}} of them groups)?",
+    "deleteNodeEdges": "Lines connected to the deleted nodes are deleted too.",
+    "deleteOne": "Delete the group “{{name}}”?",
+    "direction": {
+      "BT": "bottom to top",
+      "LR": "left to right",
+      "RL": "right to left",
+      "TB": "top to bottom"
+    },
+    "dropBody": "{{count}} line(s) between a group and its contents are not drawn by Mermaid, so they will be deleted. Choose “Cancel” to move back without deleting.",
+    "dropConfirm": "Move and delete the lines",
+    "dropTitle": "This move makes some lines invisible when drawn",
+    "emptyNotice": "An empty group is drawn as a rectangular node when exported",
+    "idHint": "Double-click to change the ID",
+    "idLabel": "Group ID",
+    "noticeIgnored": "Nodes inside are connected outside the group, so this direction ({{written}}) has no effect when drawn (they are laid out {{drawn}})",
+    "noticeReversed": "When drawn, this group is laid out {{drawn}} ({{words}}). Set a direction to match",
+    "sentenceJoin": " ",
+    "titleHint": "Double-click to change the title",
+    "titleLabel": "Group title",
+    "untitled": "(untitled)"
+  },
+  "frameDirection": {
+    "label": "Direction inside the group: {{value}}",
+    "none": "Not set",
+    "short": "Direction",
+    "title": "Direction inside the group (when not set, it follows the outer direction)"
+  },
+  "history": {
+    "redo": "Redo",
+    "redoTitle": "Redo (Ctrl+Y)",
+    "undo": "Undo",
+    "undoTitle": "Undo (Ctrl+Z)"
+  },
+  "importModal": {
+    "cancel": "Cancel",
+    "empty": "Enter Mermaid code",
+    "erDescription": "Paste Mermaid ER diagram code to import it",
+    "erHelp": "💡 Supported: table definitions {columns}, relationships (||--o{, }o--||, etc), attributes (PK, UK)",
+    "erNotFound": "No valid ER diagram code was found. Check the table and relationship definitions.",
+    "erTitle": "Import Mermaid ER diagram code",
+    "example": "Example:\n{{code}}",
+    "failed": "An error occurred while reading the Mermaid code",
+    "flowDescription": "Paste Mermaid flowchart code to import it",
+    "flowExample": {
+      "decision": "Decision",
+      "end": "End",
+      "no": "No",
+      "processA": "Process A",
+      "processB": "Process B",
+      "start": "Start",
+      "yes": "Yes"
+    },
+    "flowHelp": "💡 Supported node shapes: rectangle[label], diamond{label}, circle((label)), hexagon{{label}}, stadium([label]), rounded(label)",
+    "flowNotFound": "No valid Mermaid code was found. Check the node and edge definitions.",
+    "flowTitle": "Import Mermaid code",
+    "import": "Import",
+    "importing": "Importing...",
+    "notEr": "This is not an ER diagram (import flowcharts and other diagrams from their own editor)",
+    "notFlowchart": "This is not a flowchart (import erDiagram and other diagrams from their own editor)",
+    "syntaxError": "Cannot import because of a Mermaid syntax error: {{message}}",
+    "syntaxErrorAtLine": "Cannot import because of a Mermaid syntax error (line {{line}}): {{message}}"
+  },
+  "minimap": {
+    "hide": "Hide the minimap",
+    "label": "Minimap",
+    "show": "Show the minimap"
+  },
+  "nav": {
+    "choose": "Choose an editor",
+    "er": "ER diagram editor",
+    "flowchart": "Flowchart editor"
+  },
+  "node": {
+    "delete": "Delete",
+    "editLabel": "Edit label",
+    "editVariableName": "Edit variable name",
+    "openMenu": "Open the node menu"
+  },
+  "notFound": {
+    "body": "The page you are looking for does not exist.",
+    "heading": "404 - Page not found",
+    "home": "Back to home",
+    "title": "Page not found"
+  },
+  "preview": {
+    "code": "Mermaid code",
+    "drawing": "Drawing…",
+    "dropped": "Lost on import: {{dropped}}",
+    "empty": "Paste Mermaid on the left to see the diagram here",
+    "failed": "Could not draw the diagram",
+    "generatedCode": "Generated Mermaid code",
+    "preview": "Preview"
+  },
+  "shape": {
+    "badge": "Shape: {{shape}}",
+    "circle": "Circle",
+    "diamond": "Diamond",
+    "hexagon": "Hexagon",
+    "menu": "Node shape",
+    "rectangle": "Rectangle",
+    "rounded": "Rounded rectangle",
+    "stadium": "Stadium"
+  },
+  "theme": {
+    "label": "Theme: {{value}}",
+    "title": "Output theme (code, preview and export)"
+  },
+  "xyflow": {
+    "controls": "Control Panel",
+    "edgeDescription": "Press enter or space to select an edge. You can then press delete to remove it or escape to cancel.",
+    "fitView": "Fit View",
+    "handle": "Handle",
+    "interactive": "Toggle Interactivity",
+    "minimap": "Mini Map",
+    "nodeDescription": "Press enter or space to select a node. Press delete to remove it and escape to cancel.",
+    "nodeDescriptionKeyboardDisabled": "Press enter or space to select a node. You can then use the arrow keys to move the node around. Press delete to remove it and escape to cancel.",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out"
+  }
+}

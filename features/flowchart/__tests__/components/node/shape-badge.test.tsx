@@ -12,10 +12,10 @@ import { render } from "@/__tests__/test-utils";
 import { NodeContent } from "@/features/flowchart/components/node/editable-node";
 import { ShapeBadge } from "@/features/flowchart/components/node/shape-badge";
 import type { MermaidShapeType } from "@/features/flowchart/types/types";
-import { SHAPE_OPTIONS } from "@/features/flowchart/types/types";
+import { SHAPE_OPTIONS, shapeLabel } from "@/features/flowchart/types/types";
 
 const shapes = SHAPE_OPTIONS.map((s) => s.type as MermaidShapeType);
-const nameOf = (shape: MermaidShapeType) => SHAPE_OPTIONS.find((s) => s.type === shape)!.label;
+const nameOf = (shape: MermaidShapeType) => shapeLabel(shape);
 
 const nodeProps = (shapeType: MermaidShapeType) => ({
   data: {

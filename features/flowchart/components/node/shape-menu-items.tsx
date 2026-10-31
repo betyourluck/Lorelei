@@ -2,7 +2,7 @@
 
 import { MenuItem, Box, Text } from "@yamada-ui/react";
 import type { MermaidShapeType } from "../../types/types";
-import { SHAPE_OPTIONS } from "../../types/types";
+import { SHAPE_OPTIONS, shapeLabel } from "../../types/types";
 import { ShapeIcon } from "./shape-icon";
 
 interface ShapeMenuItemsProps {
@@ -21,7 +21,7 @@ export const ShapeMenuItems = ({ currentShape, onShapeChange }: ShapeMenuItemsPr
         bg={currentShape === shape.type ? "selected" : undefined}
       >
         <Box display="flex" alignItems="center" justifyContent="space-between" w="full">
-          <Text>{shape.label}</Text>
+          <Text>{shapeLabel(shape.type)}</Text>
           <Text fontSize="sm" color="muted" fontFamily="mono">
             {shape.symbol}
           </Text>

@@ -1,5 +1,10 @@
 import { describe, test, expect } from "vitest";
-import { UI_CONSTANTS, ARROW_TYPES, SHAPE_OPTIONS } from "@/features/flowchart/types/types";
+import {
+  UI_CONSTANTS,
+  ARROW_TYPES,
+  SHAPE_OPTIONS,
+  shapeLabel,
+} from "@/features/flowchart/types/types";
 
 describe("UI_CONSTANTS", () => {
   test("定数値が正しく定義されている", () => {
@@ -65,36 +70,25 @@ describe("SHAPE_OPTIONS", () => {
   test("各形状オプションが正しい構造を持つ", () => {
     SHAPE_OPTIONS.forEach((option) => {
       expect(option).toHaveProperty("type");
-      expect(option).toHaveProperty("label");
+      expect(option).toHaveProperty("labelKey");
       expect(option).toHaveProperty("symbol");
 
       expect(typeof option.type).toBe("string");
-      expect(typeof option.label).toBe("string");
+      expect(typeof shapeLabel(option.type)).toBe("string");
       expect(typeof option.symbol).toBe("string");
 
-      expect(option.label.length).toBeGreaterThan(0);
+      expect(shapeLabel(option.type).length).toBeGreaterThan(0);
       expect(option.symbol.length).toBeGreaterThan(0);
     });
   });
 
   test("日本語ラベルが正しく設定されている", () => {
-    const rectangleOption = SHAPE_OPTIONS.find((opt) => opt.type === "rectangle");
-    expect(rectangleOption?.label).toBe("四角形");
-
-    const diamondOption = SHAPE_OPTIONS.find((opt) => opt.type === "diamond");
-    expect(diamondOption?.label).toBe("菱形");
-
-    const roundedOption = SHAPE_OPTIONS.find((opt) => opt.type === "rounded");
-    expect(roundedOption?.label).toBe("角丸四角");
-
-    const circleOption = SHAPE_OPTIONS.find((opt) => opt.type === "circle");
-    expect(circleOption?.label).toBe("円形");
-
-    const hexagonOption = SHAPE_OPTIONS.find((opt) => opt.type === "hexagon");
-    expect(hexagonOption?.label).toBe("六角形");
-
-    const stadiumOption = SHAPE_OPTIONS.find((opt) => opt.type === "stadium");
-    expect(stadiumOption?.label).toBe("スタジアム");
+    expect(shapeLabel("rectangle")).toBe("四角形");
+    expect(shapeLabel("diamond")).toBe("菱形");
+    expect(shapeLabel("rounded")).toBe("角丸四角");
+    expect(shapeLabel("circle")).toBe("円形");
+    expect(shapeLabel("hexagon")).toBe("六角形");
+    expect(shapeLabel("stadium")).toBe("スタジアム");
   });
 
   test("Mermaidシンボルが正しく設定されている", () => {

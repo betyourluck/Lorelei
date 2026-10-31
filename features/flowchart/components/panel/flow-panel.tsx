@@ -6,6 +6,7 @@ import { PlusIcon, CodeIcon, UploadIcon, SquareDashedIcon } from "@yamada-ui/luc
 import type { FC } from "@yamada-ui/react";
 import { VStack, HStack, Text, Button, useDisclosure } from "@yamada-ui/react";
 import type { EditorHistoryActions } from "@/components/editor-history/use-editor-history";
+import { useTranslation } from "@/components/i18n";
 import { NavigationMenu } from "@/components/ui";
 import { HistoryButtons } from "@/components/ui/history-buttons";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
@@ -55,11 +56,12 @@ export const PanelContent: FC<PanelContentProps> = ({
   onThemeChange,
   history,
 }) => {
+  const { t } = useTranslation();
   const { open: openImport, onOpen: onOpenImport, onClose: onCloseImport } = useDisclosure();
   const { open: openDownload, onOpen: onOpenDownload, onClose: onCloseDownload } = useDisclosure();
   // Lorelei: デスクトップ版のツールバーから呼べるようにする (Web 版では何もしない)
   useDesktopActions({
-    add: { label: "ノード追加", run: onAddNode },
+    add: { label: t("flowPanel.addNode"), run: onAddNode },
     code: onOpenDownload,
     direction,
     setDirection: onDirectionChange,
@@ -78,28 +80,28 @@ export const PanelContent: FC<PanelContentProps> = ({
         justify="space-between"
       >
         <Text fontSize="lg" fontWeight="bold">
-          Mermaid フローチャート エディター
+          {t("flowPanel.title")}
         </Text>
         <NavigationMenu />
       </HStack>
       <VStack gap={2} align="start">
         <Text fontSize="sm" color="textHint">
-          💡 ヒント: ノードをダブルクリックで編集、ドラッグして空の場所で新ノード作成
+          {t("flowPanel.hint")}
         </Text>
         <HStack gap={2} display={{ base: "flex", md: "inline-flex" }} flexWrap="wrap">
           <Button startIcon={<PlusIcon />} colorScheme="blue" size="sm" onClick={onAddNode}>
-            ノード追加
+            {t("flowPanel.addNode")}
           </Button>
           {onAddFrame && (
             <Button startIcon={<SquareDashedIcon />} colorScheme="yellow" variant="outline" size="sm" onClick={onAddFrame}>
-              枠を追加
+              {t("flowPanel.addFrame")}
             </Button>
           )}
           <Button startIcon={<CodeIcon />} colorScheme="green" size="sm" onClick={onOpenDownload}>
-            コード生成
+            {t("flowPanel.generateCode")}
           </Button>
           <Button startIcon={<UploadIcon />} colorScheme="purple" size="sm" onClick={onOpenImport}>
-            インポート
+            {t("flowPanel.import")}
           </Button>
           {direction && onDirectionChange && <DirectionMenu value={direction} onChange={onDirectionChange} />}
           {history && <HistoryButtons {...history} />}

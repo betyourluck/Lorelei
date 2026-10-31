@@ -2,6 +2,7 @@
 
 import { GripIcon, SquarePenIcon, TrashIcon, TagIcon } from "@yamada-ui/lucide";
 import { IconButton, Menu, MenuButton, MenuItem, MenuList, MenuSeparator } from "@yamada-ui/react";
+import { useTranslation } from "@/components/i18n";
 import { ShapeSelector } from "./shape-selector";
 
 interface NodeMenuProps {
@@ -20,6 +21,7 @@ export const NodeMenu = ({
   onShapeChange,
   currentShape,
 }: NodeMenuProps) => {
+  const { t } = useTranslation();
   return (
     <Menu>
       <MenuButton
@@ -30,17 +32,17 @@ export const NodeMenu = ({
         as={IconButton}
         icon={<GripIcon fontSize="2xl" />}
         variant="ghost"
-        aria-label="ノードの操作メニューを開く"
+        aria-label={t("node.openMenu")}
         // メニューを押してもノードのドラッグを始めない (nodrag は xyflow がドラッグを始めない印)
         className="nodrag"
       />
 
       <MenuList className="nodrag">
         <MenuItem icon={<SquarePenIcon fontSize="xl" />} onClick={onEdit}>
-          ラベル編集
+          {t("node.editLabel")}
         </MenuItem>
         <MenuItem icon={<TagIcon fontSize="xl" />} onClick={onEditVariableName}>
-          変数名編集
+          {t("node.editVariableName")}
         </MenuItem>
 
         <MenuSeparator />
@@ -55,7 +57,7 @@ export const NodeMenu = ({
           icon={<TrashIcon fontSize="xl" color="danger" />}
           onClick={onDelete}
         >
-          削除
+          {t("node.delete")}
         </MenuItem>
       </MenuList>
     </Menu>

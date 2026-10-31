@@ -13,6 +13,7 @@ import {
   Button,
 } from "@yamada-ui/react";
 import { useCallback, useState, useMemo } from "react";
+import { useTranslation } from "@/components/i18n";
 import { MermaidCodeWithPreview } from "@/components/ui";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { ExportButtons, useMmdDownload } from "@/lib/desktop";
@@ -44,6 +45,7 @@ export const DownloadModal: FC<DownloadModalProps> = ({
   theme,
   onThemeChange,
 }) => {
+  const { t } = useTranslation();
   const [ownGraphType, setOwnGraphType] = useState<GraphType>("TD");
   const currentGraphType = direction ?? ownGraphType;
   const setCurrentGraphType = onDirectionChange ?? setOwnGraphType;
@@ -80,7 +82,7 @@ export const DownloadModal: FC<DownloadModalProps> = ({
             flexWrap="wrap"
             alignItems="center"
           >
-            <Text>生成されたMermaidコード</Text>
+            <Text>{t("codeModal.title")}</Text>
             <Button
               startIcon={<DownloadIcon />}
               colorScheme="blue"
@@ -88,7 +90,7 @@ export const DownloadModal: FC<DownloadModalProps> = ({
               onClick={() => download(currentMermaidCode)}
               ml={{ base: 0, md: "auto" }}
             >
-              ダウンロード
+              {t("codeModal.download")}
             </Button>
             <ExportButtons code={currentMermaidCode} fileStem="flowchart" />
 
@@ -97,7 +99,9 @@ export const DownloadModal: FC<DownloadModalProps> = ({
           </HStack>
           {emptyFrames.length > 0 && (
             <Text fontSize="sm" fontWeight="normal" color="warningTextStrong">
-              {`空の枠（${emptyFrames.join("、")}）は、プレビューと書き出しでは四角いノードとして描かれます（中にノードを入れると枠になります）`}
+              {t("codeModal.emptyFrames", {
+                names: emptyFrames.join(t("codeModal.listSeparator")),
+              })}
             </Text>
           )}
         </VStack>

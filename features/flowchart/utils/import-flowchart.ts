@@ -1,6 +1,7 @@
 /**
  * フローチャートのインポートが使う読み取り (spec 11 D2・D3)。mermaid.js で解析し、エディタの取り込みの形にする
  */
+import { i18n } from "@/components/i18n";
 import type { DroppedItem } from "@/components/ui/mermaid-dropped";
 import { describeSyntaxError, MermaidSyntaxError } from "@/components/ui/mermaid-parse-issue";
 import { readMermaidDiagram } from "@/components/ui/mermaid-render";
@@ -26,7 +27,7 @@ export async function readFlowchartForImport(code: string): Promise<FlowchartImp
   if (snapshot.kind !== "flowchart") {
     return {
       ok: false,
-      error: "フローチャートではありません（erDiagram などはそれぞれのエディタのインポートで取り込んでください）",
+      error: i18n.t("importModal.notFlowchart"),
     };
   }
   return { ok: true, ...flowFromMermaid(snapshot) };

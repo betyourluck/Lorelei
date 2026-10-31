@@ -4,6 +4,7 @@ import { ChevronDownIcon } from "@yamada-ui/lucide";
 import type { FC } from "@yamada-ui/react";
 import { Menu, MenuButton, MenuList, MenuItem, IconButton, Portal } from "@yamada-ui/react";
 import { ChevronDown } from "lucide-react";
+import { useTranslation } from "@/components/i18n";
 import { useDeferredMenu } from "@/components/ui/use-deferred-menu";
 import { getArrowTypeDisplayName } from "../../hooks/mermaid";
 import type { MermaidArrowType } from "../../types/types";
@@ -24,6 +25,7 @@ export const ArrowTypeSelector: FC<ArrowTypeSelectorProps> = ({
   currentArrowType,
   onArrowTypeChange,
 }) => {
+  const { t } = useTranslation();
   const { open, buttonRef, menuButtonRef, buttonProps, onClose } = useDeferredMenu();
 
   if (!open) {
@@ -32,7 +34,7 @@ export const ArrowTypeSelector: FC<ArrowTypeSelectorProps> = ({
         ref={buttonRef}
         type="button"
         className={`arrow-type-selector-button ${styles.iconButton}`}
-        aria-label="Select arrow type"
+        aria-label={t("edge.arrowType")}
         aria-haspopup="menu"
         aria-expanded={false}
         {...buttonProps}
@@ -48,7 +50,7 @@ export const ArrowTypeSelector: FC<ArrowTypeSelectorProps> = ({
         ref={menuButtonRef}
         className="arrow-type-selector-button"
         as={IconButton}
-        aria-label="Select arrow type"
+        aria-label={t("edge.arrowType")}
         icon={<ChevronDownIcon />}
         size="xs"
         variant="outline"

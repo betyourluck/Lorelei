@@ -14,6 +14,7 @@ import {
   AlertDescription,
 } from "@yamada-ui/react";
 import { useState } from "react";
+import { useTranslation } from "@/components/i18n";
 import { MermaidEditorWithPreview } from "@/components/ui";
 import { erDropWarnings } from "../../utils/drop-warnings";
 import { readErForImport } from "../../utils/import-er";
@@ -38,16 +39,11 @@ interface ImportModalProps {
 }
 
 /**
- * ヘルプテキストの定数
- * @description ER図で対応している機能の説明
- */
-const HELP_TEXT = `💡 対応している機能: テーブル定義{columns}, リレーション(||--o{, }o--||, etc), 属性(PK, UK)`;
-
-/**
  * ER図Mermaidコードインポートモーダル
  * @description flowchartのImportModalと同じ設計パターン
  */
 export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) => {
+  const { t } = useTranslation();
   const [mermaidCode, setMermaidCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -58,7 +54,7 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
    */
   const handleImport = async () => {
     if (!mermaidCode.trim()) {
-      setError("Mermaidコードを入力してください");
+      setError(t("importModal.empty"));
       return;
     }
 
@@ -75,9 +71,7 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
       const parsedData = result.data;
 
       if (parsedData.nodes.length === 0 && parsedData.edges.length === 0) {
-        setError(
-          "有効なER図コードが見つかりませんでした。テーブルまたはリレーションの定義を確認してください。"
-        );
+        setError(t("importModal.erNotFound"));
         return;
       }
 
@@ -85,7 +79,7 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
       setMermaidCode("");
       onClose();
     } catch {
-      setError("Mermaidコードの解析中にエラーが発生しました");
+      setError(t("importModal.failed"));
     } finally {
       setIsLoading(false);
     }
@@ -128,7 +122,7 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
       closeOnEsc={!mermaidCode.trim()}
     >
       <ModalOverlay />
-      <ModalHeader>Mermaid ER図コードインポート</ModalHeader>
+      <ModalHeader>{t("importModal.erTitle")}</ModalHeader>
       <ModalBody pb={2} flex={1} minH={0} overflow={{ base: "hidden", md: "auto" }}>
         <MermaidEditorWithPreview
           value={mermaidCode}
@@ -136,35 +130,35 @@ export const ImportModal: FC<ImportModalProps> = ({ open, onClose, onImport }) =
             setMermaidCode(value);
             setError(null);
           }}
-          placeholder={`例:\n${exampleCode}`}
+          placeholder={t("importModal.example", { code: exampleCode })}
           mermaid="er"
           warnings={erDropWarnings}
           readDropped={readErDropped}
           description={
             <Text fontSize="sm" color="textHint">
-              MermaidのER図コードを貼り付けてインポートできます
+              {t("importModal.erDescription")}
             </Text>
           }
           footer={
             <>
               {error && <ErrorAlert message={error} />}
               <Text fontSize="xs" color="textCaption">
-                {HELP_TEXT}
+                {t("importModal.erHelp")}
               </Text>
             </>
           }
         />
       </ModalBody>
       <ModalFooter>
-        <Button onClick={handleClose}>キャンセル</Button>
+        <Button onClick={handleClose}>{t("importModal.cancel")}</Button>
         <Button
           colorScheme="blue"
           onClick={handleImport}
           loading={isLoading}
-          loadingText="インポート中..."
+          loadingText={t("importModal.importing")}
           disabled={!mermaidCode.trim()}
         >
-          インポート
+          {t("importModal.import")}
         </Button>
       </ModalFooter>
     </Modal>

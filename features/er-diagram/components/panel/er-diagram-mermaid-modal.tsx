@@ -10,6 +10,7 @@ import {
   Button,
 } from "@yamada-ui/react";
 import type { FC } from "react";
+import { useTranslation } from "@/components/i18n";
 import { MermaidCodeWithPreview } from "@/components/ui";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import { ThemeMenu } from "@/features/flowchart/components/theme-menu";
@@ -37,6 +38,7 @@ export const ERDiagramMermaidModal: FC<ERDiagramMermaidModalProps> = ({
   theme,
   onThemeChange,
 }) => {
+  const { t } = useTranslation();
   // Lorelei: デスクトップでは保存ダイアログを出して知らせる (Web 版は onDownload のまま, spec 25)
   const { download } = useMmdDownload("er-diagram", onDownload);
   return (
@@ -49,7 +51,7 @@ export const ERDiagramMermaidModal: FC<ERDiagramMermaidModalProps> = ({
             flexWrap="wrap"
             alignItems="center"
           >
-            <Text>生成されたMermaidコード</Text>
+            <Text>{t("codeModal.title")}</Text>
             <Button
               startIcon={<DownloadIcon />}
               colorScheme="blue"
@@ -57,16 +59,24 @@ export const ERDiagramMermaidModal: FC<ERDiagramMermaidModalProps> = ({
               onClick={() => download(code)}
               ml={{ base: 0, md: "auto" }}
             >
-              ダウンロード
+              {t("codeModal.download")}
             </Button>
             <ExportButtons code={code} fileStem="er-diagram" />
             {onThemeChange && <ThemeMenu value={theme ?? "default"} onChange={onThemeChange} />}
           </HStack>
           {skippedColumns.length > 0 && (
             <Text fontSize="sm" fontWeight="normal" color="warningTextStrong">
-              {`書き出していない列: ${skippedColumns
-                .map((s) => `${s.table}.${s.column}（${s.reason}）`)
-                .join("、")}`}
+              {t("codeModal.skippedColumns", {
+                columns: skippedColumns
+                  .map((s) =>
+                    t("codeModal.skippedColumn", {
+                      table: s.table,
+                      column: s.column,
+                      reason: s.reason,
+                    })
+                  )
+                  .join(t("codeModal.listSeparator")),
+              })}
             </Text>
           )}
         </VStack>

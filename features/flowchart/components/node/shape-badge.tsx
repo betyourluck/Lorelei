@@ -2,9 +2,10 @@
 
 import { Menu, MenuButton, MenuList, Portal } from "@yamada-ui/react";
 import type { MouseEvent } from "react";
+import { useTranslation } from "@/components/i18n";
 import { useDeferredMenu } from "@/components/ui/use-deferred-menu";
 import type { MermaidShapeType } from "../../types/types";
-import { SHAPE_OPTIONS } from "../../types/types";
+import { shapeLabel } from "../../types/types";
 import styles from "./shape-badge.module.css";
 import { ShapeIcon } from "./shape-icon";
 import { ShapeMenuItems } from "./shape-menu-items";
@@ -24,7 +25,8 @@ const stopDoubleClick = (e: MouseEvent) => e.stopPropagation();
  */
 export const ShapeBadge = ({ shape, onShapeChange }: ShapeBadgeProps) => {
   const { open, buttonRef, menuButtonRef, buttonProps, onClose } = useDeferredMenu();
-  const name = `形: ${SHAPE_OPTIONS.find((s) => s.type === shape)?.label ?? shape}`;
+  const { t } = useTranslation();
+  const name = t("shape.badge", { shape: shapeLabel(shape) });
   const common = {
     type: "button" as const,
     className: `nodrag ${styles.badge}`,

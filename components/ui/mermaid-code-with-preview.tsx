@@ -3,6 +3,7 @@
 import type { FC } from "@yamada-ui/react";
 import { Box, Grid } from "@yamada-ui/react";
 import type { ReactNode } from "react";
+import { useTranslation } from "@/components/i18n";
 import { CopyButton } from "./copy-button";
 import { LazyCodeEditor } from "./lazy-code-editor";
 import { MermaidPreview } from "./mermaid-preview";
@@ -22,6 +23,7 @@ interface MermaidTwoPaneProps {
  * 広い幅では各列が独立してスクロールする。狭い幅（md 以下）では上下に積む
  */
 export const MermaidTwoPane: FC<MermaidTwoPaneProps> = ({ code, preview, previewBg = "white" }) => {
+  const { t } = useTranslation();
   return (
     <Grid
       w="full"
@@ -34,7 +36,7 @@ export const MermaidTwoPane: FC<MermaidTwoPaneProps> = ({ code, preview, preview
       {/* 枠はスクロールしない。中身（エディタ）が自分でスクロールする */}
       <Box
         as="section"
-        aria-label="Mermaid コード"
+        aria-label={t("preview.code")}
         position="relative"
         minH={{ base: 0, md: "xs" }}
         display="flex"
@@ -44,7 +46,7 @@ export const MermaidTwoPane: FC<MermaidTwoPaneProps> = ({ code, preview, preview
       </Box>
       <Box
         as="section"
-        aria-label="プレビュー"
+        aria-label={t("preview.preview")}
         minH={{ base: 0, md: "sm" }}
         overflow="auto"
         bg={previewBg}
@@ -67,6 +69,7 @@ interface MermaidCodeWithPreviewProps {
 
 /** コード生成のダイアログの本文: 左に読むだけのエディタ、右に mermaid.js で描いた図 */
 export const MermaidCodeWithPreview: FC<MermaidCodeWithPreviewProps> = ({ code, theme }) => {
+  const { t } = useTranslation();
   return (
     <MermaidTwoPane
       previewBg={themeBackground(theme)}
@@ -74,7 +77,7 @@ export const MermaidCodeWithPreview: FC<MermaidCodeWithPreviewProps> = ({ code, 
         <>
           {/* 右上は検索パネル（Ctrl+F）の閉じるボタンと重なるので、コピーは右下に置く */}
           <CopyButton value={code} position="absolute" bottom={2} right={6} zIndex={300} />
-          <LazyCodeEditor value={code} readOnly aria-label="生成された Mermaid コード" />
+          <LazyCodeEditor value={code} readOnly aria-label={t("preview.generatedCode")} />
         </>
       }
       preview={<MermaidPreview code={code} />}

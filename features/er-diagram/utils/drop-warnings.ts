@@ -1,6 +1,8 @@
 /**
  * ER 図で取り込むと消える書き方の行に付ける印 (spec 11 D4)。字句で見つける目安で、正確な数は取り込みの結果 (erFromMermaid の dropped) が持つ
  */
+import type { ParseKeys } from "i18next";
+import { i18n } from "@/components/i18n";
 import { CLASS_SHORTHAND, frontmatterLines, type DropWarning } from "@/features/flowchart/utils/drop-warnings";
 import { CARDINALITY } from "./from-mermaid";
 
@@ -21,10 +23,10 @@ const SIDE: Record<string, string> = {
 // 非識別は .. のほかに .- と -. でも書ける (rev1、査読 11)
 const RELATION = /^\S+\s+([|}o]{2})(--|\.\.|\.-|-\.)([|{o]{2})\s/;
 
-const STATEMENTS: [RegExp, string][] = [
-  [/^classDef\b/, "classDef（見た目の定義）は取り込まれません"],
-  [/^class\s/, "class 指定は取り込まれません"],
-  [/^style\s/, "style 指定は取り込まれません"],
+const STATEMENTS: [RegExp, ParseKeys][] = [
+  [/^classDef\b/, "dropWarnings.classDef"],
+  [/^class\s/, "dropWarnings.class"],
+  [/^style\s/, "dropWarnings.style"],
 ];
 
 export function erDropWarnings(text: string): DropWarning[] {
@@ -38,23 +40,23 @@ export function erDropWarnings(text: string): DropWarning[] {
     const messages: string[] = [];
     if (inEntity) {
       if (line === "}") inEntity = false;
-      else if (line.includes('"')) messages.push("列の注釈は取り込まれません");
+      else if (line.includes('"')) messages.push(i18n.t("dropWarnings.er.columnComment"));
     } else {
-      for (const [re, message] of STATEMENTS) if (re.test(line)) messages.push(message);
-      if (/^[^\s{}[]+\s*\[\s*"/.test(line)) messages.push("テーブルの別名は取り込まれません（識別子を名前にします）");
+      for (const [re, key] of STATEMENTS) if (re.test(line)) messages.push(i18n.t(key));
+      if (/^[^\s{}[]+\s*\[\s*"/.test(line)) messages.push(i18n.t("dropWarnings.er.alias"));
       if (line.endsWith("{")) inEntity = true;
       const code = stripStrings(line);
-      if (CLASS_SHORTHAND.test(code)) messages.push("::: の class 指定は取り込まれません");
+      if (CLASS_SHORTHAND.test(code)) messages.push(i18n.t("dropWarnings.classShorthand"));
       const rel = RELATION.exec(code);
       if (rel) {
         const [, left, sep, right] = rel;
-        if (sep !== "--") messages.push("非識別の関係（点線）は、実線として取り込みます");
+        if (sep !== "--") messages.push(i18n.t("dropWarnings.er.nonIdentifying"));
         if (!CARDINALITY[`${SIDE[left]},${SIDE[right]}`]) {
-          messages.push("エディタに無い多重度なので、1 対 多 として取り込みます");
+          messages.push(i18n.t("dropWarnings.er.cardinality"));
         }
       }
     }
-    if (messages.length) warnings.push({ line: i + 1, message: messages.join("。") });
+    if (messages.length) warnings.push({ line: i + 1, message: messages.join(i18n.t("dropWarnings.separator")) });
   });
   return warnings;
 }

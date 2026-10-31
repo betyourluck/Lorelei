@@ -4,6 +4,7 @@ import { CheckIcon, CopyIcon } from "@yamada-ui/lucide";
 import type { ButtonProps } from "@yamada-ui/react";
 import { forwardRef, IconButton, Tooltip, useClipboard } from "@yamada-ui/react";
 import { memo } from "react";
+import { useTranslation } from "@/components/i18n";
 
 export interface CopyButtonProps extends Omit<ButtonProps, "value"> {
   value: string;
@@ -11,6 +12,7 @@ export interface CopyButtonProps extends Omit<ButtonProps, "value"> {
 
 export const CopyButton = memo(
   forwardRef<CopyButtonProps, "button">(({ value, ...rest }, ref) => {
+    const { t } = useTranslation();
     const { hasCopied, onCopy } = useClipboard(value);
 
     return (
@@ -20,7 +22,7 @@ export const CopyButton = memo(
         display="inline-flex"
         h="8"
         open={hasCopied}
-        label="Copied!"
+        label={t("copy.copied")}
         placement="left"
         zIndex="1000"
       >
@@ -28,7 +30,7 @@ export const CopyButton = memo(
           ref={ref}
           size="sm"
           variant="unstyled"
-          aria-label="コードをコピーする"
+          aria-label={t("copy.copyCode")}
           alignItems="center"
           bg={["neutral.800", "neutral.900"]}
           border="1px solid"
