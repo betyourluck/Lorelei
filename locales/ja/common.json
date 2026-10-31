@@ -129,6 +129,7 @@
   },
   "defaults": {
     "group": "グループ{{n}}",
+    "initialTable": "ユーザー",
     "table": "テーブル{{id}}"
   },
   "direction": {

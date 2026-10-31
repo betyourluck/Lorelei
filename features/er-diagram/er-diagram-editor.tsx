@@ -13,6 +13,7 @@ import type { FC } from "@yamada-ui/react";
 import { Box, useToken } from "@yamada-ui/react";
 import { useCallback, useState, useRef } from "react";
 import { useEditorHistory } from "@/components/editor-history/use-editor-history";
+import { i18n } from "@/components/i18n";
 import { FlowLayout } from "@/components/layout/";
 import { useCanvasColors } from "@/components/layout/use-canvas-colors";
 import { useFlowAriaLabels } from "@/components/layout/use-flow-aria-labels";
@@ -57,14 +58,17 @@ export type ERDiagramNodeData = {
   }>;
 };
 
-/** 新しいエディタの初期図 (デスクトップ版は Document.initial_sources として凍結している, spec 04 D4-2) */
-export const initialERNodes: Node<ERTableNodeProps>[] = [
+/**
+ * 新しいエディタの初期図。テーブルの名は作った時の言語 (lng を省くと今の言語。新しい要素の名と同じ)。
+ * デスクトップ版は全部の言語の初期図を Document.initial_sources として凍結している (spec 04 D4-2・spec 34 D6)
+ */
+export const initialERNodes = (lng?: string): Node<ERTableNodeProps>[] => [
   {
     id: "1",
     type: "erTable",
     position: { x: 100, y: 100 },
     data: {
-      name: "ユーザー", // i18n-allow: 初期図は Rust の保険が文字で突き合わせる (言語で変えない。spec 34 D6)
+      name: i18n.t("defaults.initialTable", { lng }),
       columns: [
         { name: "id", type: "int", pk: true, uk: false },
         { name: "name", type: "varchar(255)", pk: false, uk: true },
@@ -93,7 +97,8 @@ export const ERDiagramEditor: FC = () => {
   const headerHeight = 48;
   const initialEdges: Edge[] = [];
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialERNodes);
+  const [initialNodes] = useState(() => initialERNodes());
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [nodeId, setNodeId] = useState(2);
   // 図の向き (spec 07 D1)。コード生成・パネル・接続点はこれを読み書きする

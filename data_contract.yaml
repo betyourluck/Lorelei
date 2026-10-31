@@ -665,7 +665,8 @@ Document:
     import: "インポート HH:MM:SS"
   trash: "{app_data_dir}/trash/{id}.json"   # 削除は移動だけ。documents/ の外なので一覧に出ない。空にする操作は無い
   initial_sources:   # フォーク元のエディタの初期図を生成器にかけた出力 (一字一句, spec 04 D4-2)。spec 34 D6 で言語ごとの集合に: 保険は全部の言語の初期図のどれかと同じなら拒む
-    fixture: "crates/lorelei_core/tests/fixtures/initial_sources.json (vitest が LORELEI_UPDATE_FIXTURES=1 で LOCALES の全部の言語の初期図を書き、Rust のテストが initial_sources(editor) と比べる)"
+    fixture: "src-tauri/tests/fixtures/initial_sources.json ({ erDiagram: [...], flowchart: [...] }。__tests__/lib/desktop/doc-session.test.ts が LORELEI_UPDATE_FIXTURES=1 で LOCALES の全部の言語の初期図を重複を除いて書き、src-tauri の documents.rs のテストが initial_sources(editor) と比べる)"
+    ts: "features/er-diagram/er-diagram-editor.tsx の initialERNodes(lng?) (テーブルの名は common の defaults.initialTable、省くと今の言語)・features/flowchart/flow-editor.tsx の initialFlowNodes。エディタはマウントした時の言語で作る (Web 版を英語で直に開くと、最初の描画が組み立ての日本語なので「ユーザー」。デスクトップは外枠がエディタを作り直すので覚えた言語)"
     flowchart: ["flowchart TD\n    startNode[Start]\n"]   # どの言語でも同じ
     erDiagram: ["erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }", "erDiagram\n  User {\n    int id PK\n    varchar(255) name UK\n  }"]   # ja / en
   save_guard: >-

@@ -1,5 +1,8 @@
+import { readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import type { Node } from "@xyflow/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LOCALES } from "@/components/i18n/i18n";
 import { initialERNodes } from "@/features/er-diagram/er-diagram-editor";
 import { initialFlowNodes } from "@/features/flowchart/flow-editor";
 import {
@@ -241,27 +244,41 @@ describe("onNodesChanged — ストアのノードが変わった時にするこ
   });
 });
 
-describe("エディタの初期図 (data_contract Document.initial_sources, spec 04 D4-2)", () => {
-  // Rust の save はこの文字列と一字一句同じ source を AI / インポートの図に書かせない。
-  // フォーク元の初期図を変えたらここで落ちる — src-tauri/src/documents.rs の initial_source と data_contract も直す
-  it("フローチャートの初期図を生成器にかけると、凍結した文字列になる", () => {
-    expect(toSource("flowchart", initialFlowNodes, [])).toBe("flowchart TD\n    startNode[Start]\n");
+describe("エディタの初期図 (data_contract Document.initial_sources, spec 04 D4-2・spec 34 D6)", () => {
+  // Rust の save はこれらと一字一句同じ source を AI / インポートの図の最初の書き込みに書かせない。初期図は作った時の言語なので、
+  // 画面の全部の言語の初期図を fixture に書き、Rust のテスト (documents.rs の initial_sources_match_the_fixture_written_by_vitest) が比べる。
+  // フォーク元の初期図や訳を変えて落ちたら、LORELEI_UPDATE_FIXTURES=1 で回して書き直し、src-tauri の initial_sources と data_contract も直す
+  const FIXTURE = path.resolve(__dirname, "../../../src-tauri/tests/fixtures/initial_sources.json");
+  const unique = (xs: string[]) => xs.filter((x, i) => xs.indexOf(x) === i);
+  it("全部の言語の初期図を生成器にかけた出力が fixture と同じ", () => {
+    const expected = {
+      erDiagram: unique(LOCALES.map(({ code }) => toSource("erDiagram", initialERNodes(code), []))),
+      flowchart: unique(LOCALES.map(() => toSource("flowchart", initialFlowNodes, []))),
+    };
+    if (process.env.LORELEI_UPDATE_FIXTURES) writeFileSync(FIXTURE, `${JSON.stringify(expected, null, 2)}\n`);
+    expect(JSON.parse(readFileSync(FIXTURE, "utf8"))).toEqual(expected);
   });
-  it("ER 図の初期図を生成器にかけると、凍結した文字列になる", () => {
-    expect(toSource("erDiagram", initialERNodes, [])).toBe(
+  it("日本語の画面の初期図は前と同じ。英語は User", () => {
+    expect(toSource("flowchart", initialFlowNodes, [])).toBe("flowchart TD\n    startNode[Start]\n");
+    expect(toSource("erDiagram", initialERNodes("ja"), [])).toBe(
       "erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }"
     );
+    expect(toSource("erDiagram", initialERNodes("en"), [])).toBe(
+      "erDiagram\n  User {\n    int id PK\n    varchar(255) name UK\n  }"
+    );
+    // 省くと今の言語 (テストは日本語)
+    expect(initialERNodes()[0].data.name).toBe("ユーザー");
   });
 });
 
 describe("toSource の向き (spec 07 D3)", () => {
   it("エディタの向きで書く。ER 図は TD なら向きの行を書かない", () => {
     expect(toSource("flowchart", initialFlowNodes, [], "LR")).toBe("flowchart LR\n    startNode[Start]\n");
-    expect(toSource("erDiagram", initialERNodes, [], "LR").split("\n").slice(0, 2)).toEqual([
+    expect(toSource("erDiagram", initialERNodes(), [], "LR").split("\n").slice(0, 2)).toEqual([
       "erDiagram",
       "  direction LR",
     ]);
-    expect(toSource("erDiagram", initialERNodes, [], "TD")).not.toContain("direction");
+    expect(toSource("erDiagram", initialERNodes(), [], "TD")).not.toContain("direction");
   });
 });
 
@@ -269,9 +286,9 @@ describe("toSource のテーマ (spec 24 D1)", () => {
   it("default 以外のテーマは図の先頭に frontmatter で書き、default は今までと同じ", () => {
     const dark = "---\nconfig:\n  theme: dark\n---\n";
     expect(toSource("flowchart", initialFlowNodes, [], "LR", "dark")).toBe(`${dark}flowchart LR\n    startNode[Start]\n`);
-    expect(toSource("erDiagram", initialERNodes, [], "TD", "dark")).toBe(`${dark}${toSource("erDiagram", initialERNodes, [])}`);
+    expect(toSource("erDiagram", initialERNodes(), [], "TD", "dark")).toBe(`${dark}${toSource("erDiagram", initialERNodes(), [])}`);
     expect(toSource("flowchart", initialFlowNodes, [], "TD", "default")).toBe(toSource("flowchart", initialFlowNodes, []));
-    expect(toSource("erDiagram", initialERNodes, [], "TD", "default")).toBe(toSource("erDiagram", initialERNodes, []));
+    expect(toSource("erDiagram", initialERNodes(), [], "TD", "default")).toBe(toSource("erDiagram", initialERNodes(), []));
   });
 });
 

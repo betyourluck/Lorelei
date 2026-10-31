@@ -299,7 +299,7 @@ impl Store {
         let first_fill = doc.source.is_empty();
         // 保険 (spec 04 D4-2、spec 08 D1 で first_fill の時だけに絞った): AI / インポートの図を、空への最初の書き込みで
         // エディタの初期図で潰さない (現況 4 の 1 件目の形)。中身のある図の上書きは保険の外 (門が受け持つ)
-        if first_fill && doc.origin != Origin::New && source == initial_source(doc.editor) {
+        if first_fill && doc.origin != Origin::New && initial_sources(doc.editor).contains(&source.as_str()) {
             return Err(DesktopError::new(
                 error::INITIAL_FIGURE_REJECTED,
                 format!(
@@ -487,11 +487,15 @@ pub fn editor_kind(e: Editor) -> EditorKind {
 }
 
 
-/// data_contract `Document.initial_sources`。フォーク元のエディタの初期図を生成器にかけた出力 (vitest で突き合わせる)
-pub fn initial_source(editor: Editor) -> &'static str {
+/// data_contract `Document.initial_sources`。フォーク元のエディタの初期図を、画面の全部の言語で生成器にかけた出力 (spec 34 D6)。
+/// 初期図は作った時の言語なので、保険はどれかと同じなら拒む。vitest が書く fixture (tests/fixtures/initial_sources.json) と突き合わせる
+pub fn initial_sources(editor: Editor) -> &'static [&'static str] {
     match editor {
-        Editor::Flowchart => "flowchart TD\n    startNode[Start]\n",
-        Editor::ErDiagram => "erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }",
+        Editor::Flowchart => &["flowchart TD\n    startNode[Start]\n"],
+        Editor::ErDiagram => &[
+            "erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }",
+            "erDiagram\n  User {\n    int id PK\n    varchar(255) name UK\n  }",
+        ],
     }
 }
 
@@ -576,6 +580,9 @@ mod tests {
         sv(&s, &ai.id, flow, BTreeMap::new()).unwrap();
         assert_eq!(s.load(&ai.id).unwrap().source, flow);
         assert!(sv(&s, &imported.id, er, BTreeMap::new()).is_err());
+        // spec 34 D6: 初期図は作った時の言語なので、どの言語の初期図でも拒む (英語の画面のテーブル名は User)
+        let en_er = "erDiagram\n  User {\n    int id PK\n    varchar(255) name UK\n  }";
+        assert_eq!(sv(&s, &imported.id, en_er, BTreeMap::new()).unwrap_err().code, INITIAL_FIGURE_REJECTED);
         assert_eq!(s.load(&imported.id).unwrap().source, "");
 
         // 新規作成の図は初期図で始まるのが正しい
@@ -583,6 +590,19 @@ mod tests {
         sv(&s, &new.id, flow, BTreeMap::new()).unwrap();
         // 種類の違う初期図は対象外 (その種類の初期図だけを拒む)
         sv(&s, &ai.id, er, BTreeMap::new()).unwrap();
+    }
+
+    /// spec 34 D6: TS のエディタの初期図 (画面の全部の言語) と Rust の初期図を結ぶ。片側だけ変えると保険が黙って外れるので、
+    /// vitest (__tests__/lib/desktop/doc-session.test.ts) が LORELEI_UPDATE_FIXTURES=1 で書く fixture と比べる
+    #[test]
+    fn initial_sources_match_the_fixture_written_by_vitest() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/initial_sources.json");
+        let text = std::fs::read_to_string(&path).expect("vitest が書く fixture");
+        let fixture: BTreeMap<String, Vec<String>> = serde_json::from_str(&text).unwrap();
+        assert_eq!(fixture.keys().collect::<Vec<_>>(), ["erDiagram", "flowchart"]);
+        for (key, editor) in [("flowchart", Editor::Flowchart), ("erDiagram", Editor::ErDiagram)] {
+            assert_eq!(fixture[key], initial_sources(editor), "{key}: LORELEI_UPDATE_FIXTURES=1 で vitest を回し、Rust の initial_sources も直す");
+        }
     }
 
     // 2026-09-25 実機で観測: ごみ箱へ移した図が「今の図」に残り、その自動保存が「図を読めません」で失敗し続け、
@@ -712,7 +732,7 @@ mod tests {
         sv(&s, &ai.id, "flowchart LR\n    A[A]\n", BTreeMap::new()).unwrap();
         let cur = s.load(&ai.id).unwrap().updated_at;
         s.update(&ai.id, "flowchart TD\n  startNode[Start]\n".into(), Editor::Flowchart, &cur).unwrap();
-        sv(&s, &ai.id, initial_source(Editor::Flowchart), BTreeMap::new()).unwrap();
+        sv(&s, &ai.id, initial_sources(Editor::Flowchart)[0], BTreeMap::new()).unwrap();
     }
 
     // spec 33: 印の無い保存 (人の編集) は、update の後の印 (normalize_pending) が立っていても揃え書きにしない。
@@ -993,7 +1013,7 @@ mod tests {
         assert!(s.load(&d.id).unwrap().confirmed.is_none());
 
         let ai = s.create(Editor::Flowchart, None, Origin::Ai, Some("flowchart LR\n  A --> B\n".into())).unwrap();
-        let err = s.confirm(&ai.id, initial_source(Editor::Flowchart).into(), BTreeMap::new(), &ai.updated_at).unwrap_err();
+        let err = s.confirm(&ai.id, initial_sources(Editor::Flowchart)[0].into(), BTreeMap::new(), &ai.updated_at).unwrap_err();
         assert!(err.code == INITIAL_FIGURE_REJECTED, "{err}");
 
         let cur = s.load(&d.id).unwrap().updated_at;
