@@ -292,7 +292,7 @@ CodeEditor:
   completion: "components/ui/mermaid-completion.ts の mermaidCandidates(text, pos, kind) → { options, from, typed, validFor, auto }。置換範囲と validFor は同じ [\\p{L}\\p{N}_] (IME の確定で二重に挿さらない)。多重度はエディタが扱える 7 組 (erDiagram の cardinality)"
   lint: "mermaid-render.ts の parseMermaid(code) → ParseIssue | null { line (1 始まり, 本文の行), fromColumn, toColumn, message }。mermaid が注釈と先頭の空行を消して数える行を prepareForParse / toParseIssue で本文の行に直す。500ms 遅延"
   escape: "CodeMirror が使った Esc (補完・検索を閉じる) は包みで伝播を止める (Yamada のダイアログは defaultPrevented を見ずに閉じるため)"
-  phrases: "components/ui/editor-phrases.ts の EDITOR_PHRASES_JA。search・lint・autocomplete・view・commands・language が phrase() で引く文言の和訳。テストが 6 つの dist からキーを抜いて照合する"
+  phrases: "components/ui/editor-phrases.ts の EDITOR_PHRASE_KEYS (ライブラリのキー → 訳のキー、spec 31 で EDITOR_PHRASES_JA から改めた) と editorPhrases(lng?)。search・lint・autocomplete・view・commands・language が phrase() で引く文言を画面の言語で。Compartment で差し替える。テストが 6 つの dist からキーを抜いて照合し、どの言語の訳も $ を残す"
 
 EditorMinimap:
   description: キャンバスの右下のミニマップの出し入れ (spec 26 D4〜D6)。フォーク元の改善 (Web 版でも動く。キーに Lorelei の名を入れない)
