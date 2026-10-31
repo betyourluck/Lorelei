@@ -1,0 +1,133 @@
+{
+  "colorMode": {
+    "dark": "ダーク",
+    "label": "画面の色: {{mode}}",
+    "light": "ライト",
+    "system": "OS に合わせる"
+  },
+  "import": {
+    "cancel": "キャンセル",
+    "description": "flowchart / erDiagram を貼り付けてください。図の種類に合うエディタで開きます",
+    "failed": "取り込めませんでした",
+    "submit": "取り込む",
+    "title": "Mermaid をインポート"
+  },
+  "kind": {
+    "erDiagram": "ER図",
+    "flowchart": "フローチャート"
+  },
+  "list": {
+    "create": "新規作成",
+    "label": "図の一覧",
+    "name": "図の名前",
+    "trash": "ごみ箱へ",
+    "trashNamed": "「{{title}}」をごみ箱へ",
+    "unsaved": "最後の「確定」より後の変更があります"
+  },
+  "mcp": {
+    "state": {
+      "blocked": "設定を読めません",
+      "failed": "待ち受けられません",
+      "listening": "待ち受け中: 127.0.0.1:{{port}}",
+      "stopped": "止めています"
+    }
+  },
+  "open": {
+    "dropped": "エディタで表現できない要素を省きました",
+    "failed": "図を開けませんでした"
+  },
+  "pane": {
+    "listWidth": "図の一覧の幅",
+    "splitterHint": "{{label}}（ドラッグで変更、ダブルクリックで元に戻す）"
+  },
+  "revert": {
+    "askBody": "今の変更は、戻した後に Ctrl+Z (元に戻す) で取り戻せます。",
+    "askConfirm": "戻す",
+    "askTitle": "最後に確定した中身へ戻しますか？",
+    "hint": "最後に「確定」した中身へ戻します (戻した後も Ctrl+Z で取り消せます)",
+    "never": "まだ確定していません (この版より前に確定して、その後に変更した図も戻せません)",
+    "unchanged": "最後の確定から変わっていません"
+  },
+  "save": {
+    "failed": "保存できませんでした",
+    "saved": "保存しました"
+  },
+  "session": {
+    "cannotOpen": "「{{title}}」を開けません (保存しません)",
+    "confirmFailed": "確定できませんでした",
+    "confirmStale": "AI が図を書き換えたので、確定しませんでした",
+    "initialFigureRejected": "AI の図をエディタの初期図で上書きしかけたので、保存を止めました",
+    "initialFigureRejectedHint": "図を開き直してください。届いた原文は残っています",
+    "listFailed": "図の一覧を読めません",
+    "previousSaveFailed": "前の図を保存できませんでした",
+    "reloaded": "AI が図を書き換えました",
+    "reopening": "AI が図を書き換えたので開き直します",
+    "revertFailed": "確定へ戻せませんでした",
+    "switchBlocked": "保存できなかったので、図を切り替えませんでした"
+  },
+  "settings": {
+    "changeFailed": "設定を変えられませんでした",
+    "client": {
+      "commandNote": "Lorelei を使うプロジェクトのフォルダで実行してください（登録はフォルダごとです。どこからでも使うなら --scope user を足します）。トークンを作り直したら、登録し直してください。",
+      "commandTab": "コマンド（Claude Code）",
+      "copyCommand": "登録コマンドをコピー",
+      "copyJson": "JSON をコピー",
+      "heading": "クライアント側の設定",
+      "jsonNote": "Claude Code の .mcp.json など、mcpServers を読むクライアントの設定ファイルに貼ってください。.mcp.json は Git に入れて共有する前提のファイルなので、貼るとトークンもリポジトリに入ります。入れたくない時はコマンドで登録してください。トークンを作り直したら、貼り直してください。",
+      "jsonTab": "JSON",
+      "tokenPlaceholder": "<トークン>"
+    },
+    "copied": "{{what}}をコピーしました",
+    "loading": "読み込んでいます…",
+    "mcp": {
+      "apply": "適用",
+      "applyPort": "ポートを適用",
+      "cancel": "やめる",
+      "copy": "コピー",
+      "description": "Claude Code などの MCP クライアントから、validate / render / open_in_editor を呼べるようにします。 Lorelei を開いている間だけ使えます。",
+      "enable": "MCP サーバーを有効にする",
+      "heading": "MCP サーバー（AI から図を受け取る）",
+      "localOnly": "待ち受けは 127.0.0.1 のみです（他の端末からは接続できません）。",
+      "noToken": "まだ作られていません",
+      "port": "ポート",
+      "regenerate": "トークンを作り直す",
+      "regenerateConfirm": "作り直す",
+      "regenerateWarning": "今のトークンを設定したクライアントはつながらなくなります。",
+      "state": "待ち受けの状態",
+      "token": "トークン"
+    },
+    "title": "設定",
+    "what": {
+      "command": "登録コマンド",
+      "json": "JSON ",
+      "token": "トークン"
+    }
+  },
+  "shell": {
+    "loading": "読み込み中…",
+    "saveFailed": "保存に失敗しました",
+    "saveFailedDetail": "保存に失敗しました: {{detail}}",
+    "unopenable": "この図は開けないので保存しません"
+  },
+  "titleBar": {
+    "about": "Lorelei について",
+    "close": "閉じる",
+    "closeBlocked": "保存できないので閉じませんでした",
+    "forceClose": "保存せずに閉じる",
+    "maximize": "最大化",
+    "mcp": "MCP: {{state}}",
+    "mcpHint": "{{text}} (押すと設定を開く)",
+    "mcpListening": "MCP: 待ち受け中 127.0.0.1:{{port}}",
+    "minimize": "最小化",
+    "toggleList": "図の一覧を開閉"
+  },
+  "toolbar": {
+    "add": "追加",
+    "addFrame": "枠を追加",
+    "code": "コード生成",
+    "confirm": "確定",
+    "confirmHint": "確定 (Ctrl+S): 編集は自動で保存されています。確定すると今の中身を戻れる区切りとして残し、一覧の先頭に上がり、● が消えます",
+    "import": "インポート",
+    "revert": "確定へ戻す"
+  }
+}

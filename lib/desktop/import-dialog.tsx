@@ -3,6 +3,7 @@
 import { Button, Modal, ModalBody, ModalFooter, ModalHeader, ModalOverlay, Text, useNotice } from "@yamada-ui/react";
 import type { FC } from "react";
 import { useState } from "react";
+import { useTranslation } from "@/components/i18n";
 import { MermaidEditorWithPreview } from "@/components/ui";
 import type { DroppedItem } from "@/components/ui/mermaid-dropped";
 import { readMermaidDiagram } from "@/components/ui/mermaid-render";
@@ -10,6 +11,7 @@ import { erDropWarnings } from "@/features/er-diagram/utils/drop-warnings";
 import { erFromMermaid } from "@/features/er-diagram/utils/from-mermaid";
 import { flowchartDropWarnings } from "@/features/flowchart/utils/drop-warnings";
 import { flowFromMermaid } from "@/features/flowchart/utils/from-mermaid";
+import { useDesktopTranslation } from "./i18n";
 import { importSource } from "./tauri";
 
 /** 1 行目 (注釈・空行を除く) が erDiagram か */
@@ -42,6 +44,10 @@ const readDropped = async (code: string): Promise<DroppedItem[]> => {
  */
 export const ImportDialog: FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const notice = useNotice();
+  const { t } = useDesktopTranslation();
+  // 例のラベルはフォーク元のインポートの例と同じ訳 (記法はそのまま, spec 31 D7)
+  const { t: tc } = useTranslation();
+  const example = `flowchart TD\n  A[${tc("importModal.flowExample.start")}] --> B{${tc("importModal.flowExample.decision")}}`;
   const [source, setSource] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -58,7 +64,7 @@ export const ImportDialog: FC<{ open: boolean; onClose: () => void }> = ({ open,
     } catch (e) {
       notice({
         status: "error",
-        title: "取り込めませんでした",
+        title: t("import.failed"),
         description: String(e),
         isClosable: true,
         duration: null,
@@ -72,15 +78,15 @@ export const ImportDialog: FC<{ open: boolean; onClose: () => void }> = ({ open,
     // 本文がある時は Esc で閉じない (閉じると本文が消える, spec 10 D6)
     <Modal open={open} onClose={close} maxW="90vw" h="85vh" closeOnEsc={!source.trim()}>
       <ModalOverlay />
-      <ModalHeader>Mermaid をインポート</ModalHeader>
+      <ModalHeader>{t("import.title")}</ModalHeader>
       <ModalBody pb={2} flex={1} minH={0} overflow={{ base: "hidden", md: "auto" }}>
         <MermaidEditorWithPreview
           value={source}
           onChange={setSource}
-          placeholder={"flowchart TD\n  A[開始] --> B{判定}"}
+          placeholder={example}
           description={
             <Text fontSize="sm" color="textHint">
-              flowchart / erDiagram を貼り付けてください。図の種類に合うエディタで開きます
+              {t("import.description")}
             </Text>
           }
           warnings={warningsFor}
@@ -88,9 +94,9 @@ export const ImportDialog: FC<{ open: boolean; onClose: () => void }> = ({ open,
         />
       </ModalBody>
       <ModalFooter>
-        <Button onClick={close}>キャンセル</Button>
+        <Button onClick={close}>{t("import.cancel")}</Button>
         <Button colorScheme="blue" onClick={() => void submit()} loading={busy} disabled={!source.trim()}>
-          取り込む
+          {t("import.submit")}
         </Button>
       </ModalFooter>
     </Modal>

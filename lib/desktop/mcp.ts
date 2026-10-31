@@ -4,6 +4,7 @@
 // 設定ファイル (mcp_server.json) の読み書きは Rust。JS はコマンドを呼ぶだけ。
 
 import { useCallback, useEffect, useState } from "react";
+import { desktopT } from "./i18n";
 import { invoke, listen } from "./tauri";
 
 export interface McpStatus {
@@ -51,13 +52,13 @@ export const clientConfigJson = (s: McpStatus): string =>
 export const stateLabel = (s: McpStatus): string => {
   switch (s.state) {
     case "listening":
-      return `待ち受け中: 127.0.0.1:${s.port}`;
+      return desktopT("mcp.state.listening", { port: s.port });
     case "stopped":
-      return "止めています";
+      return desktopT("mcp.state.stopped");
     case "failed":
-      return "待ち受けられません";
+      return desktopT("mcp.state.failed");
     case "blocked":
-      return "設定を読めません";
+      return desktopT("mcp.state.blocked");
   }
 };
 

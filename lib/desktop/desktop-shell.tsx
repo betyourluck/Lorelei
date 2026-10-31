@@ -4,11 +4,11 @@ import { Box, Center, Flex, Text } from "@yamada-ui/react";
 import type { FC, ReactNode } from "react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HistoryGateContext } from "@/components/editor-history/gate";
-import { BUILD_LOCALE, i18n } from "@/components/i18n";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
 import type { HistoryStatus, RegisteredActions } from "./desktop-actions";
 import { DesktopActionsProvider } from "./desktop-actions";
 import { DocumentList } from "./document-list";
+import { useDesktopTranslation } from "./i18n";
 import { useMcpStatus } from "./mcp";
 import { LIST_WIDTH, usePaneLayout } from "./pane-layout";
 import { PaneSplitter } from "./pane-splitter";
@@ -33,18 +33,15 @@ const HIDE_FORK_PANELS = `[data-lorelei-desktop] .react-flow__panel.top.left,
 export const DesktopShell: FC<{ children: ReactNode }> = ({ children }) => {
   // 静的書き出しの HTML と食い違わないよう、マウント後に判定する (ExportButtons と同じ)
   const [desktop, setDesktop] = useState(false);
-  useEffect(() => {
-    const tauri = isTauri();
-    setDesktop(tauri);
-    // 外枠の言葉はまだ日本語だけなので、エディタも日本語に留める (OS の言語で英語になり混ざらないように)。
-    // フォーク元の LocaleSync の後に走る。外枠の言葉と切り替えを入れる spec 34 で外す
-    if (tauri) void i18n.changeLanguage(BUILD_LOCALE);
-  }, []);
+  // 画面の言語はフォーク元の LocaleSync が先に当てる (外枠より前の兄弟の effect。changeLanguage は同期)。
+  // なので外枠の最初の描画と窓を出す時には、もうその言語になっている (spec 34 D2)
+  useEffect(() => setDesktop(isTauri()), []);
   if (!desktop) return <>{children}</>;
   return <Shell>{children}</Shell>;
 };
 
 const Shell: FC<{ children: ReactNode }> = ({ children }) => {
+  const { t } = useDesktopTranslation();
   const [actions, setActions] = useState<RegisteredActions | null>(null);
   // エディタの向きで保存する (spec 07 D3)
   const session = useDocSession(actions?.direction ?? "TD", actions?.theme ?? "default");
@@ -56,7 +53,8 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
   useEffect(() => {
     void windowAction("show");
   }, []);
-  const [closeError, setCloseError] = useState<string | null>(null);
+  // 閉じる前の保存に失敗したか。文は描く時に訳す (切り替えに付いてくる, spec 34 D3)
+  const [closeFailed, setCloseFailed] = useState(false);
   // 「確定」を押せる時 (spec 32 D1): 図の準備ができている (開いている途中・開けない図ではない)
   const canConfirm = session.historyReady && !session.unopenable;
   const canConfirmRef = useRef(canConfirm);
@@ -94,7 +92,7 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
     let disposed = false;
     void onCloseRequested(async () => {
       const ok = await flushRef.current();
-      setCloseError(ok ? null : "保存に失敗しました");
+      setCloseFailed(!ok);
       return ok;
     }).then((u) => {
       if (disposed) u();
@@ -128,19 +126,19 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
   const revert = !item?.hasConfirmed
     ? {
         enabled: false,
-        title: "まだ確定していません (この版より前に確定して、その後に変更した図も戻せません)",
+        title: t("revert.never"),
       }
     : !unsaved
-      ? { enabled: false, title: "最後の確定から変わっていません" }
+      ? { enabled: false, title: t("revert.unchanged") }
       : {
           enabled: canConfirm && Boolean(actions?.importMermaid),
-          title: "最後に「確定」した中身へ戻します (戻した後も Ctrl+Z で取り消せます)",
+          title: t("revert.hint"),
         };
   const onRevert = async () => {
     const ok = await revertConfirm.ask(
-      "最後に確定した中身へ戻しますか？",
-      "今の変更は、戻した後に Ctrl+Z (元に戻す) で取り戻せます。",
-      "戻す"
+      t("revert.askTitle"),
+      t("revert.askBody"),
+      t("revert.askConfirm")
     );
     if (!ok) return;
     // 確認のダイアログが閉じ切ってから当てる (閉じかけのダイアログがあると、Undo の記録が次の編集とまとまる, spec 30 D1)
@@ -148,18 +146,19 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
     await session.revert((data, adjust) => actionsRef.current?.importMermaid?.(data, adjust));
   };
   const warning = session.unopenable
-    ? "この図は開けないので保存しません"
+    ? t("shell.unopenable")
     : session.saveError
-      ? `保存に失敗しました: ${session.saveError}`
+      ? t("shell.saveFailedDetail", { detail: session.saveError })
       : null;
 
   return (
     <Flex data-lorelei-desktop="" direction="column" h="100vh" overflow="hidden">
       <style>{HIDE_FORK_PANELS}</style>
       <TitleBar
+        // eslint-disable-next-line i18next/no-literal-string -- 未確定の印 (記号)
         title={session.current ? `${unsaved ? "● " : ""}${session.current.title}` : undefined}
         warning={warning}
-        closeError={closeError}
+        closeError={closeFailed ? t("shell.saveFailed") : null}
         onToggleList={pane.toggleList}
         onForceClose={() => void windowAction("destroy")}
         mcp={mcp}
@@ -196,7 +195,7 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
         )}
         {pane.listOpen && (
           <PaneSplitter
-            label="図の一覧の幅"
+            label={t("pane.listWidth")}
             value={pane.listWidth}
             min={LIST_WIDTH.min}
             max={LIST_WIDTH.max}
@@ -240,16 +239,17 @@ const dialogOpen = () => document.querySelector('[role="dialog"], [role="alertdi
 const LOADING_LABEL_DELAY_MS = 200;
 
 const LoadingLabel: FC = () => {
+  const { t } = useDesktopTranslation();
   const [shown, setShown] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setShown(true), LOADING_LABEL_DELAY_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setShown(true), LOADING_LABEL_DELAY_MS);
+    return () => clearTimeout(timer);
   }, []);
   if (!shown) return null;
   return (
     <Center position="absolute" inset="0" pointerEvents="none">
       <Text fontSize="sm" color="textCaption">
-        読み込み中…
+        {t("shell.loading")}
       </Text>
     </Center>
   );

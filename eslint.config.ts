@@ -134,7 +134,7 @@ export default tseslint.config(
   // 画面の言葉は訳のファイルへ (spec 31 D10)。JSX の文字と、画面に出る属性の直書きを止める (日本語の直書きは __tests__/i18n/hardcoded-text.test.ts も見る)。
   // Mermaid の記法・図に書く既定値などの例外は行ごとに eslint-disable-next-line で理由を書く。lib/desktop は spec 34 で入れる
   {
-    files: ["app/**/*.tsx", "features/**/*.tsx", "components/**/*.tsx"],
+    files: ["app/**/*.tsx", "features/**/*.tsx", "components/**/*.tsx", "lib/desktop/**/*.tsx"],
     ignores: ["**/__tests__/**", "**/stories/**", "**/*.test.tsx", "**/*.stories.tsx"],
     plugins: { i18next },
     rules: {

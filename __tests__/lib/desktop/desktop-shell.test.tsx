@@ -2,7 +2,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@/__tests__/test-utils";
-import { i18n } from "@/components/i18n";
+import { i18n, LOCALE_STORAGE_KEY, LocaleSync } from "@/components/i18n";
 import { theme } from "@/components/providers/theme";
 import { DesktopShell as Shell } from "@/lib/desktop/desktop-shell";
 import { fakeBackend } from "./fake-backend";
@@ -49,25 +49,26 @@ describe("DesktopShell", () => {
   beforeEach(() => invoke.mockClear());
   afterEach(() => setTauri(false));
 
-  it("デスクトップでは画面の言語を日本語に留め、Web 版では触らない (spec 31: 外枠の言葉は spec 34 まで日本語だけ)", async () => {
-    setTauri(false);
-    await i18n.changeLanguage("en");
-    const web = render(
-      <DesktopShell>
-        <p>editor</p>
-      </DesktopShell>
-    );
-    await new Promise((r) => setTimeout(r, 50));
-    expect(i18n.language).toBe("en");
-    web.unmount();
-
+  it("窓を出す時には、覚えた言語 (無ければ OS の言語) が当たっている (spec 34 D2: 組み立ての日本語を見せない)", async () => {
+    // 覚えた言語は英語。LocaleSync は AppProviders の中で外枠より前の兄弟 (app-providers.tsx)
+    localStorage.setItem(LOCALE_STORAGE_KEY, "en");
+    let shownIn: string | null = null;
+    win.show.mockImplementationOnce(async () => {
+      shownIn = i18n.language;
+    });
     setTauri(true);
     render(
-      <DesktopShell>
-        <p>editor</p>
-      </DesktopShell>
+      <>
+        <LocaleSync />
+        <DesktopShell>
+          <p>editor</p>
+        </DesktopShell>
+      </>
     );
-    await waitFor(() => expect(i18n.language).toBe("ja"));
+    await waitFor(() => expect(shownIn).not.toBeNull());
+    expect(shownIn).toBe("en");
+    // 外枠の言葉もその言語で描かれている
+    expect(screen.getByRole("button", { name: "About Lorelei" })).toBeInTheDocument();
   });
 
   it("Web 版では children をそのまま返し、外枠を出さない (spec 02 D1)", () => {

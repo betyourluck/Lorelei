@@ -1,21 +1,20 @@
 "use client";
 
 import { CheckIcon, CodeIcon, FileInputIcon, PlusIcon, RotateCcwIcon, SquareDashedIcon } from "@yamada-ui/lucide";
-import { Box, Button, ButtonGroup, HStack } from "@yamada-ui/react";
-import type { FC } from "react";
-import { useState } from "react";
+import type { ButtonProps } from "@yamada-ui/react";
+import { Box, Button, ButtonGroup, HStack, IconButton } from "@yamada-ui/react";
+import type { FC, ReactElement, RefObject } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { HistoryButtons } from "@/components/ui/history-buttons";
 import { DirectionMenu } from "@/features/flowchart/components/direction-menu";
 import type { HistoryStatus, RegisteredActions } from "./desktop-actions";
+import { useDesktopTranslation } from "./i18n";
 import { ImportDialog } from "./import-dialog";
 import type { EditorKind } from "./open-requests";
 
 export const TOOLBAR_HEIGHT = "40px";
 
-const KINDS: { kind: EditorKind; label: string }[] = [
-  { kind: "flowchart", label: "フローチャート" },
-  { kind: "erDiagram", label: "ER図" },
-];
+const KINDS: EditorKind[] = ["flowchart", "erDiagram"];
 
 interface Props {
   actions: RegisteredActions | null;
@@ -34,6 +33,50 @@ interface Props {
   onRevert: () => void;
 }
 
+/**
+ * ボタンが入り切らない時は、文字を隠してアイコンだけにする (spec 34 受け入れ条件 8: 英語は長く、窓の最小幅 900 で切れていた。日本語も 1000 で切れていた)。
+ * ボタンは縮めない (flexShrink 0) ので、入り切らないと中身の幅 (scrollWidth) が見えている幅より広くなる。縮めた時に要った幅を覚え、窓がそこまで広がったら戻す
+ */
+const useCompact = (ref: RefObject<HTMLElement | null>, deps: unknown[]): boolean => {
+  const [compact, setCompact] = useState(false);
+  const need = useRef(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => {
+      if (!compact && el.scrollWidth > el.clientWidth + 1) {
+        need.current = el.scrollWidth;
+        setCompact(true);
+      } else if (compact && el.clientWidth >= need.current) {
+        setCompact(false);
+      }
+    };
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+    // 言葉 (言語) やボタンの数が変わったら測り直す
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compact, ref, ...deps]);
+  return compact;
+};
+
+/** 文字とアイコンのボタン。compact の時はアイコンだけにし、文字は aria-label と title に回す */
+const ToolButton: FC<ButtonProps & { icon: ReactElement; label: string; compact: boolean }> = ({
+  icon,
+  label,
+  compact,
+  title,
+  ...rest
+}) =>
+  compact ? (
+    <IconButton icon={icon} aria-label={label} title={title ?? label} flexShrink={0} {...rest} />
+  ) : (
+    <Button startIcon={icon} title={title} flexShrink={0} {...rest}>
+      {label}
+    </Button>
+  );
+
 /** タイトルバーの下のツールバー (spec 02 D3) */
 export const Toolbar: FC<Props> = ({
   actions,
@@ -45,10 +88,15 @@ export const Toolbar: FC<Props> = ({
   revert,
   onRevert,
 }) => {
+  const { t, i18n } = useDesktopTranslation();
   const [importing, setImporting] = useState(false);
+  const barRef = useRef<HTMLDivElement>(null);
+  const compact = useCompact(barRef, [i18n.language, actions?.addLabel, Boolean(actions?.addFrame), current]);
 
   return (
     <HStack
+      ref={barRef}
+      data-testid="desktop-toolbar"
       h={TOOLBAR_HEIGHT}
       flexShrink={0}
       gap="sm"
@@ -57,8 +105,8 @@ export const Toolbar: FC<Props> = ({
       borderBottomWidth="1px"
       borderColor="line"
     >
-      <ButtonGroup size="sm" variant="outline" attached>
-        {KINDS.map(({ kind, label }) => (
+      <ButtonGroup size="sm" variant="outline" attached flexShrink={0}>
+        {KINDS.map((kind) => (
           <Button
             key={kind}
             aria-pressed={kind === current}
@@ -66,72 +114,88 @@ export const Toolbar: FC<Props> = ({
             variant={kind === current ? "solid" : "outline"}
             onClick={() => kind !== current && onSwitchKind(kind)}
           >
-            {label}
+            {t(`kind.${kind}`)}
           </Button>
         ))}
       </ButtonGroup>
       <Box w="1px" h="5" bg="line" />
-      <Button
+      <ToolButton
+        compact={compact}
         size="sm"
         colorScheme="blue"
-        startIcon={<PlusIcon />}
+        icon={<PlusIcon />}
+        label={actions?.addLabel ?? t("toolbar.add")}
         disabled={!actions}
         onClick={() => actions?.add()}
-      >
-        {actions?.addLabel ?? "追加"}
-      </Button>
+      />
       {/* 枠 (サブグラフ) を追加 (spec 15 D5)。フローチャートのパネルが登録した時だけ */}
       {actions?.addFrame && (
-        <Button size="sm" variant="outline" startIcon={<SquareDashedIcon />} onClick={() => actions.addFrame?.()}>
-          枠を追加
-        </Button>
+        <ToolButton
+          compact={compact}
+          size="sm"
+          variant="outline"
+          icon={<SquareDashedIcon />}
+          label={t("toolbar.addFrame")}
+          onClick={() => actions.addFrame?.()}
+        />
       )}
-      <Button
+      <ToolButton
+        compact={compact}
         size="sm"
         variant="outline"
-        startIcon={<CodeIcon />}
+        icon={<CodeIcon />}
+        label={t("toolbar.code")}
         disabled={!actions}
         onClick={() => actions?.code()}
-      >
-        コード生成
-      </Button>
-      <Button size="sm" variant="outline" startIcon={<FileInputIcon />} onClick={() => setImporting(true)}>
-        インポート
-      </Button>
+      />
+      <ToolButton
+        compact={compact}
+        size="sm"
+        variant="outline"
+        icon={<FileInputIcon />}
+        label={t("toolbar.import")}
+        onClick={() => setImporting(true)}
+      />
       {/* 図の向き (spec 07 D3)。エディタが向きを持つ時だけ */}
-      {actions?.setDirection && <DirectionMenu value={actions.direction} onChange={actions.setDirection} />}
+      {actions?.setDirection && (
+        <Box flexShrink={0}>
+          <DirectionMenu value={actions.direction} onChange={actions.setDirection} />
+        </Box>
+      )}
       <ImportDialog open={importing} onClose={() => setImporting(false)} />
       <Box flex="1" />
       {/* 戻す・やり直す (spec 30)。図を開いている間 (actions が null) は押せない */}
       {actions?.undo && actions.redo && (
-        <HistoryButtons
+        <Box flexShrink={0}>
+          <HistoryButtons
           undo={actions.undo}
           redo={actions.redo}
           canUndo={history.canUndo}
           canRedo={history.canRedo}
-        />
+          />
+        </Box>
       )}
-      <Button
+      <ToolButton
+        compact={compact}
         size="sm"
         variant="outline"
-        startIcon={<CheckIcon />}
+        icon={<CheckIcon />}
+        label={t("toolbar.confirm")}
         // ファイルへ書き出すと思われないよう「保存」とは呼ばない (中身は裏で自動保存されている。2026-10-04 利用者 FB)
-        title="確定 (Ctrl+S): 編集は自動で保存されています。確定すると今の中身を戻れる区切りとして残し、一覧の先頭に上がり、● が消えます"
+        title={t("toolbar.confirmHint")}
         disabled={!current || !canConfirm}
         onClick={onSave}
-      >
-        確定
-      </Button>
-      <Button
+      />
+      <ToolButton
+        compact={compact}
         size="sm"
         variant="outline"
-        startIcon={<RotateCcwIcon />}
+        icon={<RotateCcwIcon />}
+        label={t("toolbar.revert")}
         title={revert.title}
         disabled={!revert.enabled}
         onClick={onRevert}
-      >
-        確定へ戻す
-      </Button>
+      />
     </HStack>
   );
 };

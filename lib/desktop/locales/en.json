@@ -1,0 +1,133 @@
+{
+  "colorMode": {
+    "dark": "Dark",
+    "label": "Display color: {{mode}}",
+    "light": "Light",
+    "system": "Match the OS"
+  },
+  "import": {
+    "cancel": "Cancel",
+    "description": "Paste a flowchart or erDiagram. It opens in the editor for that kind of diagram",
+    "failed": "Could not import",
+    "submit": "Import",
+    "title": "Import Mermaid"
+  },
+  "kind": {
+    "erDiagram": "ER diagram",
+    "flowchart": "Flowchart"
+  },
+  "list": {
+    "create": "New",
+    "label": "Diagrams",
+    "name": "Diagram name",
+    "trash": "Move to the trash",
+    "trashNamed": "Move “{{title}}” to the trash",
+    "unsaved": "Changed since the last “Confirm”"
+  },
+  "mcp": {
+    "state": {
+      "blocked": "Cannot read the settings",
+      "failed": "Cannot listen",
+      "listening": "Listening: 127.0.0.1:{{port}}",
+      "stopped": "Stopped"
+    }
+  },
+  "open": {
+    "dropped": "Left out parts the editor cannot show",
+    "failed": "Could not open the diagram"
+  },
+  "pane": {
+    "listWidth": "Width of the diagram list",
+    "splitterHint": "{{label}} (drag to resize, double-click to reset)"
+  },
+  "revert": {
+    "askBody": "You can get your current changes back with Ctrl+Z (Undo) after reverting.",
+    "askConfirm": "Revert",
+    "askTitle": "Revert to the last confirmed content?",
+    "hint": "Go back to the last confirmed content (you can undo it with Ctrl+Z)",
+    "never": "Not confirmed yet (diagrams confirmed before this version and changed afterwards cannot be reverted either)",
+    "unchanged": "Unchanged since the last confirm"
+  },
+  "save": {
+    "failed": "Could not save",
+    "saved": "Saved"
+  },
+  "session": {
+    "cannotOpen": "Cannot open “{{title}}” (it will not be saved)",
+    "confirmFailed": "Could not confirm",
+    "confirmStale": "Not confirmed because the AI rewrote the diagram",
+    "initialFigureRejected": "Saving was stopped because it would have overwritten the AI's diagram with the editor's starting diagram",
+    "initialFigureRejectedHint": "Reopen the diagram. The original source that arrived is kept",
+    "listFailed": "Cannot read the diagram list",
+    "previousSaveFailed": "Could not save the previous diagram",
+    "reloaded": "The AI rewrote the diagram",
+    "reopening": "The AI rewrote the diagram, so it is being reopened",
+    "revertFailed": "Could not revert to the confirmed content",
+    "switchBlocked": "The diagram was not switched because it could not be saved"
+  },
+  "settings": {
+    "changeFailed": "Could not change the settings",
+    "client": {
+      "commandNote": "Run it in the folder of the project that uses Lorelei (registration is per folder; add --scope user to use it everywhere). After regenerating the token, register again.",
+      "commandTab": "Command (Claude Code)",
+      "copyCommand": "Copy the registration command",
+      "copyJson": "Copy the JSON",
+      "heading": "Client setup",
+      "jsonNote": "Paste it into a client settings file that reads mcpServers, such as Claude Code's .mcp.json. .mcp.json is meant to be committed and shared with Git, so the token goes into the repository too. If you do not want that, register with the command instead. After regenerating the token, paste it again.",
+      "jsonTab": "JSON",
+      "tokenPlaceholder": "<token>"
+    },
+    "copied": "Copied the {{what}}",
+    "loading": "Loading…",
+    "mcp": {
+      "apply": "Apply",
+      "applyPort": "Apply the port",
+      "cancel": "Cancel",
+      "copy": "Copy",
+      "description": "Lets MCP clients such as Claude Code call validate / render / open_in_editor. Available only while Lorelei is open.",
+      "enable": "Enable the MCP server",
+      "heading": "MCP server (receive diagrams from AI)",
+      "localOnly": "Listens on 127.0.0.1 only (other devices cannot connect).",
+      "noToken": "Not created yet",
+      "port": "Port",
+      "regenerate": "Regenerate the token",
+      "regenerateConfirm": "Regenerate",
+      "regenerateWarning": "Clients set up with the current token will no longer connect.",
+      "state": "Listening status",
+      "token": "Token"
+    },
+    "title": "Settings",
+    "what": {
+      "command": "registration command",
+      "json": "JSON",
+      "token": "token"
+    }
+  },
+  "shell": {
+    "loading": "Loading…",
+    "saveFailed": "Saving failed",
+    "saveFailedDetail": "Saving failed: {{detail}}",
+    "unopenable": "This diagram cannot be opened, so it is not saved"
+  },
+  "titleBar": {
+    "about": "About Lorelei",
+    "close": "Close",
+    "closeBlocked": "Not closed because the diagram could not be saved",
+    "forceClose": "Close without saving",
+    "maximize": "Maximize",
+    "mcp": "MCP: {{state}}",
+    "mcpHint": "{{text}} (click to open the settings)",
+    "mcpListening": "MCP: listening on 127.0.0.1:{{port}}",
+    "minimize": "Minimize",
+    "toggleList": "Show or hide the diagram list"
+  },
+  "toolbar": {
+    "add": "Add",
+    "addFrame": "Add group",
+    "code": "Generate code",
+    "confirm": "Confirm",
+    "confirmHint": "Confirm (Ctrl+S): edits are saved automatically. Confirming keeps the current content as a point you can return to, moves it to the top of the list and clears the ●",
+    "import": "Import",
+    "revert": "Revert to confirmed"
+  }
+}

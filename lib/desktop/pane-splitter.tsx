@@ -3,6 +3,7 @@
 import { Box } from "@yamada-ui/react";
 import type { FC, KeyboardEvent, PointerEvent } from "react";
 import { useRef, useState } from "react";
+import { useDesktopTranslation } from "./i18n";
 
 interface Props {
   /** 読み上げの名前 (例: 「図の一覧の幅」) */
@@ -25,6 +26,7 @@ const KEY_STEP = 16;
  * 戻す時に空走りが出る。setPointerCapture で、素早く動かしてつまみの外へ出ても追従する。
  */
 export const PaneSplitter: FC<Props> = ({ label, value, min, max, onDelta, onReset }) => {
+  const { t } = useDesktopTranslation();
   const [dragging, setDragging] = useState(false);
   const origin = useRef<number | null>(null);
 
@@ -46,7 +48,7 @@ export const PaneSplitter: FC<Props> = ({ label, value, min, max, onDelta, onRes
       aria-valuenow={value}
       aria-valuemin={min}
       aria-valuemax={max}
-      title={`${label}（ドラッグで変更、ダブルクリックで元に戻す）`}
+      title={t("pane.splitterHint", { label })}
       position="relative"
       flexShrink={0}
       w="1px"

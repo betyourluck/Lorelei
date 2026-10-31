@@ -17,6 +17,7 @@ import {
 import type { FC } from "react";
 import { useState } from "react";
 import type { DocumentSummary } from "./documents";
+import { useDesktopTranslation } from "./i18n";
 import type { EditorKind } from "./open-requests";
 
 
@@ -33,12 +34,13 @@ interface Props {
 
 /** 左ペインの図の一覧 (spec 02 D6)。ダブルクリックで名前を変える。削除はごみ箱へ移すだけ */
 export const DocumentList: FC<Props> = ({ list, currentId, onOpen, onCreate, onRename, onTrash, width }) => {
+  const { t } = useDesktopTranslation();
   const [editing, setEditing] = useState<string | null>(null);
 
   return (
     <VStack
       as="nav"
-      aria-label="図の一覧"
+      aria-label={t("list.label")}
       style={{ width: `${width}px` }}
       flexShrink={0}
       h="full"
@@ -48,11 +50,11 @@ export const DocumentList: FC<Props> = ({ list, currentId, onOpen, onCreate, onR
       <Box p="sm" borderBottomWidth="1px" borderColor="line">
         <Menu>
           <MenuButton as={Button} size="sm" w="full" startIcon={<PlusIcon />} variant="outline">
-            新規作成
+            {t("list.create")}
           </MenuButton>
           <MenuList>
-            <MenuItem onClick={() => onCreate("flowchart")}>フローチャート</MenuItem>
-            <MenuItem onClick={() => onCreate("erDiagram")}>ER図</MenuItem>
+            <MenuItem onClick={() => onCreate("flowchart")}>{t("kind.flowchart")}</MenuItem>
+            <MenuItem onClick={() => onCreate("erDiagram")}>{t("kind.erDiagram")}</MenuItem>
           </MenuList>
         </Menu>
       </Box>
@@ -81,7 +83,7 @@ export const DocumentList: FC<Props> = ({ list, currentId, onOpen, onCreate, onR
               {editing === d.id ? (
                 <Input
                   size="xs"
-                  aria-label="図の名前"
+                  aria-label={t("list.name")}
                   defaultValue={d.title}
                   autoFocus
                   onClick={(e) => e.stopPropagation()}
@@ -104,13 +106,14 @@ export const DocumentList: FC<Props> = ({ list, currentId, onOpen, onCreate, onR
                 </Text>
               )}
               {d.unsaved && (
-                <Text as="span" color="accent" fontSize="xs" title="最後の「確定」より後の変更があります">
+                // eslint-disable-next-line i18next/no-literal-string -- 未確定の印 (記号)
+                <Text as="span" color="accent" fontSize="xs" title={t("list.unsaved")}>
                   ●
                 </Text>
               )}
               <IconButton
-                aria-label={`「${d.title}」をごみ箱へ`}
-                title="ごみ箱へ"
+                aria-label={t("list.trashNamed", { title: d.title })}
+                title={t("list.trash")}
                 icon={<Trash2Icon />}
                 size="xs"
                 variant="ghost"

@@ -3,6 +3,7 @@
 import { useNotice } from "@yamada-ui/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { desktopT } from "./i18n";
 import type { EditorKind, OpenRequest } from "./open-requests";
 import { describeDropped, partitionOpens, routeOf } from "./open-requests";
 import { isTauri, listen, OPEN_EVENT, takePendingOpen } from "./tauri";
@@ -91,7 +92,7 @@ export function useDesktopOpen<T>(editor: EditorKind, onImport: (data: T) => voi
       if (r.dropped.length > 0) {
         notice({
           status: "warning",
-          title: "エディタで表現できない要素を省きました",
+          title: desktopT("open.dropped"),
           description: describeDropped(r.dropped),
           isClosable: true,
           duration: null,
@@ -130,7 +131,7 @@ export function useDesktopOpen<T>(editor: EditorKind, onImport: (data: T) => voi
       for (const r of failed) {
         notice({
           status: "error",
-          title: "図を開けませんでした",
+          title: desktopT("open.failed"),
           description: r.error ?? "",
           isClosable: true,
           duration: null,

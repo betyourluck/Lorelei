@@ -4,11 +4,16 @@ import { MonitorIcon, MoonIcon, SunIcon } from "@yamada-ui/lucide";
 import type { ColorModeWithSystem, IconButtonProps } from "@yamada-ui/react";
 import { IconButton, Menu, MenuButton, MenuItem, MenuList, useColorMode } from "@yamada-ui/react";
 import type { FC, ReactElement } from "react";
+import { useDesktopTranslation } from "./i18n";
 
-const CHOICES: { mode: ColorModeWithSystem; label: string; icon: ReactElement }[] = [
-  { mode: "light", label: "ライト", icon: <SunIcon /> },
-  { mode: "dark", label: "ダーク", icon: <MoonIcon /> },
-  { mode: "system", label: "OS に合わせる", icon: <MonitorIcon /> },
+const CHOICES: {
+  mode: ColorModeWithSystem;
+  label: "light" | "dark" | "system";
+  icon: ReactElement;
+}[] = [
+  { mode: "light", label: "light", icon: <SunIcon /> },
+  { mode: "dark", label: "dark", icon: <MoonIcon /> },
+  { mode: "system", label: "system", icon: <MonitorIcon /> },
 ];
 
 /**
@@ -18,14 +23,15 @@ const CHOICES: { mode: ColorModeWithSystem; label: string; icon: ReactElement }[
 export const ColorModeMenu: FC<{ buttonProps?: Omit<IconButtonProps, "aria-label"> }> = ({
   buttonProps,
 }) => {
+  const { t } = useDesktopTranslation();
   const { internalColorMode, changeColorMode } = useColorMode();
   const current = CHOICES.find((c) => c.mode === internalColorMode) ?? CHOICES[0];
   return (
     <Menu>
       <MenuButton
         as={IconButton}
-        aria-label={`画面の色: ${current.label}`}
-        title={`画面の色: ${current.label}`}
+        aria-label={t("colorMode.label", { mode: t(`colorMode.${current.label}`) })}
+        title={t("colorMode.label", { mode: t(`colorMode.${current.label}`) })}
         icon={current.icon}
         {...buttonProps}
       />
@@ -37,7 +43,7 @@ export const ColorModeMenu: FC<{ buttonProps?: Omit<IconButtonProps, "aria-label
             bgColor={c.mode === current.mode ? "selected" : "transparent"}
             onClick={() => changeColorMode(c.mode)}
           >
-            {c.label}
+            {t(`colorMode.${c.label}`)}
           </MenuItem>
         ))}
       </MenuList>

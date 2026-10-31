@@ -22,6 +22,7 @@ import {
 } from "@yamada-ui/react";
 import type { FC } from "react";
 import { useEffect, useState } from "react";
+import { useDesktopTranslation } from "./i18n";
 import type { McpStatus } from "./mcp";
 import {
   clientConfigJson,
@@ -45,6 +46,7 @@ interface Props {
  */
 export const SettingsDialog: FC<Props> = ({ open, onClose, status, onStatus }) => {
   const notice = useNotice();
+  const { t } = useDesktopTranslation();
   const [port, setPort] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -58,7 +60,7 @@ export const SettingsDialog: FC<Props> = ({ open, onClose, status, onStatus }) =
     try {
       onStatus(await op());
     } catch (e) {
-      notice({ status: "error", title: "設定を変えられませんでした", description: String(e), isClosable: true });
+      notice({ status: "error", title: t("settings.changeFailed"), description: String(e), isClosable: true });
     } finally {
       setBusy(false);
     }
@@ -66,23 +68,22 @@ export const SettingsDialog: FC<Props> = ({ open, onClose, status, onStatus }) =
 
   const copy = async (text: string, what: string) => {
     await navigator.clipboard.writeText(text);
-    notice({ status: "success", title: `${what}をコピーしました`, isClosable: true });
+    notice({ status: "success", title: t("settings.copied", { what }), isClosable: true });
   };
 
   return (
     <Modal open={open} onClose={onClose} size="2xl">
       <ModalOverlay />
       <ModalCloseButton />
-      <ModalHeader>設定</ModalHeader>
+      <ModalHeader>{t("settings.title")}</ModalHeader>
       <ModalBody>
         {!status ? (
-          <Text>読み込んでいます…</Text>
+          <Text>{t("settings.loading")}</Text>
         ) : (
           <VStack gap="md" align="stretch">
-            <Heading size="sm">MCP サーバー（AI から図を受け取る）</Heading>
+            <Heading size="sm">{t("settings.mcp.heading")}</Heading>
             <Text fontSize="sm" color="textHint">
-              Claude Code などの MCP クライアントから、validate / render / open_in_editor を呼べるようにします。
-              Lorelei を開いている間だけ使えます。
+              {t("settings.mcp.description")}
             </Text>
 
             <Checkbox
@@ -90,12 +91,12 @@ export const SettingsDialog: FC<Props> = ({ open, onClose, status, onStatus }) =
               disabled={busy || status.state === "blocked"}
               onChange={(e) => void run(() => setMcpEnabled(e.target.checked))}
             >
-              MCP サーバーを有効にする
+              {t("settings.mcp.enable")}
             </Checkbox>
 
             <Box>
               <Text fontSize="sm" fontWeight="semibold">
-                待ち受けの状態
+                {t("settings.mcp.state")}
               </Text>
               <Text fontSize="sm">{stateLabel(status)}</Text>
               {status.detail && (
@@ -108,12 +109,12 @@ export const SettingsDialog: FC<Props> = ({ open, onClose, status, onStatus }) =
             <Box>
               <HStack gap="sm">
                 <Text as="label" htmlFor="lorelei-mcp-port" fontSize="sm" fontWeight="semibold">
-                  ポート
+                  {t("settings.mcp.port")}
                 </Text>
                 <Input
                   id="lorelei-mcp-port"
                   type="number"
-                  aria-label="ポート"
+                  aria-label={t("settings.mcp.port")}
                   size="sm"
                   w="120px"
                   min={1024}
@@ -124,40 +125,40 @@ export const SettingsDialog: FC<Props> = ({ open, onClose, status, onStatus }) =
                 <Button
                   size="sm"
                   variant="outline"
-                  aria-label="ポートを適用"
+                  aria-label={t("settings.mcp.applyPort")}
                   disabled={busy || Number(port) === status.port}
                   onClick={() => void run(() => setMcpPort(Number(port)))}
                 >
-                  適用
+                  {t("settings.mcp.apply")}
                 </Button>
               </HStack>
               <Text fontSize="xs" color="textCaption">
-                待ち受けは 127.0.0.1 のみです（他の端末からは接続できません）。
+                {t("settings.mcp.localOnly")}
               </Text>
             </Box>
 
             <Box>
               <Text fontSize="sm" fontWeight="semibold">
-                トークン
+                {t("settings.mcp.token")}
               </Text>
               <HStack gap="sm">
-                <Code>{status.token ? "••••••••••••••••" : "まだ作られていません"}</Code>
+                <Code>{status.token ? "••••••••••••••••" : t("settings.mcp.noToken")}</Code>
                 <Button
                   size="xs"
                   variant="outline"
                   disabled={!status.token}
-                  onClick={() => status.token && void copy(status.token, "トークン")}
+                  onClick={() => status.token && void copy(status.token, t("settings.what.token"))}
                 >
-                  コピー
+                  {t("settings.mcp.copy")}
                 </Button>
                 <Button size="xs" variant="outline" disabled={busy} onClick={() => setConfirming(true)}>
-                  トークンを作り直す
+                  {t("settings.mcp.regenerate")}
                 </Button>
               </HStack>
               {confirming && (
                 <HStack gap="sm" mt="xs">
                   <Text fontSize="sm" color="warningText">
-                    今のトークンを設定したクライアントはつながらなくなります。
+                    {t("settings.mcp.regenerateWarning")}
                   </Text>
                   <Button
                     size="xs"
@@ -167,10 +168,10 @@ export const SettingsDialog: FC<Props> = ({ open, onClose, status, onStatus }) =
                       void run(regenerateMcpToken);
                     }}
                   >
-                    作り直す
+                    {t("settings.mcp.regenerateConfirm")}
                   </Button>
                   <Button size="xs" variant="ghost" onClick={() => setConfirming(false)}>
-                    やめる
+                    {t("settings.mcp.cancel")}
                   </Button>
                 </HStack>
               )}
@@ -192,31 +193,32 @@ const ClientSetup: FC<{ status: McpStatus; onCopy: (text: string, what: string) 
   status,
   onCopy,
 }) => {
-  const masked = { ...status, token: status.token ? "<トークン>" : null };
+  const { t } = useDesktopTranslation();
+  const masked = { ...status, token: status.token ? t("settings.client.tokenPlaceholder") : null };
   return (
     <Box>
       <Text fontSize="sm" fontWeight="semibold">
-        クライアント側の設定
+        {t("settings.client.heading")}
       </Text>
       <Tabs size="sm">
-        <Tab>コマンド（Claude Code）</Tab>
-        <Tab>JSON</Tab>
+        <Tab>{t("settings.client.commandTab")}</Tab>
+        <Tab>{t("settings.client.jsonTab")}</Tab>
         <TabPanel px="0">
           <CopyableSetup
             text={registerCommand(masked)}
-            copyLabel="登録コマンドをコピー"
+            copyLabel={t("settings.client.copyCommand")}
             disabled={!status.token}
-            onCopy={() => onCopy(registerCommand(status), "登録コマンド")}
-            note="Lorelei を使うプロジェクトのフォルダで実行してください（登録はフォルダごとです。どこからでも使うなら --scope user を足します）。トークンを作り直したら、登録し直してください。"
+            onCopy={() => onCopy(registerCommand(status), t("settings.what.command"))}
+            note={t("settings.client.commandNote")}
           />
         </TabPanel>
         <TabPanel px="0">
           <CopyableSetup
             text={clientConfigJson(masked)}
-            copyLabel="JSON をコピー"
+            copyLabel={t("settings.client.copyJson")}
             disabled={!status.token}
-            onCopy={() => onCopy(clientConfigJson(status), "JSON ")}
-            note="Claude Code の .mcp.json など、mcpServers を読むクライアントの設定ファイルに貼ってください。.mcp.json は Git に入れて共有する前提のファイルなので、貼るとトークンもリポジトリに入ります。入れたくない時はコマンドで登録してください。トークンを作り直したら、貼り直してください。"
+            onCopy={() => onCopy(clientConfigJson(status), t("settings.what.json"))}
+            note={t("settings.client.jsonNote")}
           />
         </TabPanel>
       </Tabs>

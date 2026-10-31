@@ -33,6 +33,7 @@ import {
   setLastOpened,
   trashDocument,
 } from "./documents";
+import { desktopT } from "./i18n";
 import type { EditorKind, OpenRequest } from "./open-requests";
 import { routeOf } from "./open-requests";
 import { DOCUMENTS_EVENT, listenPayload } from "./tauri";
@@ -176,7 +177,7 @@ export function useDocSession(
             if (currentRef.current?.id === id && staleBaseCurrent(e) !== baseRef.current) {
               noticeRef.current({
                 status: "info",
-                title: "AI が図を書き換えたので開き直します",
+                title: desktopT("session.reopening"),
                 isClosable: true,
                 duration: 5000,
               });
@@ -186,8 +187,8 @@ export function useDocSession(
             // 門の漏れを Rust が止めた。この書き込みは捨てる (Autosaver が捨てる。図は切り替えられる)
             noticeRef.current({
               status: "warning",
-              title: "AI の図をエディタの初期図で上書きしかけたので、保存を止めました",
-              description: "図を開き直してください。届いた原文は残っています",
+              title: desktopT("session.initialFigureRejected"),
+              description: desktopT("session.initialFigureRejectedHint"),
               isClosable: true,
               duration: null,
             });
@@ -226,7 +227,7 @@ export function useDocSession(
     } catch (e) {
       notice({
         status: "error",
-        title: "保存できなかったので、図を切り替えませんでした",
+        title: desktopT("session.switchBlocked"),
         description: String(e),
         isClosable: true,
         duration: null,
@@ -260,7 +261,7 @@ export function useDocSession(
         if (!request.payload) {
           notice({
             status: "error",
-            title: `「${doc.title}」を開けません (保存しません)`,
+            title: desktopT("session.cannotOpen", { title: doc.title }),
             description: request.error ?? "",
             isClosable: true,
             duration: null,
@@ -359,8 +360,8 @@ export function useDocSession(
     } catch (e) {
       notice(
         isStaleBase(e)
-          ? { status: "warning", title: "AI が図を書き換えたので、確定しませんでした", isClosable: true, duration: 5000 }
-          : { status: "error", title: "確定できませんでした", description: String(e), isClosable: true, duration: null }
+          ? { status: "warning", title: desktopT("session.confirmStale"), isClosable: true, duration: 5000 }
+          : { status: "error", title: desktopT("session.confirmFailed"), description: String(e), isClosable: true, duration: null }
       );
     }
   }, [autosaver, notice, refreshList]);
@@ -385,7 +386,7 @@ export function useDocSession(
         apply(request.payload.data, (nodes) => withLayout(doc.editor, nodes, confirmed.layout));
         return true;
       } catch (e) {
-        notice({ status: "error", title: "確定へ戻せませんでした", description: String(e), isClosable: true, duration: null });
+        notice({ status: "error", title: desktopT("session.revertFailed"), description: String(e), isClosable: true, duration: null });
         return false;
       }
     },
@@ -490,7 +491,7 @@ export function useDocSession(
       autosaver.flush().catch((e) =>
         notice({
           status: "error",
-          title: "前の図を保存できませんでした",
+          title: desktopT("session.previousSaveFailed"),
           description: String(e),
           isClosable: true,
           duration: null,
@@ -525,7 +526,7 @@ export function useDocSession(
         awaitMountRef.current = false;
         hide();
         if (reloading) {
-          notice({ status: "info", title: "AI が図を書き換えました", isClosable: true, duration: 5000 });
+          notice({ status: "info", title: desktopT("session.reloaded"), isClosable: true, duration: 5000 });
         }
         void refreshList();
       },
@@ -574,7 +575,7 @@ export function useDocSession(
     })().catch((e) => {
       // 開けなかったので隠したまま止めない
       setSettled(true);
-      notice({ status: "error", title: "図の一覧を読めません", description: String(e), isClosable: true, duration: null });
+      notice({ status: "error", title: desktopT("session.listFailed"), description: String(e), isClosable: true, duration: null });
     });
   }, [create, notice, open, refreshList]);
 

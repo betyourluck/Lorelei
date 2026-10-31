@@ -3,6 +3,7 @@
 import { Button, ButtonGroup, useNotice } from "@yamada-ui/react";
 import type { FC } from "react";
 import { useEffect, useState } from "react";
+import { desktopT } from "./i18n";
 import { runSaveDialog, useSaveDialogBusy } from "./save-dialog";
 import type { ExportFormat } from "./tauri";
 import { exportDiagram, isTauri } from "./tauri";
@@ -35,14 +36,14 @@ export const ExportButtons: FC<ExportButtonsProps> = ({ code, fileStem }) => {
       if (result.ran && result.value)
         notice({
           status: "success",
-          title: "保存しました",
+          title: desktopT("save.saved"),
           description: result.value,
           isClosable: true,
         });
     } catch (e) {
       notice({
         status: "error",
-        title: "保存できませんでした",
+        title: desktopT("save.failed"),
         description: String(e),
         isClosable: true,
         duration: null,

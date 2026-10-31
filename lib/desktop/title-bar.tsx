@@ -10,7 +10,9 @@ import {
 } from "@yamada-ui/lucide";
 import { Box, Button, HStack, IconButton, Text } from "@yamada-ui/react";
 import type { FC, ReactElement } from "react";
+import { LanguageMenu } from "@/components/i18n";
 import { ColorModeMenu } from "./color-mode-menu";
+import { desktopT, useDesktopTranslation } from "./i18n";
 import type { McpStatus } from "./mcp";
 import { stateLabel } from "./mcp";
 import type { WindowAction } from "./tauri";
@@ -50,7 +52,9 @@ const BAR_BUTTON = {
 } as const;
 
 const mcpLabel = (s: McpStatus): string =>
-  s.state === "listening" ? `MCP: 待ち受け中 127.0.0.1:${s.port}` : `MCP: ${stateLabel(s)}`;
+  s.state === "listening"
+    ? desktopT("titleBar.mcpListening", { port: s.port })
+    : desktopT("titleBar.mcp", { state: stateLabel(s) });
 
 /**
  * 自作のタイトルバー (spec 02 D1)。decorations: false の代わり。
@@ -64,7 +68,9 @@ export const TitleBar: FC<Props> = ({
   onForceClose,
   mcp,
   onOpenSettings,
-}) => (
+}) => {
+  const { t } = useDesktopTranslation();
+  return (
   <HStack
     as="header"
     role="banner"
@@ -78,8 +84,9 @@ export const TitleBar: FC<Props> = ({
     userSelect="none"
   >
     {onToggleList && (
-      <BarButton label="図の一覧を開閉" icon={<PanelLeftIcon />} onClick={onToggleList} />
+      <BarButton label={t("titleBar.toggleList")} icon={<PanelLeftIcon />} onClick={onToggleList} />
     )}
+    {/* eslint-disable-next-line i18next/no-literal-string -- アプリの名 (固有名) */}
     <Text data-tauri-drag-region="" px="md" fontSize="sm" fontWeight="semibold" pointerEvents="none">
       Lorelei
     </Text>
@@ -98,17 +105,17 @@ export const TitleBar: FC<Props> = ({
     {closeError && (
       <HStack role="alert" gap="xs" px="sm" color="dangerText" fontSize="xs">
         <Text lineClamp={1} title={closeError}>
-          保存できないので閉じませんでした
+          {t("titleBar.closeBlocked")}
         </Text>
         <Button size="xs" colorScheme="red" variant="outline" onClick={onForceClose}>
-          保存せずに閉じる
+          {t("titleBar.forceClose")}
         </Button>
       </HStack>
     )}
     {mcp && onOpenSettings && (
       <Button
         aria-label={mcpLabel(mcp)}
-        title={`${mcp.detail ?? mcpLabel(mcp)} (押すと設定を開く)`}
+        title={t("titleBar.mcpHint", { text: mcp.detail ?? mcpLabel(mcp) })}
         size="xs"
         variant="ghost"
         h={TITLE_BAR_HEIGHT}
@@ -123,14 +130,17 @@ export const TitleBar: FC<Props> = ({
       </Button>
     )}
     {/* 画面の色 (spec 27 D2) */}
+    {/* 画面の言語 (spec 34 D2) */}
+    <LanguageMenu buttonProps={{ ...BAR_BUTTON, _hover: { bg: "surfaceSubtleActive" } }} />
     <ColorModeMenu buttonProps={{ ...BAR_BUTTON, _hover: { bg: "surfaceSubtleActive" } }} />
-    <BarButton label="Lorelei について" icon={<CircleHelpIcon />} onClick={() => void showAbout()} />
+    <BarButton label={t("titleBar.about")} icon={<CircleHelpIcon />} onClick={() => void showAbout()} />
     <Box w="1px" h="4" bg="line" mx="xs" />
-    <WindowButton label="最小化" action="minimize" icon={<MinusIcon />} />
-    <WindowButton label="最大化" action="toggleMaximize" icon={<SquareIcon fontSize="xs" />} />
-    <WindowButton label="閉じる" action="close" icon={<XIcon />} danger />
+    <WindowButton label={t("titleBar.minimize")} action="minimize" icon={<MinusIcon />} />
+    <WindowButton label={t("titleBar.maximize")} action="toggleMaximize" icon={<SquareIcon fontSize="xs" />} />
+    <WindowButton label={t("titleBar.close")} action="close" icon={<XIcon />} danger />
   </HStack>
-);
+  );
+};
 
 const BarButton: FC<{
   label: string;
