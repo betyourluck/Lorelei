@@ -2,7 +2,7 @@
 
 **ID**: 34
 **Date**: 2026-10-31
-**Status**: **Active** — rev1（[spec 31](31_ui-language.md) rev1 で分けた → 査読 1 本（「査読の採否」）→ rev1 → 裁定（「裁定」、推奨どおり）→ P0〜P3 着地（「P0 結果」〜「P3 結果」）。次は P4（ER 図の初期図））
+**Status**: **Active** — rev1（[spec 31](31_ui-language.md) rev1 で分けた → 査読 1 本（「査読の採否」）→ rev1 → 裁定（「裁定」、推奨どおり）→ P0〜P4 着地（「P0 結果」〜「P4 結果」）。次は P5（配布ビルドで利用者が確かめる））
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。デスクトップ専用（`lib/desktop/`・`src-tauri/`・`crates/`）。フォーク元のファイルを触るのは、型の口（D1）・直書きのテストの走査の関数（D1）・言語のメニューの `buttonProps`（D2）・ER 図の初期図（D6）
 
 ## Goal
@@ -13,6 +13,25 @@ spec 31 の Goal（利用者の言「UI 言語の切り替え。英語と中国�
 ## 裁定（2026-10-31、利用者）
 
 利用者の言: 「推奨どおりで進める」 — D1〜D7 を推奨どおりに決めた（D5 の覚える所は案 A の `state.json`、D6 は案 B の言語ごとの初期図と集合での比べ）
+
+## P4 結果（2026-10-31）
+
+- **コミット**: `7084939` 1 つ（TS・Rust・fixture・data_contract・テスト。D6 のとおり片側だけのコミットを作らない。フォーク元の改善の一覧には入れない）
+- **入れたもの**:
+  - TS: `initialERNodes(lng?)`（関数にした。テーブルの名は common の `defaults.initialTable`、日本語「ユーザー」・英語「User」、省くと今の言語）。エディタはマウントした時に 1 回作る（`useState(() => initialERNodes())`）。
+    フローチャートの初期図（`startNode[Start]`）は言語に依らない
+  - Rust: `initial_source(editor) -> &str` を `initial_sources(editor) -> &[&str]` にし、保険（`save` の first_fill・origin が ai / import）はどれかと同じなら拒む
+  - fixture `src-tauri/tests/fixtures/initial_sources.json`（`{ erDiagram: [日本語, 英語], flowchart: [1 つ] }`）: `__tests__/lib/desktop/doc-session.test.ts` が `LOCALES` の全部の言語の初期図を生成器にかけ、
+    重複を除いて `LORELEI_UPDATE_FIXTURES=1` で書く。Rust の `initial_sources_match_the_fixture_written_by_vitest` が比べる。
+    置き場所は data_contract の rev1 の `crates/lorelei_core/tests/fixtures/` から、Rust の側（`src-tauri`）へ移した（P2 のエラーのコードの fixture と同じ）
+- **テスト**: Rust は保険のテストに英語の初期図を足した・fixture と比べる 1 件（`src-tauri` 60 件が緑）。vitest は fixture（日本語・英語の初期図）と、
+  エディタを英語で作ると `User`・その後に日本語へ切り替えても名は変わらない・日本語は前と同じ「ユーザー」（`features/er-diagram/__tests__/er-diagram-editor-initial.test.tsx`）
+- **片側だけ変えると落ちるか**: Rust から英語の初期図を外す → Rust の 2 件（fixture・保険）が落ちた。英語の訳だけ変える（`User` → `Users`）→ vitest の 2 件が落ちた（fixture・英語の初期図）
+- vitest の全部（119 ファイル 1292 件）で 1 件が時間切れ（`direction-save`、単独では通る。P1 から続く重い時だけのもの）。`tsc`・eslint 0 件
+- **画面（開発サーバーの Web 版、Browser pane）**: 日本語は「ユーザー」のまま。言語のメニューで英語にしてから ER 図のページへ移ると `User`。
+  **英語を覚えたまま ER 図のページを直に開き直すと「ユーザー」**: 最初の描画は組み立ての言語（日本語）で、言語を当てるのは描画の後なので、エディタはもう日本語で作られている。
+  裁定の「Web 版の初期図は今のまま」の範囲として残した（data_contract `Document.initial_sources.ts` に書いた）。
+  デスクトップは外枠がエディタを作り直し、新しい図も作り直してから始まるので、その時は覚えた言語（推論。配布ビルドで P5 に確かめる）
 
 ## P3 結果（2026-10-31）
 

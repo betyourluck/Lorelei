@@ -63,6 +63,9 @@ Claude Code 等 ──HTTP(MCP, 127.0.0.1:39642/mcp, Bearer)──▶ 動いて�
 
 ## 現状
 
+- 2026-10-31: [spec 34](specs/34_desktop-ui-language.md) **P4 着地**（`7084939`、TS・Rust・fixture を 1 つのコミット）: ER 図の初期図のテーブルの名を言語ごとに（`initialERNodes(lng?)`、日本語「ユーザー」・英語「User」）、
+  Rust の保険は `initial_sources(editor)` の全部の言語の初期図と比べる。**TS と Rust の初期図は fixture `src-tauri/tests/fixtures/initial_sources.json` で結んだ**（`doc-session.test.ts` が `LORELEI_UPDATE_FIXTURES=1` で書き、Rust のテストが比べる。片側だけ変えるとそれぞれ 2 件落ちる）。
+  Web 版を英語で直に開くと、最初の描画が日本語なので初期図は「ユーザー」のまま（裁定の範囲、data_contract に書いた）。残りは P5（配布ビルドで利用者が確かめる。macOS・Linux の言語の判定は Actions の版で）
 - 2026-10-31: [spec 34](specs/34_desktop-ui-language.md) **P3 着地**（フォーク元 `ca41741`・デスクトップ `9fe2930`）: 保存ダイアログの題（`export_diagram` の `dialogTitle`）と About の訳す部品（`show_about` の `labels`、ライセンスの行は Rust が組み立てる）を画面が訳して渡す。
   新規・インポートの図の題は画面が言語で付けて渡し、AI が題を付けずに届けた図は画面が `set_ui_locale` で知らせたひな形（`state.json` の `aiTitleTemplate`、素の `{time}`）で Rust が付ける（`lib/desktop/default-titles.ts`）。
   `tauri dev` で state.json にひな形が書かれ、MCP で題なしの図が「AI の図 HH:MM:SS」になるのを見た（英語の題・ネイティブのダイアログは P5 で）。
