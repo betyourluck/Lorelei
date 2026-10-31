@@ -140,7 +140,11 @@ describe("ツールバー (spec 02 P2)", { timeout: 15000 }, () => {
     await user.paste("flowchart LR\n  A --> B");
     await user.click(screen.getByRole("button", { name: "取り込む" }));
     await waitFor(() =>
-      expect(invoke).toHaveBeenCalledWith("import_source", { source: "flowchart LR\n  A --> B" })
+      expect(invoke).toHaveBeenCalledWith("import_source", {
+        source: "flowchart LR\n  A --> B",
+        // 新しい図の題は画面の言語で付けて渡す (spec 34 D5)
+        title: expect.stringMatching(/^インポート \d{2}:\d{2}:\d{2}$/),
+      })
     );
   });
 

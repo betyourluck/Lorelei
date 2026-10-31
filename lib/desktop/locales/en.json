@@ -1,9 +1,25 @@
 {
+  "about": {
+    "description": "An app that checks, renders and exports Mermaid diagrams written by AI, and lets you touch them up in a GUI.",
+    "forkedFrom": "Forked from:",
+    "fullText": "The full license texts are in the licenses folder of the installation.",
+    "licenses": "Licenses",
+    "mermanPatched": "(merman-core is bundled with patches)",
+    "title": "About Lorelei"
+  },
   "colorMode": {
     "dark": "Dark",
     "label": "Display color: {{mode}}",
     "light": "Light",
     "system": "Match the OS"
+  },
+  "defaultTitle": {
+    "ai": "AI diagram {time}",
+    "import": "Import {{time}}",
+    "new": {
+      "erDiagram": "Untitled ER diagram",
+      "flowchart": "Untitled flowchart"
+    }
   },
   "error": {
     "ADD_FAILED": "Could not add it to the diagram list",
@@ -73,6 +89,7 @@
     "unchanged": "Unchanged since the last confirm"
   },
   "save": {
+    "dialogTitle": "Save as {{format}}",
     "failed": "Could not save",
     "saved": "Saved"
   },

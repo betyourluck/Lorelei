@@ -1,5 +1,6 @@
 // Tauri への依存はここに閉じ込める (spec 01 D9)。Web 版 (GitHub Pages) では isTauri() が false で、
 // @tauri-apps/api も動的 import なので読み込まれない。
+import { desktopT } from "./i18n";
 import type { OpenRequest } from "./open-requests";
 
 /** src-tauri の OPEN_EVENT と同じ名前 */
@@ -20,21 +21,41 @@ export const takePendingOpen = (): Promise<OpenRequest[]> => invoke("take_pendin
 /** mmd は描かずにコードをそのまま書く (spec 25 D2) */
 export type ExportFormat = "svg" | "png" | "pdf" | "mmd";
 
-/** 保存ダイアログを出して書き出す。取り消されたら null、保存したら絶対パス */
+/** 保存ダイアログを出して書き出す。取り消されたら null、保存したら絶対パス。ダイアログの題は画面の言語 (spec 34 D4) */
 export const exportDiagram = (
   source: string,
   format: ExportFormat,
   fileStem: string
-): Promise<string | null> => invoke("export_diagram", { source, format, fileStem });
+): Promise<string | null> =>
+  invoke("export_diagram", {
+    source,
+    format,
+    fileStem,
+    dialogTitle: desktopT("save.dialogTitle", { format: format.toUpperCase() }),
+  });
 
-/** About (rfd のダイアログ) を出す。入口はタイトルバーの「?」(spec 02 D5) */
-export const showAbout = (): Promise<void> => invoke("show_about");
+/**
+ * About (rfd のダイアログ) を出す。入口はタイトルバーの「?」(spec 02 D5)。
+ * 訳す部品だけを渡し、ライセンスの行 (固有名・URL・版) は Rust が組み立てる (spec 34 D4)
+ */
+export const showAbout = (): Promise<void> =>
+  invoke("show_about", {
+    labels: {
+      title: desktopT("about.title"),
+      description: desktopT("about.description"),
+      forkedFrom: desktopT("about.forkedFrom"),
+      licenses: desktopT("about.licenses"),
+      mermanPatched: desktopT("about.mermanPatched"),
+      fullText: desktopT("about.fullText"),
+    },
+  });
 
 /**
  * ツールバーのインポート (spec 02 D10)。Rust が lorelei_core で変換し、AI から届いた図と同じ経路
- * (OPEN_EVENT → useDesktopOpen) でエディタへ載る。失敗の通知もそちら。
+ * (OPEN_EVENT → useDesktopOpen) でエディタへ載る。失敗の通知もそちら。title は新しい図の題 (spec 34 D5)
  */
-export const importSource = (source: string): Promise<void> => invoke("import_source", { source });
+export const importSource = (source: string, title: string): Promise<void> =>
+  invoke("import_source", { source, title });
 
 export type WindowAction = "minimize" | "toggleMaximize" | "close" | "destroy" | "show";
 

@@ -1,9 +1,25 @@
 {
+  "about": {
+    "description": "AI が書いた Mermaid を検査・描画・書き出しし、GUI で手直しするアプリです。",
+    "forkedFrom": "フォーク元:",
+    "fullText": "ライセンスの全文はインストール先の licenses フォルダにあります。",
+    "licenses": "ライセンス",
+    "mermanPatched": "(merman-core は修正版を同梱)",
+    "title": "Lorelei について"
+  },
   "colorMode": {
     "dark": "ダーク",
     "label": "画面の色: {{mode}}",
     "light": "ライト",
     "system": "OS に合わせる"
+  },
+  "defaultTitle": {
+    "ai": "AI の図 {time}",
+    "import": "インポート {{time}}",
+    "new": {
+      "erDiagram": "無題の ER 図",
+      "flowchart": "無題のフローチャート"
+    }
   },
   "error": {
     "ADD_FAILED": "図の一覧に足せませんでした",
@@ -73,6 +89,7 @@
     "unchanged": "最後の確定から変わっていません"
   },
   "save": {
+    "dialogTitle": "{{format}} として保存",
     "failed": "保存できませんでした",
     "saved": "保存しました"
   },

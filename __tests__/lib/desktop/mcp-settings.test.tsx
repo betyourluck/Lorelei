@@ -19,6 +19,9 @@ vi.mock("@/lib/desktop/tauri", async (importOriginal) => ({
   listenPayload: async () => () => {},
   onCloseRequested: async () => () => {},
   windowAction: async () => {},
+  // invoke も境界で静的に模擬する。起動の時に set_ui_locale と mcp_status が同時に動的 import すると、2 本目が本物の
+  // @tauri-apps/api/core を掴んで落ち、MCP の印が出なかった (spec 34 P3。failures #14 と同じ形)
+  invoke: (cmd: string, args?: Record<string, unknown>) => backend.invoke(cmd, args ?? {}),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => "/" }));
 

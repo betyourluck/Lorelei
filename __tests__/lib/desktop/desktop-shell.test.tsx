@@ -1,7 +1,7 @@
 import { ReactFlowProvider } from "@xyflow/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@/__tests__/test-utils";
+import { act, render, screen, waitFor } from "@/__tests__/test-utils";
 import { i18n, LOCALE_STORAGE_KEY, LocaleSync } from "@/components/i18n";
 import { theme } from "@/components/providers/theme";
 import { DesktopShell as Shell } from "@/lib/desktop/desktop-shell";
@@ -161,6 +161,20 @@ describe("DesktopShell", () => {
     setTauri(true);
     const { user } = render(<DesktopShell>x</DesktopShell>);
     await user.click(await screen.findByRole("button", { name: "Lorelei について" }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("show_about", undefined));
+    // 訳す部品だけを渡す (spec 34 D4)。ライセンスの行は Rust が組み立てる
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("show_about", {
+        labels: expect.objectContaining({ title: "Lorelei について", licenses: "ライセンス" }),
+      })
+    );
+  });
+
+  it("AI の図の題のひな形を、最初の描画と言語を切り替えるたびに Rust へ知らせる (spec 34 D5)", async () => {
+    setTauri(true);
+    render(<DesktopShell>x</DesktopShell>);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_ui_locale", { aiTitle: "AI の図 {time}" }));
+    await act(() => i18n.changeLanguage("en"));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_ui_locale", { aiTitle: "AI diagram {time}" }));
+    expect(backend.calls("set_ui_locale")).toEqual([{ aiTitle: "AI の図 {time}" }, { aiTitle: "AI diagram {time}" }]);
   });
 });

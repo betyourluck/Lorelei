@@ -144,6 +144,9 @@ impl From<&Document> for DocumentSummary {
 #[serde(rename_all = "camelCase")]
 struct DocumentState {
     last_opened: Option<String>,
+    /// AI が題を付けずに届けた図の題のひな形 (spec 34 D5、素の `{time}` を含む)。画面が set_ui_locale で知らせる
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ai_title_template: Option<String>,
 }
 
 pub struct Store {
@@ -158,6 +161,9 @@ fn lock() -> MutexGuard<'static, ()> {
     // 鍵を持ったまま panic したテストがあっても、後の呼び手を巻き込まない
     STORE_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
+
+/// state.json の読んで書くを囲む鍵。last_opened と ai_title_template を別々のコマンドが書くので、片方が他方を消さないように (spec 34 D5)
+static STATE_LOCK: Mutex<()> = Mutex::new(());
 
 impl Store {
     pub fn new(root: PathBuf) -> Self {
@@ -206,7 +212,7 @@ impl Store {
         let now = now();
         let doc = Document {
             id: uuid::Uuid::new_v4().to_string(),
-            title: title.unwrap_or_else(|| default_title(editor, origin)),
+            title: title.unwrap_or_else(|| default_title(editor, origin, self.ai_title_template().as_deref())),
             editor,
             source: String::new(),
             layout: Layout::new(),
@@ -373,19 +379,40 @@ impl Store {
             .map_err(|e| DesktopError::new(error::TRASH_FAILED, format!("ごみ箱へ移せません: {e}")).detail(&e))
     }
 
+    /// 読めない・壊れた state.json は無いのと同じ
+    fn state(&self) -> DocumentState {
+        std::fs::read_to_string(self.root.join("state.json"))
+            .ok()
+            .and_then(|text| serde_json::from_str(&text).ok())
+            .unwrap_or_default()
+    }
+
+    fn update_state(&self, change: impl FnOnce(&mut DocumentState)) -> Result<(), DesktopError> {
+        let _lock = STATE_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut state = self.state();
+        change(&mut state);
+        let json = serde_json::to_vec_pretty(&state).map_err(|e| DesktopError::from(e.to_string()))?;
+        write_atomic(&self.root.join("state.json"), &json)
+    }
+
     pub fn last_opened(&self) -> Option<String> {
-        let text = std::fs::read_to_string(self.root.join("state.json")).ok()?;
-        let state: DocumentState = serde_json::from_str(&text).ok()?;
-        state.last_opened.filter(|id| check_id(id).is_ok())
+        self.state().last_opened.filter(|id| check_id(id).is_ok())
     }
 
     pub fn set_last_opened(&self, id: &str) -> Result<(), DesktopError> {
         check_id(id)?;
-        let state = DocumentState {
-            last_opened: Some(id.to_string()),
-        };
-        let json = serde_json::to_vec_pretty(&state).map_err(|e| DesktopError::from(e.to_string()))?;
-        write_atomic(&self.root.join("state.json"), &json)
+        self.update_state(|state| state.last_opened = Some(id.to_string()))
+    }
+
+    /// 画面の言語の AI の図の題のひな形 (spec 34 D5)。一度も知らされていなければ None (今の日本語)
+    pub fn ai_title_template(&self) -> Option<String> {
+        self.state().ai_title_template
+    }
+
+    /// 空白だけのひな形は覚えない (日本語に戻す)。長すぎるひな形は切る (一覧の題にそのまま入るため)
+    pub fn set_ai_title_template(&self, template: &str) -> Result<(), DesktopError> {
+        let template: String = template.trim().chars().take(AI_TITLE_TEMPLATE_MAX).collect();
+        self.update_state(|state| state.ai_title_template = (!template.is_empty()).then_some(template))
     }
 
     fn write(&self, doc: &Document) -> Result<(), DesktopError> {
@@ -468,13 +495,16 @@ pub fn initial_source(editor: Editor) -> &'static str {
     }
 }
 
-/// data_contract `Document.default_titles`
-pub fn default_title(editor: Editor, origin: Origin) -> String {
-    let time = Local::now().format("%H:%M:%S");
+const AI_TITLE_TEMPLATE_MAX: usize = 200;
+
+/// data_contract `Document.default_titles`。new と import は画面が訳した題を渡すので、ここは渡されなかった時の日本語 (spec 34 D5)。
+/// AI の図は `ai_template` (画面の言語のひな形) の `{time}` に時刻を入れる。Rust に言語の表は持たない
+pub fn default_title(editor: Editor, origin: Origin, ai_template: Option<&str>) -> String {
+    let time = Local::now().format("%H:%M:%S").to_string();
     match (origin, editor) {
         (Origin::New, Editor::Flowchart) => "無題のフローチャート".into(),
         (Origin::New, Editor::ErDiagram) => "無題の ER 図".into(),
-        (Origin::Ai, _) => format!("AI の図 {time}"),
+        (Origin::Ai, _) => ai_template.unwrap_or("AI の図 {time}").replace("{time}", &time),
         (Origin::Import, _) => format!("インポート {time}"),
     }
 }
@@ -881,6 +911,39 @@ mod tests {
         s.set_last_opened(&d.id).unwrap();
         assert_eq!(s.last_opened().as_deref(), Some(d.id.as_str()));
         assert!(s.set_last_opened("../x").is_err());
+    }
+
+    // spec 34 D5: AI の図の題は画面が知らせたひな形で付く。知らされる前は日本語。last_opened と互いに消し合わない
+    #[test]
+    fn ai_title_follows_the_template_and_state_keeps_both_fields() {
+        let s = store();
+        let before = s.create(Editor::Flowchart, None, Origin::Ai, None).unwrap();
+        assert!(before.title.starts_with("AI の図 "), "{}", before.title);
+
+        let d = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
+        s.set_last_opened(&d.id).unwrap();
+        s.set_ai_title_template("  AI diagram {time}  ").unwrap();
+        assert_eq!(s.last_opened().as_deref(), Some(d.id.as_str()), "ひな形を覚えても last_opened は残る");
+        let after = s.create(Editor::ErDiagram, None, Origin::Ai, None).unwrap();
+        let time = after.title.strip_prefix("AI diagram ").expect(&after.title);
+        assert!(
+            time.len() == 8 && time.chars().filter(|c| *c == ':').count() == 2,
+            "{{time}} は HH:MM:SS: {}",
+            after.title
+        );
+
+        s.set_last_opened(&before.id).unwrap();
+        assert_eq!(s.ai_title_template().as_deref(), Some("AI diagram {time}"), "last_opened を書いてもひな形は残る");
+        // AI が名前を付けた図・人が作る図はひな形を使わない
+        let named = s.create(Editor::Flowchart, Some("注文".into()), Origin::Ai, None).unwrap();
+        assert_eq!(named.title, "注文");
+        let new = s.create(Editor::Flowchart, None, Origin::New, None).unwrap();
+        assert_eq!(new.title, "無題のフローチャート");
+
+        // 空白だけは覚えない (日本語に戻す)
+        s.set_ai_title_template("   ").unwrap();
+        assert_eq!(s.ai_title_template(), None);
+        assert!(s.create(Editor::Flowchart, None, Origin::Ai, None).unwrap().title.starts_with("AI の図 "));
     }
 
     // spec 32 D1・D2: 確定は中身を残し、● は確定した中身との違い。戻せば ● が消える。位置は浮動小数点のずれを許す

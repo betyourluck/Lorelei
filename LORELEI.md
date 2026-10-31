@@ -63,7 +63,7 @@ Claude Code は project スコープのサーバーを最初に使う時に承�
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `validate`       | 文法を検査する。GUI エディタで開けるか、開くと何が省かれるかも返す                                                        |
 | `render`         | SVG / PNG / PDF に描画する。png / pdf は `output_path`（絶対パス）に書き出す。描画結果の縮小 PNG も毎回画像で返す（不要なら `preview: false`） |
-| `open_in_editor` | 開いている Lorelei のエディタで開く（flowchart と erDiagram。ノードの無い図は開けない）。届いた図は左の図の一覧に新しい 1 件として足され、開いている図は上書きしない（既存の図を書き換えるのは `update_diagram`）。`title` で一覧での名前を付けられる（省略すると「AI の図 HH:MM:SS」）。作った図の `document_id` と `updated_at` を返す |
+| `open_in_editor` | 開いている Lorelei のエディタで開く（flowchart と erDiagram。ノードの無い図は開けない）。届いた図は左の図の一覧に新しい 1 件として足され、開いている図は上書きしない（既存の図を書き換えるのは `update_diagram`）。`title` で一覧での名前を付けられる（省略すると GUI の画面の言語の既定の名。日本語なら「AI の図 HH:MM:SS」、英語なら「AI diagram HH:MM:SS」）。作った図の `document_id` と `updated_at` を返す |
 | `list_diagrams`  | 図の一覧を返す（並びは GUI の一覧と同じ）。`open` が今開いている図、`unsaved` が最後の「確定」と中身が違う図 |
 | `read_diagram`   | 人が GUI で直した今の図を Mermaid で読む。`id`（`list_diagrams` の id か `open_in_editor` の `document_id`）を省くと今開いている図。AI・インポートが最後に届けた原文は `include_original: true` で読める |
 | `update_diagram` | 既存の図（`id`）の中身を、渡した Mermaid で丸ごと差し替える。名前・一覧の並び・同じ ID のノードの位置は保たれ、図の種類は変えられない。`expected_updated_at`（`read_diagram` 等が返した `updated_at`）は必須で、その後に人が直していれば書かずにエラーになる（読み直してから直す）。開いている図なら GUI の中身が載せ替わる。開いていない図はファイルだけ書き、`open: true` の時だけ開いて前に出す |

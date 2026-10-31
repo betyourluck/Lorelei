@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MermaidTheme } from "@/components/ui/mermaid-theme";
 import type { GraphType } from "@/features/flowchart/types/types";
+import { newDocumentTitle } from "./default-titles";
 import type { Layout } from "./doc-session";
 import {
   Autosaver,
@@ -289,7 +290,8 @@ export function useDocSession(
 
   const create = useCallback(
     async (editor: EditorKind) => {
-      const doc = await createDocument(editor);
+      // 題は画面の言語で付ける (spec 34 D5)。新規・種類の切り替え・初めての起動の全部がここを通る
+      const doc = await createDocument(editor, newDocumentTitle(editor));
       await refreshList();
       await open(doc.id);
     },

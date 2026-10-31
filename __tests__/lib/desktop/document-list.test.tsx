@@ -4,6 +4,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@/__tests__/test-utils";
+import { i18n } from "@/components/i18n/i18n";
 import { FlowEditor } from "@/features/flowchart/flow-editor";
 import { useDesktopActions } from "@/lib/desktop/desktop-actions";
 import { DesktopShell } from "@/lib/desktop/desktop-shell";
@@ -88,11 +89,28 @@ describe("図の一覧 (spec 02 P3)", { timeout: 15000 }, () => {
   it("1 件も無い時は、フローチャートを 1 件作って開く (D9)", async () => {
     shell();
     expect(await screen.findByRole("banner")).toBeInTheDocument();
-    await waitFor(() => expect(backend.calls("create_document")).toEqual([{ editor: "flowchart", title: null }]), LONG);
+    // 題は画面の言語で付けて渡す (spec 34 D5)
+    await waitFor(
+      () => expect(backend.calls("create_document")).toEqual([{ editor: "flowchart", title: "無題のフローチャート" }]),
+      LONG
+    );
     const items = (await list()).getAllByRole("listitem");
     expect(items).toHaveLength(1);
     expect(items[0]).toHaveAttribute("aria-current", "true");
     expect(screen.getByRole("banner")).toHaveTextContent("無題のフローチャート");
+  });
+
+  it("英語の画面では、新しい図の題も英語で付く。既にある図の題は変えない (spec 34 D5)", async () => {
+    await i18n.changeLanguage("en");
+    backend.add("flowchart", "注文フロー");
+    const { user } = shell();
+    const enList = async () => within(await screen.findByRole("navigation", { name: "Diagrams" }));
+    await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("注文フロー"), LONG);
+    await user.click((await enList()).getByRole("button", { name: "New" }));
+    await user.click(await screen.findByRole("menuitem", { name: "ER diagram" }));
+    await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("Untitled ER diagram"));
+    expect(backend.calls("create_document")).toEqual([{ editor: "erDiagram", title: "Untitled ER diagram" }]);
+    expect((await enList()).getByText("注文フロー")).toBeInTheDocument();
   });
 
   it("前回開いていた図を開く。無ければ一番新しい図 (D9)", async () => {
@@ -131,7 +149,7 @@ describe("図の一覧 (spec 02 P3)", { timeout: 15000 }, () => {
     const { user } = shell();
     await waitFor(() => expect(screen.getByRole("banner")).toHaveTextContent("注文フロー"), LONG);
     await user.click(screen.getByRole("button", { name: "ER図" }));
-    await waitFor(() => expect(backend.calls("create_document")).toEqual([{ editor: "erDiagram", title: null }]));
+    await waitFor(() => expect(backend.calls("create_document")).toEqual([{ editor: "erDiagram", title: "無題の ER 図" }]));
   });
 
   it("ダブルクリックで名前を変える", async () => {

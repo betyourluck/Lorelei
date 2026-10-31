@@ -238,7 +238,7 @@ impl RenderOptionsParam {
 pub struct OpenParams {
     /// Mermaid のテキスト (flowchart か erDiagram)。
     pub source: String,
-    /// GUI の図の一覧に付ける名前 (例: 「注文テーブルの ER 図」)。省略すると「AI の図 HH:MM:SS」。
+    /// GUI の図の一覧に付ける名前 (例: 「注文テーブルの ER 図」)。省略すると GUI の画面の言語の既定の名 (日本語なら「AI の図 HH:MM:SS」、英語なら「AI diagram HH:MM:SS」)。
     #[serde(default)]
     pub title: Option<String>,
 }

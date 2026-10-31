@@ -5,6 +5,7 @@ import type { FC, ReactNode } from "react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HistoryGateContext } from "@/components/editor-history/gate";
 import { useConfirmDelete } from "@/components/ui/confirm-delete";
+import { setUiLocale } from "./default-titles";
 import type { HistoryStatus, RegisteredActions } from "./desktop-actions";
 import { DesktopActionsProvider } from "./desktop-actions";
 import { DocumentList } from "./document-list";
@@ -54,6 +55,12 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
   useEffect(() => {
     void windowAction("show");
   }, []);
+  // AI の図の題のひな形を Rust に知らせる (spec 34 D5)。最初の描画の言語 (LocaleSync が当てた後) と、切り替えるたびに。
+  // 失敗しても画面は困らない (Rust は前に覚えたひな形か日本語で付ける)
+  const { i18n } = useDesktopTranslation();
+  useEffect(() => {
+    setUiLocale().catch(() => {});
+  }, [i18n.language]);
   // 閉じる前の保存に失敗したか。文は描く時に訳す (切り替えに付いてくる, spec 34 D3)
   const [closeFailed, setCloseFailed] = useState(false);
   // 「確定」を押せる時 (spec 32 D1): 図の準備ができている (開いている途中・開けない図ではない)

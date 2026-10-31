@@ -176,6 +176,7 @@ pub fn run_gui() {
             trash_document,
             last_opened,
             set_last_opened,
+            set_ui_locale,
             mcp_status,
             set_mcp_enabled,
             set_mcp_port,
@@ -201,11 +202,18 @@ fn take_pending_open(state: tauri::State<'_, PendingOpens>) -> Vec<OpenRequest> 
 }
 
 /// ツールバーのインポート (spec 02 D10)。新しい 1 件を作って「開く図」として溜め、AI から届いた図と同じ経路で開く —
-/// 失敗や省いた要素の通知もそちらに揃う。
+/// 失敗や省いた要素の通知もそちらに揃う。`title` は画面が言語で付けた既定の題 (spec 34 D5。無ければ日本語)
 #[tauri::command]
-fn import_source(app: AppHandle, source: String) -> Result<(), DesktopError> {
-    push_open(&app, incoming(&store()?, source, documents::Origin::Import, None));
+fn import_source(app: AppHandle, source: String, title: Option<String>) -> Result<(), DesktopError> {
+    push_open(&app, incoming(&store()?, source, documents::Origin::Import, title));
     Ok(())
+}
+
+/// 画面の言語を当てた時と切り替えた時に呼ばれる (spec 34 D5)。AI が題を付けずに届けた図の題のひな形を state.json に覚える —
+/// 起動してから画面が知らせるまでの間に届いた図も、前に覚えたひな形で付く
+#[tauri::command]
+fn set_ui_locale(ai_title: String) -> Result<(), DesktopError> {
+    store()?.set_ai_title_template(&ai_title)
 }
 
 /// 保存した図を開く時の変換。溜めない・イベントも出さない (作り直す前の古いエディタに拾わせないため)
@@ -788,17 +796,36 @@ flowchart TD
 
     #[test]
     fn about_names_every_bundled_license() {
-        let text = desktop::about_text("9.9.9");
-        for needle in [
-            "9.9.9",
-            "MIT",
-            "Apache-2.0",
-            "Open Font License",
-            "Reserved Font Name 'Source'",
-            // フォーク元の GitHub メニューを隠すので、上流への謝辞は About が持つ (spec 02 D2)
-            "https://github.com/illionillion/mermaid-editor",
-        ] {
-            assert!(text.contains(needle), "{needle}");
+        // 英語の部品を渡しても、ライセンスの行 (固有名・URL・版) は Rust が組み立てる (spec 34 D4)
+        let en = desktop::AboutLabels {
+            title: "About Lorelei".into(),
+            description: "Checks, renders and exports Mermaid written by AI.".into(),
+            forked_from: "Forked from".into(),
+            licenses: "Licenses".into(),
+            merman_patched: "(merman-core is bundled with patches)".into(),
+            full_text: "The full license texts are in the licenses folder.".into(),
+        };
+        let ja_text = desktop::about_text("9.9.9", &desktop::AboutLabels::default());
+        let en_text = desktop::about_text("9.9.9", &en);
+        for text in [&ja_text, &en_text] {
+            for needle in [
+                "9.9.9",
+                "MIT",
+                "Apache-2.0",
+                "Open Font License",
+                "Reserved Font Name 'Source'",
+                // フォーク元の GitHub メニューを隠すので、上流への謝辞は About が持つ (spec 02 D2)
+                "https://github.com/illionillion/mermaid-editor",
+            ] {
+                assert!(text.contains(needle), "{needle}");
+            }
         }
+        for part in [&en.description, &en.forked_from, &en.licenses, &en.merman_patched, &en.full_text] {
+            assert!(en_text.contains(part.as_str()), "{part}");
+        }
+        assert!(!en_text.contains("ライセンス"), "渡した部品だけで組み立てる: {en_text}");
+        assert_eq!(desktop::save_dialog_title(None, "svg"), "SVG として保存");
+        assert_eq!(desktop::save_dialog_title(Some("Save as SVG".into()), "svg"), "Save as SVG");
+        assert_eq!(desktop::save_dialog_title(Some("  ".into()), "pdf"), "PDF として保存");
     }
 }
