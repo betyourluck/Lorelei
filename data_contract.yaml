@@ -567,13 +567,14 @@ GuiCommands:
   take_pending_open: "溜まっている OpenRequest の配列を返して空にする。フロントは準備でき次第と OPEN_EVENT のたびに呼ぶ。ただし外枠 (DocsBridge) が立つまでは呼ばない — 最初の描画 (Web 版と同じ木) のエディタが取り込むと、外枠付きのエディタに作り直された時に中身が捨てられる (failures #13, spec 08 P3)"
   open_event: "lorelei://open-pending (本体を持たない合図)"
   open_request: >-
-    { source, payload: EditorPayload | null, dropped, error: string | null, document: DocumentSummary | null, reload: bool, layout: Layout | null }。
+    { source, payload: EditorPayload | null, dropped, error: DesktopError | null, document: DocumentSummary | null, reload: bool, layout: Layout | null }。
+    error は spec 34 D3 で string から DesktopError に (MCP の reason には Rust の Display の文を渡す。前と同じ文)。
     document は AI / インポートで届いた図のために作った新しい 1 件 (spec 02 D8・D10)、update_diagram では書き換え後のその 1 件。変換に失敗した時は作らず null。
     reload (既定 false) と layout は spec 08 D3: update_diagram が開いている図を載せ替える要求は reload: true で、layout はその図の Document.layout (同じ ID のノードの位置を当てる)。
     convert_source の戻り (保存した図を開く時) は reload: false・layout: null (フロントは doc.layout を使う)。
     フロント (drain) は reload の要求を partitionOpens に入れず別に扱う: 今のページの種類と今の図の id が一致すれば載せ替え (beforeImport は今のと同じで、違いは flush せず cancel・layoutRef を要求の layout に・openingRef を消す・base を document.updated_at に。通知「AI が図を書き換えました」)、
     今の図が無ければ (起動直後) 開くとして扱い、それ以外は捨てる。同じ回に別の図の「開く」が並んでも載せ替えを先に処理する。stash には積まない
-  import_source: "(source) → ()。ツールバーのインポート。Document (origin: import) を作り、OpenRequest を溜めて OPEN_EVENT を出す"
+  import_source: "(source, title?) → ()。ツールバーのインポート。Document (origin: import) を作り、OpenRequest を溜めて OPEN_EVENT を出す。title はフロントが画面の言語で付けた既定の題 (spec 34 D5)"
   convert_source: "(source) → OpenRequest (document は null)。保存した図を開く時の変換。溜めない・イベントも出さない"
   list_documents: "() → DocumentSummary[] (saved_at 、無ければ created_at の新しい順。見る・自動保存・改名では動かない, spec 02 D12)"
   create_document: "(editor, title?) → Document。origin: new、source は空 (エディタの初期図で始まり、最初の自動保存で埋まる)"
@@ -589,6 +590,10 @@ GuiCommands:
   documents_event: "lorelei://documents-changed (本体は DocumentSummary)。update_diagram がファイルを書けた時に出す (spec 08 D3)。外枠はその 1 件だけを一覧で差し替える (setList(map)。一覧を丸ごと読み直さない — 読み直しは自動保存の 1 件差し替えと競合して ● が戻ることがある)"
   last_opened: "() → id | null。起動時に開く図 (DocumentState.last_opened)"
   set_last_opened: "(id) → ()"
+  set_ui_locale: >-
+    ({ aiTitle: string }) → ()。spec 34 D5。AI が題を付けずに届けた図の題のひな形 (素の {time} を含む。i18next の補間はかけない。時刻は Rust が %H:%M:%S で入れる)。
+    フロントは最初に言語を当てた時と切り替えた時に送る。Rust は DocumentState.ai_title_template に覚える (起動してから画面が知らせるまでの間に届く図のため)
+  errors: "コマンドの Err は DesktopError (spec 34 D3)。Tauri の境界だけで直列化する。MCP には Display の文 (前と同じ)"
   export_diagram: >-
     (source, format: svg|png|pdf|mmd, fileStem) → 保存したパス | null (取り消し)。フロントの型は lib/desktop/tauri.ts の ExportFormat = "svg" | "png" | "pdf" | "mmd" (spec 25)。
     保存ダイアログは rfd (題「{拡張子の大文字} として保存」・既定の名前 {fileStem}.{拡張子}・種類の絞り込み)。上書きの確認は OS のダイアログが行う (OutputPathPolicy.gui_only)。
@@ -619,7 +624,7 @@ McpStatus:
     port: int
     token: { type: string, nullable: true }   # 設定画面のコピーと登録コマンドに使う (同じ利用者の画面にだけ出す)
     state: { enum: [listening, stopped, failed, blocked] }   # blocked = mcp_server.json が読めない
-    detail: { type: string, nullable: true }  # failed / blocked の理由 (ポートが使われている等)
+    detail: { type: DesktopError, nullable: true }  # failed / blocked の理由 (ポートが使われている等)。spec 34 D3 で string から。画面は描く時に訳す (state にはエラーの値を持つ)
 
 McpClientSetup:
   description: >-
@@ -651,14 +656,15 @@ Document:
     confirmed: { type: "{ source: string, layout: Layout } | null", default: null }  # 最後に「確定」した中身 (spec 32 D1)。確定へ戻す先・● の比べる先。無ければファイルに書かない。前の版で確定した図は、updated_at ≤ saved_at なら読む時に今の中身で埋める。MCP には出さない
     normalize_pending: { type: bool, default: false }  # update_diagram が立てる印 (spec 08 D1)。次の save で消える (source / layout が同じでも印を消すために書く)。updated_at を進めないのは、その save が揃え書きの印 (normalize) を持つ時だけ (spec 33)。古いファイルに無ければ false
   json_keys: camelCase   # ファイルと GUI の受け渡しはどちらも camelCase (originalSource / createdAt / normalizePending ...)
-  default_titles:
-    new: { flowchart: 無題のフローチャート, erDiagram: 無題の ER 図 }
-    ai: "AI の図 HH:MM:SS"          # P4 で MCP の title が来たらそれを使う
+  default_titles:   # spec 34 D5: new と import はフロントが画面の言語で付けて渡す (desktop.defaultTitle.*)。ai は Rust が DocumentState.ai_title_template で付ける
+    new: { flowchart: 無題のフローチャート, erDiagram: 無題の ER 図 }   # 日本語の画面の値。英語は Untitled flowchart / Untitled ER diagram
+    ai: "AI の図 HH:MM:SS"          # ひな形を一度も知らされていない時 (今の日本語)。MCP の title が来たらそれを使う
     import: "インポート HH:MM:SS"
   trash: "{app_data_dir}/trash/{id}.json"   # 削除は移動だけ。documents/ の外なので一覧に出ない。空にする操作は無い
-  initial_sources:   # フォーク元のエディタの初期図を生成器にかけた出力 (一字一句。vitest で生成器と突き合わせる, spec 04 D4-2)
-    flowchart: "flowchart TD\n    startNode[Start]\n"
-    erDiagram: "erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }"
+  initial_sources:   # フォーク元のエディタの初期図を生成器にかけた出力 (一字一句, spec 04 D4-2)。spec 34 D6 で言語ごとの集合に: 保険は全部の言語の初期図のどれかと同じなら拒む
+    fixture: "crates/lorelei_core/tests/fixtures/initial_sources.json (vitest が LORELEI_UPDATE_FIXTURES=1 で LOCALES の全部の言語の初期図を書き、Rust のテストが initial_sources(editor) と比べる)"
+    flowchart: ["flowchart TD\n    startNode[Start]\n"]   # どの言語でも同じ
+    erDiagram: ["erDiagram\n  ユーザー {\n    int id PK\n    varchar(255) name UK\n  }", "erDiagram\n  User {\n    int id PK\n    varchar(255) name UK\n  }"]   # ja / en
   save_guard: >-
     origin が ai / import の図の「空の source への最初の書き込み」(first_fill) が initial_sources と同じなら save_document が拒む。new の図は対象外。拒んだ時のエラーは INITIAL_FIGURE_REJECTED で始まる。
     spec 08 D1 で first_fill の時だけに絞った (旧: 前の source に依らず拒む)。守るのは spec 04 現況 4 の 1 件目の形だけで、update_diagram の後の揃え書き (source は非空) は掛からない —
@@ -692,7 +698,39 @@ DocumentSummary:
 DocumentState:
   path: "{app_data_dir}/state.json"
   fields:
+    ai_title_template: { type: string, nullable: true }   # spec 34 D5。set_ui_locale で覚える AI の図の題のひな形 ({time} を含む)。無ければ今の日本語「AI の図 {time}」
     last_opened: { type: string, format: uuid, nullable: true }   # 起動時に開く図。無い・消えている時は一覧の先頭 (最後に「確定」した図, spec 02 D12)、1 件も無ければフローチャートを 1 件作る (D9)
+
+DesktopError:
+  description: >-
+    Rust が画面に渡すエラー (spec 34 D3)。Tauri の境界 (コマンドの Err・OpenRequest.error・McpStatus.detail) だけでこの形に直列化する。
+    Display は今の日本語の文のまま (MCP の reason・readback・ログはこれ。AI 向けは訳さない)
+  fields:
+    code: string                                  # 見分ける名 (下の codes)。フロントは describeError で code を訳し、isStaleBase などは code で見分ける
+    params: { type: "map<string, string | number>", nullable: true }   # 訳と見分けに使う値 (STALE_BASE の currentUpdatedAt・ポートなど)
+    detail: { type: string, nullable: true }      # 訳さない詳しい文 (io・serde・merman・lorelei_core の文。OS の言語や英語が混ざる)
+  codes:
+    documents: [DOC_LIST_FAILED, DOC_READ_FAILED, DOC_CORRUPT, DOC_WRITE_FAILED, INVALID_ID, TRASH_FAILED, BACKUP_FAILED, NOTHING_TO_CONFIRM, DOCUMENT_GONE, INITIAL_FIGURE_REJECTED, STALE_BASE]
+    app: [NO_DATA_DIR, ADD_FAILED, UNSUPPORTED_DIAGRAM, CONVERT_FAILED]   # CONVERT_FAILED の detail は lorelei_core の文 (訳さない)
+    desktop: [UNSUPPORTED_FORMAT, EXPORT_FAILED, TASK_FAILED]           # EXPORT_FAILED の detail は lorelei_core (render・output) の文
+    mcp: [MCP_CONFIG_UNREADABLE, MCP_TOKEN_SAVE_FAILED, MCP_LISTEN_FAILED, MCP_PORT_RANGE]
+    other: OTHER   # From<String> (code の無い文。detail に入れる)
+  params:
+    STALE_BASE: { currentUpdatedAt: string }
+    INVALID_ID: { id: string }
+    UNSUPPORTED_FORMAT: { format: string }
+    MCP_CONFIG_UNREADABLE: "{ line?: int, column?: int }"
+    MCP_LISTEN_FAILED: { port: int }
+    MCP_PORT_RANGE: { min: int, max: int }
+  fixture: "crates/lorelei_core/tests/fixtures/desktop_error_codes.json (Rust が全部の code を書き、vitest が desktop の訳に全部あることを確かめる)。置き場所は P2 で src-tauri の側に移すか決める"
+  frontend: "lib/desktop/errors.ts の describeError(e): object も今の文字列も読む。code の無い文字列は題だけ訳し文はそのまま。state にはエラーの値を持ち、描く時に訳す (spec 34 D3)"
+
+DesktopMessages:
+  description: >-
+    デスクトップの外枠の画面の言葉 (spec 34 D1)。名前空間 desktop。lib/desktop/locales/<lng>.json を lib/desktop/i18n.ts が addResourceBundle で足す (フォーク元の locales/ には入れない)。
+    部品は lib/desktop/i18n.ts の useDesktopTranslation、部品の外は desktopT (呼ばれた時の言語)。キーの型は components/i18n/resources.ts の I18nResources を declare module で広げる
+  tests: "日本語と英語のキーの組・差し込みの一致 / lib/desktop の直書き (__tests__/lib/desktop/hardcoded-text.test.ts) / eslint の i18next/no-literal-string を lib/desktop/**/*.tsx にも"
+  window_show: "言語は LocaleSync が当てる (外枠より前の兄弟の effect。changeLanguage は同期)。外枠は Tauri の時に日本語に留める処理を spec 34 P1 で外し、show の時に当てた言語になっていることをテストで固定する"
 
 DesktopLayout:
   description: デスクトップの外枠の寸法と開閉 (spec 05 D1〜D3)。表示の都合なので図の一覧やアプリの状態とは分ける

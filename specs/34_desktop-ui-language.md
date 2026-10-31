@@ -2,13 +2,30 @@
 
 **ID**: 34
 **Date**: 2026-10-31
-**Status**: **Draft** — rev1（[spec 31](31_ui-language.md) rev1 で分けた → 査読 1 本（「査読の採否」）→ rev1。D1〜D7 の裁定待ち）
+**Status**: **Active** — rev1（[spec 31](31_ui-language.md) rev1 で分けた → 査読 1 本（「査読の採否」）→ rev1 → 裁定（「裁定」、推奨どおり）→ P0 着地（「P0 結果」）。次は P1）
 **Branch**: 切らない（Phase 単位で main へ直接コミット）。デスクトップ専用（`lib/desktop/`・`src-tauri/`・`crates/`）。フォーク元のファイルを触るのは、型の口（D1）・直書きのテストの走査の関数（D1）・言語のメニューの `buttonProps`（D2）・ER 図の初期図（D6）
 
 ## Goal
 
 spec 31 で作った仕組みに、デスクトップの外枠（タイトルバー・ツールバー・図の一覧・設定画面・ダイアログ）と、Rust が画面に出す言葉を載せる。
 spec 31 の Goal（利用者の言「UI 言語の切り替え。英語と中国語と韓国語と日本語」「定番のライブラリで管理」）のデスクトップの分。
+
+## 裁定（2026-10-31、利用者）
+
+利用者の言: 「推奨どおりで進める」 — D1〜D7 を推奨どおりに決めた（D5 の覚える所は案 A の `state.json`、D6 は案 B の言語ごとの初期図と集合での比べ）
+
+## P0 結果（2026-10-31）
+
+- **キーの型（D1）**: フォーク元に `components/i18n/resources.ts` の `export interface I18nResources { common }` を置き、`i18next.d.ts` は `resources: I18nResources` にした。
+  `lib/desktop/i18n.ts` から `declare module "@/components/i18n/resources" { interface I18nResources { desktop: typeof ja } }` で足すと、パスの別名のモジュールでも併合が効き、`desktop` のキーが型で確かめられた
+  （無いキーは `@ts-expect-error` が効く = 型で落ちる。足す宣言を外すと `"desktop"` が名前空間として型で拒まれる）。フォーク元のファイルに `lib/desktop` の名は出ない
+- **名前空間の準備（D1）**: `addResourceBundle` で足した `desktop` は、`useTranslation("desktop", { i18n })` の最初の描画から `ready: true` で訳が出た。部品の外は `getFixedT(null, "desktop")`（今の言語に付いてくる）
+- **言語の切り替えは同期（D2）**: `i18n.changeLanguage("en")` を await せずに呼んだ直後に `i18n.language` も両方の名前空間の訳も英語。窓を出す順は、日本語に留める 1 行を消すだけで足りる見込み（P1 でテストに固定する）
+- **macOS・Linux の `navigator.languages`（D2）**: 手元（Windows）では確かめられない。P5 の Actions の版で確かめ、合わなければ D2 の既定（Rust の `sys-locale` を優先）を入れる
+- **Rust の画面に出うる文**: `documents.rs` 17・`lib.rs` 4・`desktop.rs` 4（保存ダイアログの題・About を含む）・`mcp_host.rs` 6・`readback.rs` 2（MCP だけ）。コードの一覧は data_contract `DesktopError.codes`
+- **MCP の文の固定（D3 の Red 側）**: `src-tauri/src/lib.rs` のテスト 2 件で、AI が読む文を全文で固定した — 取り込めない種類（「この図の種類は GUI エディタで開けません」）・Mermaid の誤り（merman の英語の文）・
+  readback の図が無い・開いている図が無い・壊れた図のファイル（readback と update の両方、「図のファイルが壊れています: …」）。今の文で緑。型を変えた後もこのまま緑であることが受け入れ条件 3
+- data_contract を凍結: `DesktopError`（code・params・detail と codes の一覧）・`DesktopMessages`・`GuiCommands.open_request.error`・`import_source` の題・`set_ui_locale`・`McpStatus.detail`・`Document.default_titles`・`Document.initial_sources`（言語ごとの集合と fixture）・`DocumentState.ai_title_template`
 
 ## 現況（2026-10-31、spec 31 の査読と spec 34 の査読で確かめた。行は `43a1b8c`）
 
