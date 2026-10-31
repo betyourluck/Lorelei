@@ -3,6 +3,7 @@
 import { Button, ButtonGroup, useNotice } from "@yamada-ui/react";
 import type { FC } from "react";
 import { useEffect, useState } from "react";
+import { describeError } from "./errors";
 import { desktopT } from "./i18n";
 import { runSaveDialog, useSaveDialogBusy } from "./save-dialog";
 import type { ExportFormat } from "./tauri";
@@ -44,7 +45,7 @@ export const ExportButtons: FC<ExportButtonsProps> = ({ code, fileStem }) => {
       notice({
         status: "error",
         title: desktopT("save.failed"),
-        description: String(e),
+        description: describeError(e),
         isClosable: true,
         duration: null,
       });

@@ -22,6 +22,7 @@ import {
 } from "@yamada-ui/react";
 import type { FC } from "react";
 import { useEffect, useState } from "react";
+import { describeError } from "./errors";
 import { useDesktopTranslation } from "./i18n";
 import type { McpStatus } from "./mcp";
 import {
@@ -60,7 +61,7 @@ export const SettingsDialog: FC<Props> = ({ open, onClose, status, onStatus }) =
     try {
       onStatus(await op());
     } catch (e) {
-      notice({ status: "error", title: t("settings.changeFailed"), description: String(e), isClosable: true });
+      notice({ status: "error", title: t("settings.changeFailed"), description: describeError(e), isClosable: true });
     } finally {
       setBusy(false);
     }
@@ -101,7 +102,7 @@ export const SettingsDialog: FC<Props> = ({ open, onClose, status, onStatus }) =
               <Text fontSize="sm">{stateLabel(status)}</Text>
               {status.detail && (
                 <Text fontSize="sm" color="dangerText">
-                  {status.detail}
+                  {describeError(status.detail)}
                 </Text>
               )}
             </Box>

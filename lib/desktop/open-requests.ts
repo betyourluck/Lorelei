@@ -3,6 +3,7 @@
 
 import type { DroppedItem } from "@/components/ui/mermaid-dropped";
 import type { DocumentSummary } from "./documents";
+import type { DesktopError } from "./errors";
 
 // 取り込むと消える要素の型と言葉は、インポートの警告と共通にした (spec 11 D4。フォーク元の側 components/ui/mermaid-dropped.ts)
 export { describeDropped, type DroppedItem } from "@/components/ui/mermaid-dropped";
@@ -13,7 +14,8 @@ export interface OpenRequest {
   source: string;
   payload: { editor: EditorKind; data: unknown; dropped: DroppedItem[] } | null;
   dropped: DroppedItem[];
-  error: string | null;
+  /** 変換に失敗した理由。spec 34 D3 で DesktopError に (前の版の文字列も読む) */
+  error: string | DesktopError | null;
   /** AI / インポートで届いた図のために Rust が作った新しい 1 件 (spec 02 D8・D10)、update_diagram では書き換え後のその 1 件。保存した図を開く時は null */
   document?: DocumentSummary | null;
   /** update_diagram が開いている図を載せ替える要求 (spec 08 D3)。drain は partitionOpens に入れず別に扱う */

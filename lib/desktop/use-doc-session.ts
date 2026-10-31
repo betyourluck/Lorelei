@@ -33,6 +33,7 @@ import {
   setLastOpened,
   trashDocument,
 } from "./documents";
+import { describeError } from "./errors";
 import { desktopT } from "./i18n";
 import type { EditorKind, OpenRequest } from "./open-requests";
 import { routeOf } from "./open-requests";
@@ -52,7 +53,8 @@ export interface DocSession {
   /** 変換できず開けなかった図。初期図が見えているだけなので保存しない */
   unopenable: boolean;
   /** 最後の保存の失敗 */
-  saveError: string | null;
+  /** 自動保存の失敗 (エラーの値。描く時に describeError で訳す, spec 34 D3)。無ければ null */
+  saveError: unknown;
   /** エディタを作り直すための key (D9) */
   generation: number;
   /** エディタを見せてよい。図を開いている間 (初期図・位置を当てる前) は false (spec 05 D4) */
@@ -120,7 +122,7 @@ export function useDocSession(
   const [list, setList] = useState<DocumentSummary[]>([]);
   const [current, setCurrent] = useState<DocumentSummary | null>(null);
   const [unopenable, setUnopenable] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<unknown>(null);
   const [generation, setGeneration] = useState(0);
   // 起動直後もエディタは初期図を持っているので、最初の図が開くまで隠す
   const [settled, setSettled] = useState(false);
@@ -193,7 +195,7 @@ export function useDocSession(
               duration: null,
             });
           } else {
-            setSaveError(String(e));
+            setSaveError(e);
           }
           throw e;
         }
@@ -228,7 +230,7 @@ export function useDocSession(
       notice({
         status: "error",
         title: desktopT("session.switchBlocked"),
-        description: String(e),
+        description: describeError(e),
         isClosable: true,
         duration: null,
       });
@@ -262,7 +264,7 @@ export function useDocSession(
           notice({
             status: "error",
             title: desktopT("session.cannotOpen", { title: doc.title }),
-            description: request.error ?? "",
+            description: describeError(request.error),
             isClosable: true,
             duration: null,
           });
@@ -361,7 +363,7 @@ export function useDocSession(
       notice(
         isStaleBase(e)
           ? { status: "warning", title: desktopT("session.confirmStale"), isClosable: true, duration: 5000 }
-          : { status: "error", title: desktopT("session.confirmFailed"), description: String(e), isClosable: true, duration: null }
+          : { status: "error", title: desktopT("session.confirmFailed"), description: describeError(e), isClosable: true, duration: null }
       );
     }
   }, [autosaver, notice, refreshList]);
@@ -386,7 +388,7 @@ export function useDocSession(
         apply(request.payload.data, (nodes) => withLayout(doc.editor, nodes, confirmed.layout));
         return true;
       } catch (e) {
-        notice({ status: "error", title: desktopT("session.revertFailed"), description: String(e), isClosable: true, duration: null });
+        notice({ status: "error", title: desktopT("session.revertFailed"), description: describeError(e), isClosable: true, duration: null });
         return false;
       }
     },
@@ -492,7 +494,7 @@ export function useDocSession(
         notice({
           status: "error",
           title: desktopT("session.previousSaveFailed"),
-          description: String(e),
+          description: describeError(e),
           isClosable: true,
           duration: null,
         })
@@ -575,7 +577,7 @@ export function useDocSession(
     })().catch((e) => {
       // 開けなかったので隠したまま止めない
       setSettled(true);
-      notice({ status: "error", title: desktopT("session.listFailed"), description: String(e), isClosable: true, duration: null });
+      notice({ status: "error", title: desktopT("session.listFailed"), description: describeError(e), isClosable: true, duration: null });
     });
   }, [create, notice, open, refreshList]);
 

@@ -8,6 +8,7 @@ import { useConfirmDelete } from "@/components/ui/confirm-delete";
 import type { HistoryStatus, RegisteredActions } from "./desktop-actions";
 import { DesktopActionsProvider } from "./desktop-actions";
 import { DocumentList } from "./document-list";
+import { describeError } from "./errors";
 import { useDesktopTranslation } from "./i18n";
 import { useMcpStatus } from "./mcp";
 import { LIST_WIDTH, usePaneLayout } from "./pane-layout";
@@ -148,7 +149,7 @@ const Shell: FC<{ children: ReactNode }> = ({ children }) => {
   const warning = session.unopenable
     ? t("shell.unopenable")
     : session.saveError
-      ? t("shell.saveFailedDetail", { detail: session.saveError })
+      ? t("shell.saveFailedDetail", { detail: describeError(session.saveError) })
       : null;
 
   return (

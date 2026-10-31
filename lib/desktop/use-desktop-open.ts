@@ -3,6 +3,7 @@
 import { useNotice } from "@yamada-ui/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { describeError } from "./errors";
 import { desktopT } from "./i18n";
 import type { EditorKind, OpenRequest } from "./open-requests";
 import { describeDropped, partitionOpens, routeOf } from "./open-requests";
@@ -132,7 +133,7 @@ export function useDesktopOpen<T>(editor: EditorKind, onImport: (data: T) => voi
         notice({
           status: "error",
           title: desktopT("open.failed"),
-          description: r.error ?? "",
+          description: describeError(r.error),
           isClosable: true,
           duration: null,
         });

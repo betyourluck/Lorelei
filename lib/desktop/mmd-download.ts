@@ -2,6 +2,7 @@
 
 import { useNotice } from "@yamada-ui/react";
 import { useCallback, useRef } from "react";
+import { describeError } from "./errors";
 import { desktopT } from "./i18n";
 import { runSaveDialog, useSaveDialogBusy } from "./save-dialog";
 import { exportDiagram, isTauri } from "./tauri";
@@ -48,7 +49,7 @@ export function useMmdDownload(
           notice({
             status: "error",
             title: desktopT("save.failed"),
-            description: String(e),
+            description: describeError(e),
             isClosable: true,
             duration: null,
           })

@@ -8,6 +8,7 @@ import { generateMermaidCode, getSafeVariableName } from "@/features/flowchart/h
 import type { GraphType } from "@/features/flowchart/types/types";
 import { absolutePositions, type Point } from "@/features/flowchart/utils/frame-edit";
 import { SUBGRAPH_NODE_TYPE } from "@/features/flowchart/utils/subgraph-tree";
+import { errorCode, readError } from "./errors";
 import type { EditorKind } from "./open-requests";
 
 /** 絶対座標 (spec 15 D4)。枠 (サブグラフ) だけ大きさも持つ */
@@ -163,19 +164,22 @@ export const onNodesChanged = ({
   return { ready: true, applyLayout, save: !applyLayout, settled: !applyLayout };
 };
 
-/** Rust の save_document が初期図での上書きを拒んだ (src-tauri documents::INITIAL_FIGURE_REJECTED, spec 04 D4-2) */
-export const isInitialFigureRejected = (e: unknown): boolean => String(e).startsWith("INITIAL_FIGURE_REJECTED");
+// 見分けはエラーの code で (spec 34 D3。Rust の形を変える前の、頭に印の付いた文字列も読む)
 
-/** Rust の save_document の相手の図が一覧に無い (ごみ箱へ移した。src-tauri documents::DOCUMENT_GONE) */
-export const isDocumentGone = (e: unknown): boolean => String(e).startsWith("DOCUMENT_GONE");
+/** Rust の save_document が初期図での上書きを拒んだ (DesktopError INITIAL_FIGURE_REJECTED, spec 04 D4-2) */
+export const isInitialFigureRejected = (e: unknown): boolean => errorCode(e) === "INITIAL_FIGURE_REJECTED";
 
-/** 古い版を添えた書き込みを Rust が拒んだ (src-tauri documents::STALE_BASE, spec 08 D2)。後ろに今の updated_at が載る */
-export const isStaleBase = (e: unknown): boolean => String(e).startsWith("STALE_BASE");
+/** Rust の save_document の相手の図が一覧に無い (ごみ箱へ移した。DesktopError DOCUMENT_GONE) */
+export const isDocumentGone = (e: unknown): boolean => errorCode(e) === "DOCUMENT_GONE";
+
+/** 古い版を添えた書き込みを Rust が拒んだ (DesktopError STALE_BASE, spec 08 D2)。params に今の updated_at が載る */
+export const isStaleBase = (e: unknown): boolean => errorCode(e) === "STALE_BASE";
 
 /** STALE_BASE のエラーから今の updated_at を取り出す */
 export const staleBaseCurrent = (e: unknown): string | null => {
-  const m = /^STALE_BASE:\s*(\S+)/.exec(String(e));
-  return m ? m[1] : null;
+  const err = readError(e);
+  const current = err?.code === "STALE_BASE" ? err.params?.currentUpdatedAt : undefined;
+  return current ? String(current) : null;
 };
 
 /** 今の図の Mermaid (フォーク元の生成器の出力)。これが Document.source になる */

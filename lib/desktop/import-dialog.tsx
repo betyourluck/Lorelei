@@ -11,6 +11,7 @@ import { erDropWarnings } from "@/features/er-diagram/utils/drop-warnings";
 import { erFromMermaid } from "@/features/er-diagram/utils/from-mermaid";
 import { flowchartDropWarnings } from "@/features/flowchart/utils/drop-warnings";
 import { flowFromMermaid } from "@/features/flowchart/utils/from-mermaid";
+import { describeError } from "./errors";
 import { useDesktopTranslation } from "./i18n";
 import { importSource } from "./tauri";
 
@@ -65,7 +66,7 @@ export const ImportDialog: FC<{ open: boolean; onClose: () => void }> = ({ open,
       notice({
         status: "error",
         title: t("import.failed"),
-        description: String(e),
+        description: describeError(e),
         isClosable: true,
         duration: null,
       });

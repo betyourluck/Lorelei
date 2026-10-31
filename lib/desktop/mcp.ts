@@ -4,6 +4,7 @@
 // 設定ファイル (mcp_server.json) の読み書きは Rust。JS はコマンドを呼ぶだけ。
 
 import { useCallback, useEffect, useState } from "react";
+import type { DesktopError } from "./errors";
 import { desktopT } from "./i18n";
 import { invoke, listen } from "./tauri";
 
@@ -13,7 +14,8 @@ export interface McpStatus {
   /** 設定画面のコピーと登録コマンドに使う。画面には伏せて出す */
   token: string | null;
   state: "listening" | "stopped" | "failed" | "blocked";
-  detail: string | null;
+  /** failed / blocked の理由。spec 34 D3 で DesktopError に (前の版の文字列も読む) */
+  detail: string | DesktopError | null;
 }
 
 /** src-tauri の MCP_STATUS_EVENT と同じ名前 */

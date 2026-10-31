@@ -12,6 +12,7 @@ import { Box, Button, HStack, IconButton, Text } from "@yamada-ui/react";
 import type { FC, ReactElement } from "react";
 import { LanguageMenu } from "@/components/i18n";
 import { ColorModeMenu } from "./color-mode-menu";
+import { describeError } from "./errors";
 import { desktopT, useDesktopTranslation } from "./i18n";
 import type { McpStatus } from "./mcp";
 import { stateLabel } from "./mcp";
@@ -115,7 +116,7 @@ export const TitleBar: FC<Props> = ({
     {mcp && onOpenSettings && (
       <Button
         aria-label={mcpLabel(mcp)}
-        title={t("titleBar.mcpHint", { text: mcp.detail ?? mcpLabel(mcp) })}
+        title={t("titleBar.mcpHint", { text: mcp.detail ? describeError(mcp.detail) : mcpLabel(mcp) })}
         size="xs"
         variant="ghost"
         h={TITLE_BAR_HEIGHT}
